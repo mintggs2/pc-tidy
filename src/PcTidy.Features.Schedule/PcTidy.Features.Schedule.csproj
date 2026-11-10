@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.Schedule</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- Read-only WMI queries (disk health: MSFT_PhysicalDisk and its reliability counters). -->
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\PcTidy.UI\PcTidy.UI.csproj" />
+    <ProjectReference Include="..\PcTidy.Catalog\PcTidy.Catalog.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PcTidy.Features.Schedule.Tests" />
+  </ItemGroup>
+</Project>

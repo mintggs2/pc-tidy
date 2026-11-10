@@ -1,0 +1,28 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--  PC Tidy theme-specific brushes: LIGHT. Swapped by TidyTheme.Apply.  -->
+    <SolidColorBrush x:Key="TidyAccentBrush" Color="#1E9A5E" />
+    <SolidColorBrush x:Key="TidyAccentSoftBrush" Color="#142BB673" />
+    <SolidColorBrush x:Key="TidyAccentStrokeBrush" Color="#802BB673" />
+    <SolidColorBrush x:Key="TidyRingTrackBrush" Color="#1F000000" />
+    <SolidColorBrush x:Key="TidySecondDriveBrush" Color="#2F7FC1" />
+    <SolidColorBrush x:Key="TidyDriveLowBrush" Color="#9D5D00" />
+    <LinearGradientBrush x:Key="TidyHeroBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#262BB673" />
+        <GradientStop Offset="1" Color="#082BB673" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="TidyStickyBarBrush" Color="#F7FBFBFB" />
+    <SolidColorBrush x:Key="TidyOverlayBrush" Color="#F3F3F3" />
+    <SolidColorBrush x:Key="TidyScrimBrush" Color="#66000000" />
+    <SolidColorBrush x:Key="TidyDisabledRowBrush" Color="#08000000" />
+    <SolidColorBrush x:Key="TidyItemRowBrush" Color="#05000000" />
+    <SolidColorBrush x:Key="TidyRowSelectedBrush" Color="#1A2BB673" />
+    <SolidColorBrush x:Key="TidyBreakdown1Brush" Color="#1F86C6" />
+    <SolidColorBrush x:Key="TidyBreakdown2Brush" Color="#1E9A5E" />
+    <SolidColorBrush x:Key="TidyBreakdown3Brush" Color="#B0880F" />
+    <SolidColorBrush x:Key="TidyBreakdown4Brush" Color="#7357C7" />
+    <!--  Space map (treemap)  -->
+    <SolidColorBrush x:Key="TidyProtectedFillBrush" Color="#C9CED3" />
+    <SolidColorBrush x:Key="TidyHatchLineBrush" Color="#2E000000" />
+    <SolidColorBrush x:Key="TidyTreemapTextBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="TidyTreemapGapBrush" Color="#F3F3F3" />
+</ResourceDictionary>

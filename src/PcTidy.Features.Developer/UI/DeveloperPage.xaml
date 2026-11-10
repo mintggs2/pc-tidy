@@ -1,0 +1,35 @@
+<UserControl
+    x:Class="PcTidy.Features.Developer.UI.DeveloperPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    AutomationProperties.Name="Developer"
+    FontFamily="{StaticResource TidyText}">
+
+    <Grid Margin="{StaticResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource PageTitle}" Text="Developer" />
+                <c:BadgePill x:Name="RiskPill" Margin="12,6,0,0" />
+            </StackPanel>
+            <TextBlock
+                Style="{StaticResource PageSubtitle}"
+                Text="Space your coding tools leave behind. Your code and its history (.git) are never touched, projects you're working on are left alone, and folders go to quarantine so they can be put back." />
+        </StackPanel>
+
+        <c:Segmented
+            x:Name="Tabs"
+            Grid.Row="1"
+            Margin="0,14,0,14"
+            Items="Build folders|Package caches|Docker &amp; WSL|Archive old projects"
+            Label="Developer sections" />
+
+        <ContentControl x:Name="TabHost" Grid.Row="2" Focusable="False" />
+    </Grid>
+</UserControl>

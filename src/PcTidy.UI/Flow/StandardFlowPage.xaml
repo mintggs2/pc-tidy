@@ -1,0 +1,179 @@
+<UserControl
+    x:Class="PcTidy.UI.Flow.StandardFlowPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls"
+    xmlns:flow="clr-namespace:PcTidy.UI.Flow"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    FontFamily="{StaticResource TidyText}">
+
+    <Grid Margin="{StaticResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="TitleText" Style="{StaticResource PageTitle}" />
+                    <c:BadgePill x:Name="RiskPill" Margin="12,6,0,0" Visibility="Collapsed" />
+                </StackPanel>
+                <TextBlock x:Name="Subtitle" Style="{StaticResource PageSubtitle}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="16,6,0,0" VerticalAlignment="Top" Orientation="Horizontal">
+                <c:Segmented x:Name="DepthPicker" Margin="0,0,10,0" Items="Quick|Deep" Label="Scan depth" />
+                <ui:Button
+                    x:Name="ScanButton"
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Scan"
+                    Click="OnScanClick"
+                    Content="Scan"
+                    Icon="{ui:SymbolIcon ArrowClockwise24}" />
+            </StackPanel>
+        </Grid>
+
+        <!--  A section's own strip (shortcuts, keep-lists) sits under the title, above the steps (HeaderContent).  -->
+        <ContentControl x:Name="HeaderSlot" Grid.Row="1" Margin="0,12,0,0" Focusable="False" Visibility="Collapsed" />
+
+        <c:StepBar x:Name="Steps" Grid.Row="2" Margin="0,16,0,12" />
+
+        <!--  Ready: nothing scanned yet  -->
+        <Border x:Name="ReadyState" Grid.Row="3" VerticalAlignment="Top" Padding="0" Style="{StaticResource TidyCard}">
+            <c:EmptyState
+                x:Name="ReadyEmpty"
+                ActionClick="OnScanClick"
+                ActionIcon="ScanDash24"
+                ActionText="Scan now"
+                Icon="ScanDash24" />
+        </Border>
+
+        <!--  Scanning  -->
+        <Border x:Name="ScanningState" Grid.Row="3" Padding="28,24" VerticalAlignment="Top" Style="{StaticResource TidyCard}" Visibility="Collapsed">
+            <StackPanel>
+                <DockPanel>
+                    <ui:ProgressRing Width="40" Height="40" Margin="0,0,16,0" IsIndeterminate="True" />
+                    <ui:Button
+                        x:Name="CancelButton"
+                        VerticalAlignment="Center"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Stop scanning"
+                        Click="OnCancelScan"
+                        Content="Stop"
+                        DockPanel.Dock="Right"
+                        Icon="{ui:SymbolIcon Dismiss24}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="ScanTitle" Style="{StaticResource SectionTitle}" Text="Looking around…" />
+                        <TextBlock x:Name="ScanMessage" Style="{StaticResource SecondaryTrim}" />
+                    </StackPanel>
+                </DockPanel>
+                <ProgressBar x:Name="ScanBar" Height="4" Margin="0,18,0,0" IsIndeterminate="True" />
+                <TextBlock x:Name="ScanStats" Margin="0,8,0,0" Style="{StaticResource Caption}" />
+                <TextBlock Margin="0,14,0,0" Style="{StaticResource Caption}" Text="Scanning only looks. Nothing is changed until you confirm." />
+            </StackPanel>
+        </Border>
+
+        <!--  Preview  -->
+        <Grid x:Name="PreviewState" Grid.Row="3" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <ui:InfoBar
+                x:Name="NothingYetBar"
+                Title="Nothing is changed yet."
+                Margin="0,0,0,10"
+                IsClosable="False"
+                IsOpen="True"
+                Severity="Informational" />
+            <StackPanel x:Name="NotesPanel" Grid.Row="1" />
+            <flow:ResultsPanel x:Name="Results" Grid.Row="2" />
+            <c:EmptyState
+                x:Name="NothingFound"
+                Grid.Row="2"
+                Icon="CheckmarkCircle24"
+                Title="All tidy"
+                Visibility="Collapsed" />
+
+            <!--  Sticky bottom bar  -->
+            <Border x:Name="StickyBar" Grid.Row="3" Style="{StaticResource StickyBar}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <c:SelectionGlyph x:Name="SelectionIcon" Margin="0,0,14,0" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock x:Name="SelectedText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="SelectedCaption" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <ui:Button x:Name="SelectSafeButton" Margin="0,0,4,0" Appearance="Transparent" AutomationProperties.Name="Select only Safe items" Click="OnSelectSafe" Content="Select only Safe" />
+                        <ui:Button
+                            x:Name="SimulateButton"
+                            Height="40"
+                            Margin="0,0,8,0"
+                            Appearance="Secondary"
+                            AutomationProperties.Name="Simulate: see what would happen, change nothing"
+                            Click="OnSimulate"
+                            Content="Simulate"
+                            Icon="{ui:SymbolIcon Beaker24}"
+                            ToolTip="See exactly what would happen. Nothing changes." />
+                        <ui:Button
+                            x:Name="PrimaryButton"
+                            Height="40"
+                            MinWidth="150"
+                            Appearance="Primary"
+                            Click="OnPrimary"
+                            FontWeight="SemiBold"
+                            Icon="{ui:SymbolIcon Broom24}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!--  Simulation report  -->
+        <flow:SimulationReportView x:Name="SimulationState" Grid.Row="3" Visibility="Collapsed" />
+
+        <!--  Done  -->
+        <Grid x:Name="DoneState" Grid.Row="3" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.7*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+            <ContentControl x:Name="DoneHost" Focusable="False" />
+            <StackPanel Grid.Column="2">
+                <TextBlock Margin="2,0,0,10" Style="{StaticResource SectionTitle}" Text="What's next" />
+                <ui:CardAction Margin="0,0,0,6" AutomationProperties.Name="Scan again" Click="OnScanClick" Icon="{ui:SymbolIcon ArrowClockwise24}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Scan again" />
+                        <TextBlock Style="{StaticResource Secondary}" Text="See what's left, or try a Deep scan" />
+                    </StackPanel>
+                </ui:CardAction>
+                <ui:CardAction Margin="0,0,0,6" AutomationProperties.Name="Go to Home" Click="OnHome" Icon="{ui:SymbolIcon Home24}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Back to Home" />
+                        <TextBlock Style="{StaticResource Secondary}" Text="Drive space and your other quick actions" />
+                    </StackPanel>
+                </ui:CardAction>
+                <ui:CardAction Margin="0,0,0,6" AutomationProperties.Name="Open quarantine" Click="OnQuarantine" Icon="{ui:SymbolIcon ArchiveArrowBack24}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Quarantine" />
+                        <TextBlock Style="{StaticResource Secondary}" Text="Restore anything, any time before it's emptied" />
+                    </StackPanel>
+                </ui:CardAction>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.Organize</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <!-- Shared page pieces (step bar, Quick/Deep switch, fixed-height page marker, theme styles). Read-only use. -->
+    <ProjectReference Include="..\PcTidy.UI\PcTidy.UI.csproj" />
+  </ItemGroup>
+</Project>

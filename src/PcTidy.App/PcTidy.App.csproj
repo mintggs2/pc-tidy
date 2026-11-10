@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>PcTidy.App</RootNamespace>
+    <AssemblyName>PcTidy</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Description>PC Tidy: clean up, speed up and organize Windows, safely.</Description>
+    <!-- The app also runs as the elevated helper: never load DOTNET_STARTUP_HOOKS code from the environment. -->
+    <StartupHookSupport>false</StartupHookSupport>
+  </PropertyGroup>
+  <!-- The icon is generated from the XAML logo by Assets\make-icon.ps1 and committed. -->
+  <PropertyGroup Condition="Exists('Assets\PcTidy.ico')">
+    <ApplicationIcon>Assets\PcTidy.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\PcTidy.ico" Condition="Exists('Assets\PcTidy.ico')" />
+    <None Include="Assets\make-icon.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- Optional tray icon (off by default) and Windows notifications (unpackaged; needs the Windows 10 SDK target). -->
+    <PackageReference Include="H.NotifyIcon.Wpf" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\PcTidy.UI\PcTidy.UI.csproj" />
+    <ProjectReference Include="..\PcTidy.Hosting\PcTidy.Hosting.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Cleanup\PcTidy.Features.Cleanup.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.SpaceMap\PcTidy.Features.SpaceMap.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Organize\PcTidy.Features.Organize.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Duplicates\PcTidy.Features.Duplicates.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Apps\PcTidy.Features.Apps.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Drivers\PcTidy.Features.Drivers.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Games\PcTidy.Features.Games.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Tweaks\PcTidy.Features.Tweaks.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.DriveMove\PcTidy.Features.DriveMove.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Speed\PcTidy.Features.Speed.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.PcCare\PcTidy.Features.PcCare.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Developer\PcTidy.Features.Developer.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Photos\PcTidy.Features.Photos.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Boost\PcTidy.Features.Boost.csproj" />
+    <!-- The shell runs Schedule's report-only scan (the scheduled-scan switch) and hands Learning's advisor to the flow pages. -->
+    <ProjectReference Include="..\PcTidy.Features.Schedule\PcTidy.Features.Schedule.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Assistant\PcTidy.Features.Assistant.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Privacy\PcTidy.Features.Privacy.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Learning\PcTidy.Features.Learning.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.AiChats\PcTidy.Features.AiChats.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Insights\PcTidy.Features.Insights.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Search\PcTidy.Features.Search.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Services\PcTidy.Features.Services.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,136 @@
+<c:TidyWindow
+    x:Class="PcTidy.Features.Organize.UI.PresetsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:local="clr-namespace:PcTidy.Features.Organize.UI"
+    xmlns:r="clr-namespace:PcTidy.Features.Organize.Rules"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="Rule presets"
+    Width="720"
+    Height="620"
+    MinWidth="560"
+    MinHeight="440"
+    AutomationProperties.Name="Rule presets">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/PcTidy.Features.Organize;component/UI/OrganizeStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!--  The app's list selection (like the rail): a subtle fill and an accent bar on the left; text keeps its colours.  -->
+            <Style x:Key="PresetItem" TargetType="ListBoxItem">
+                <Setter Property="Margin" Value="0,0,0,2" />
+                <Setter Property="Padding" Value="14,6,10,6" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Bd" Padding="{TemplateBinding Padding}" Background="{TemplateBinding Background}" CornerRadius="6">
+                                <Grid>
+                                    <Border
+                                        x:Name="Bar"
+                                        Width="3"
+                                        Height="18"
+                                        Margin="-10,0,0,0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource TidyAccentBrush}"
+                                        CornerRadius="1.5"
+                                        Visibility="Collapsed" />
+                                    <ContentPresenter />
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                    <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Title="Rule presets" Height="40" ShowMaximize="False" ShowMinimize="False">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Width="16" Height="16" Source="{DynamicResource TidyLogo}" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <Grid Grid.Row="1" Margin="24,4,24,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Style="{StaticResource OrgCardTitle}" Text="Start from a ready-made rule set" />
+            <TextBlock Grid.Row="1" Margin="0,2,0,10" Style="{StaticResource OrgCaption}" Text="Pick one to see what it changes. Your own rules are kept. Nothing moves until you scan and confirm." />
+
+            <ListBox
+                Grid.Row="2"
+                AutomationProperties.Name="Presets"
+                Background="Transparent"
+                BorderThickness="0"
+                ItemContainerStyle="{StaticResource PresetItem}"
+                ItemsSource="{Binding Presets}"
+                SelectedItem="{Binding SelectedPreset}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type r:RulePreset}">
+                        <StackPanel Margin="0,2">
+                            <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Name}" />
+                            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{StaticResource OrgCaption}" Text="{Binding Description}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <Border Grid.Row="3" Margin="0,12,0,0" Style="{StaticResource OrgCard}">
+                <DockPanel>
+                    <TextBlock Margin="0,0,0,8" DockPanel.Dock="Top" Style="{StaticResource OrgSecondary}" Text="{Binding ChangeSummary}" TextWrapping="Wrap" />
+                    <ItemsControl AutomationProperties.Name="What would change" ItemsSource="{Binding Changes}" Style="{StaticResource OrgVirtualList}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type local:PresetChangeRow}">
+                                <Grid Margin="0,3" AutomationProperties.Name="{Binding AutomationName}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:SymbolIcon Margin="0,0,8,0" FontSize="16" Foreground="{DynamicResource TidyAccentBrush}" Symbol="{Binding Icon, Converter={StaticResource OrgSymbol}}" />
+                                    <TextBlock Grid.Column="1" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Kind}" />
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding RuleName}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Style="{StaticResource OrgCaption}" Text="{Binding Text}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+            </Border>
+
+            <StackPanel Grid.Row="4" Margin="0,12,0,0" HorizontalAlignment="Right" Orientation="Horizontal">
+                <ui:Button Margin="0,0,8,0" AutomationProperties.Name="Cancel" Command="{Binding CancelCommand}" Content="Cancel" IsCancel="True" />
+                <ui:Button Appearance="Primary" AutomationProperties.Name="Use this preset" Command="{Binding ApplyCommand}" Content="Use this preset" IsDefault="True" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</c:TidyWindow>

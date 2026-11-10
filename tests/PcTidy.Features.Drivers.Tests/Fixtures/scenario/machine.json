@@ -1,0 +1,56 @@
+{
+  // Everything that isn't pnputil XML, for the invented scenario PC (see README.md). Test clock: 2026-11-10T12:00:00Z.
+  "wmiProblems": [
+    // The same device pnputil reports (code 37): merged, not listed twice.
+    { "instanceId": "USB\\VID_51C3&PID_0E09\\6&FIXTURE&3&4", "name": "Fabrikam Fingerprint Reader", "className": "Biometric", "code": 37, "hardwareIds": [ "USB\\VID_51C3&PID_0E09&REV_0110", "USB\\VID_51C3&PID_0E09" ] },
+    // Only WMI knows about this one (code 43).
+    { "instanceId": "USB\\VID_33A8&PID_0102\\6&FIXTURE&4&1", "name": "Northwind Smart Card Reader", "className": "SmartCardReader", "code": 43, "hardwareIds": [ "USB\\VID_33A8&PID_0102&REV_0300", "USB\\VID_33A8&PID_0102" ] },
+    // Code 45 (not connected) belongs to Old devices, not Problems.
+    { "instanceId": "HID\\VID_7B19&PID_00E4\\8&FIXTURE&4&0002", "name": "HID Keyboard Device", "className": "Keyboard", "code": 45, "hardwareIds": [] }
+  ],
+  "updates": [
+    {
+      "updateId": "8d41e0b6-2c7f-4a59-9e13-6b0fa2d4c871",
+      "title": "Wide World Importers - Audio Processing Object Update (7.2.0.40)",
+      "driverClass": "OtherHardware", "model": "Wide World Audio Objects", "manufacturer": "Wide World Importers", "provider": "Wide World Importers",
+      "driverDate": "2026-09-22T00:00:00", "hardwareId": "swc\\ven_wwi&apo_fixture", "downloadBytes": 23068672, "isOptional": false
+    },
+    {
+      "updateId": "c25f7a09-4e1b-4d83-b6a2-0f9e3d5c1b74",
+      "title": "Adatum - USB Camera",
+      "driverClass": "Camera", "model": "Adatum USB Camera", "manufacturer": "Adatum", "provider": "Adatum",
+      "driverDate": "2026-02-17T00:00:00", "hardwareId": "USB\\VID_2E1F&PID_0C11", "downloadBytes": 3407872, "isOptional": true
+    },
+    {
+      "updateId": "not a guid; has spaces",
+      "title": "Strange update",
+      "hardwareId": "", "downloadBytes": 0
+    }
+  ],
+  "apps": [
+    // Vendor words are real only where the tool catalog matches on them; every name and version is invented.
+    // Two entries for the same tool: it must be listed once.
+    { "displayName": "NVIDIA App 4.2.1.7", "publisher": "NVIDIA Corporation" },
+    { "displayName": "NVIDIA GeForce Experience 2.9.0.11", "publisher": "NVIDIA Corporation" },
+    { "displayName": "Razer Synapse 7.3.5", "publisher": "Razer Inc." },
+    // An AMD-published app that isn't AMD Software: AMD Software must not count as installed.
+    { "displayName": "AMD Example Tuning Panel 2.4", "publisher": "AMD" },
+    { "displayName": "Margie's Travel Planner (64-bit)", "publisher": "Margie's Travel" }
+  ],
+  "board": { "manufacturer": "Micro-Star International Co., Ltd.", "product": "EXAMPLE R7 PLUS (MS-0001)", "version": "2.0" },
+  // oem342.inf is in use, so it is never measured even though a size is known.
+  "packageSizes": { "oem289.inf": 38797312, "oem364.inf": 2310144, "oem145.inf": 7340, "oem117.inf": 891289600, "oem342.inf": 734003200 },
+  "lastDriverChangeUtc": "2026-09-19T15:27:00Z",
+  // Typed device facts (what cfgmgr32 gives). disconnected.xml carries the same dates as localized pnputil text, which is never trusted.
+  "deviceFacts": {
+    "USB\\VID_6A0C&PID_1142\\6&FIXTURE&3&1": { "isPresent": false, "installDateUtc": "2026-05-21T14:12:00Z", "lastArrivalUtc": "2026-07-11T16:24:00Z", "lastRemovalUtc": "2026-07-13T08:51:00Z" },
+    "HID\\VID_7B19&PID_00E4\\8&FIXTURE&4&0002": { "isPresent": false, "lastArrivalUtc": "2026-10-24T06:45:00Z", "lastRemovalUtc": "2026-10-27T17:52:00Z" },
+    "VSSNAP\\FIXTURE\\3": { "isPresent": false, "lastRemovalUtc": "2026-02-06T03:30:00Z" },
+    "USB\\VID_4C0F&PID_0201\\6&FIXTURE&2&3": { "isPresent": false, "lastArrivalUtc": "2026-03-14T07:41:00Z", "lastRemovalUtc": "2026-03-18T19:05:00Z" },
+    "USB\\VID_9F00&PID_0B0B\\WEIRD NAME[2]": { "isPresent": false, "lastRemovalUtc": "2026-04-02T05:59:00Z" },
+    "ROOT\\NET\\0003": { "isPresent": false, "lastRemovalUtc": "2025-12-12T22:08:00Z" },
+    "USBSTOR\\DISK&VEN_FABRIKAM&PROD_POCKETDRIVE&REV_1.00\\FIXTURE0007&0": { "isPresent": false, "lastRemovalUtc": "2026-01-23T11:16:00Z" },
+    "USB\\VID_8D02&PID_3310&MI_00\\7&FIXTURE&5&0000": { "isPresent": false },
+    "SWD\\MMDEVAPI\\{0.0.1.00000000}.{FIXTURE-7C21}": { "isPresent": false, "lastRemovalUtc": "2026-01-23T11:16:00Z" }
+  }
+}

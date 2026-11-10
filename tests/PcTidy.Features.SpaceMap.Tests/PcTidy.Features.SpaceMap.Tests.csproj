@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.SpaceMap.Tests</RootNamespace>
+    <!-- The page test builds SpaceMapView on an STA thread. -->
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\..\src\PcTidy.Features.SpaceMap\PcTidy.Features.SpaceMap.csproj" />
+    <!-- End-to-end checks with the real SafetyGuard on a SandboxKnownLocations tree. -->
+    <ProjectReference Include="..\..\src\PcTidy.Safety\PcTidy.Safety.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

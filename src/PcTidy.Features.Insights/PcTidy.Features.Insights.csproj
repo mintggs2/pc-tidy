@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.Insights</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- Read-only WMI queries (reliability index, memory modules, TPM, Device Guard). -->
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\PcTidy.UI\PcTidy.UI.csproj" />
+    <ProjectReference Include="..\PcTidy.Catalog\PcTidy.Catalog.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PcTidy.Features.Insights.Tests" />
+  </ItemGroup>
+</Project>

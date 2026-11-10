@@ -1,0 +1,28 @@
+﻿# Build output
+bin/
+obj/
+publish/
+TestResults/
+*.binlog
+
+# Local NuGet cache (nuget.config points here)
+.packages/
+
+# Test trees: generated fake PCs and test output, recreated by the tests
+testbed/
+
+# Editors and local settings
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.claude/
+
+# Logs and crash dumps
+*.log
+logs/
+*.dmp
+
+# Staging folder for the public repository
+.public/

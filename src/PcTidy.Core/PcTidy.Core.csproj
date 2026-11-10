@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PcTidy.Core = shared CONTRACTS + read-only helpers. Owned by the lead.
+    Builder agents must not edit this project; ask the lead for changes.
+  -->
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Core</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,29 @@
+{
+  "extensions": {
+    "settings": {
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
+        "location": 3,
+        "from_webstore": false,
+        "path": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\2.1_0",
+        "disable_reasons": [],
+        "active_permissions": { "api": [ "nativeMessaging", "webRequest", "tabs" ], "explicit_host": [ "*://*/*" ] }
+      },
+      "cccccccccccccccccccccccccccccccc": {
+        "location": 1,
+        "from_webstore": false,
+        "path": "cccccccccccccccccccccccccccccccc\\5.0_0",
+        "disable_reasons": 1,
+        "active_permissions": { "api": [ "cookies" ] }
+      },
+      "dddddddddddddddddddddddddddddddd": {
+        "location": 4,
+        "path": "C:\\dev\\my-extension"
+      },
+      "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": {
+        "location": 1,
+        "from_webstore": true,
+        "path": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\\gone_0"
+      }
+    }
+  }
+}

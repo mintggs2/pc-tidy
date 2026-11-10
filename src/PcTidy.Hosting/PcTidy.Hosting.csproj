@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Hosting</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\PcTidy.Safety\PcTidy.Safety.csproj" />
+    <ProjectReference Include="..\PcTidy.Engine\PcTidy.Engine.csproj" />
+    <ProjectReference Include="..\PcTidy.Platform\PcTidy.Platform.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The elevated helper's composition (hardened settings, admin-only data folder) is tested from there. -->
+    <InternalsVisibleTo Include="PcTidy.Engine.Tests" />
+  </ItemGroup>
+</Project>

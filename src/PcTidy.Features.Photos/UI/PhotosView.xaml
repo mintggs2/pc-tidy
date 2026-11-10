@@ -1,0 +1,34 @@
+<UserControl
+    x:Class="PcTidy.Features.Photos.UI.PhotosView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PcTidy.Features.Photos.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Photos">
+
+    <local:SortPageFrame
+        DeepHint="Deep also asks Windows for the date taken of HEIC, PNG and raw photos, and looks for bursts with higher sensitivity. Slower."
+        Icon="Image24">
+        <local:SortPageFrame.Options>
+            <WrapPanel>
+                <TextBlock Margin="0,0,10,6" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Folders" />
+                <ItemsControl Focusable="False" ItemsSource="{Binding Folders}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type local:FolderChoice}">
+                            <CheckBox Margin="0,0,14,6" AutomationProperties.Name="{Binding Display, StringFormat='Sort {0}'}" Content="{Binding Display}" IsChecked="{Binding IsChecked}" ToolTip="{Binding Path}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <ui:Button Margin="0,0,24,6" Padding="8,4" Appearance="Transparent" AutomationProperties.Name="Add a folder" Command="{Binding AddFolderCommand}" Content="Add folder" Icon="{ui:SymbolIcon FolderAdd24}" />
+                <CheckBox Margin="0,0,14,6" AutomationProperties.Name="Also sort photos in subfolders" Content="Also in subfolders" IsChecked="{Binding IncludeSubfolders}" ToolTip="Photos in albums move into date folders too, so album folders empty out. Year folders are left alone." />
+                <CheckBox Margin="0,0,14,6" AutomationProperties.Name="Flag blurry shots" Content="Flag blurry shots" IsChecked="{Binding FindBlurry}" ToolTip="A best guess from edge sharpness. Flagged photos are never ticked for you." />
+                <CheckBox Margin="0,0,0,6" AutomationProperties.Name="Find burst shots" Content="Find burst shots" IsChecked="{Binding FindBursts}" ToolTip="Shots taken within 2 seconds that look almost the same. PC Tidy keeps the sharpest." />
+            </WrapPanel>
+        </local:SortPageFrame.Options>
+    </local:SortPageFrame>
+</UserControl>

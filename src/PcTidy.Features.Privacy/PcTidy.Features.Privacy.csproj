@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.Privacy</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- Read-only WMI queries for the Copilot+ check (NPU device, Recall optional feature). -->
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\PcTidy.UI\PcTidy.UI.csproj" />
+    <ProjectReference Include="..\PcTidy.Catalog\PcTidy.Catalog.csproj" />
+  </ItemGroup>
+</Project>

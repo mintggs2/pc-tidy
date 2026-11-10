@@ -1,0 +1,36 @@
+<UserControl
+    x:Class="PcTidy.Features.DriveMove.UI.DriveMovePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    AutomationProperties.Name="Move to drive"
+    FontFamily="{StaticResource TidyText}">
+
+    <Grid Margin="{StaticResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource PageTitle}" Text="Move to drive" />
+                <c:BadgePill x:Name="RiskPill" Margin="12,6,0,0" />
+            </StackPanel>
+            <TextBlock
+                x:Name="Subtitle"
+                Style="{StaticResource PageSubtitle}"
+                Text="Give a full drive some room: big folders, Windows user folders, games and app caches each move the supported way, and every move can be undone." />
+        </StackPanel>
+
+        <c:Segmented
+            x:Name="Tabs"
+            Grid.Row="1"
+            Margin="0,14,0,14"
+            Items="Drive balance|Folders|User folders|Games|App caches"
+            Label="Move to drive sections" />
+
+        <ContentControl x:Name="TabHost" Grid.Row="2" Focusable="False" />
+    </Grid>
+</UserControl>

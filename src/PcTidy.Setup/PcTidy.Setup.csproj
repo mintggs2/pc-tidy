@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PC Tidy Setup: our own per-machine installer (Program Files) and, as uninstall.exe, the uninstaller.
+    The app payload (a zip) is APPENDED to the published exe by build-release.ps1; see Payload\PayloadFile.cs.
+    The asInvoker manifest matters: the window runs with the user's normal rights (it explains the one admin
+    prompt first, works on the user's own data folder and starts PC Tidy unelevated afterwards) and starts itself
+    again with admin rights only for the Program Files / HKLM part (see Install\SetupFlow.cs). Without asInvoker,
+    Windows' "installer detection" would elevate the whole thing just because the file name contains "Setup".
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>PcTidy.Setup</RootNamespace>
+    <AssemblyName>PC Tidy Setup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>PcTidy.Setup.Program</StartupObject>
+    <Description>PC Tidy Setup: installs PC Tidy in Program Files.</Description>
+    <!--
+      Setup starts a copy of itself with admin rights. DOTNET_STARTUP_HOOKS (which any program of the user can set in
+      HKCU\Environment, and an admin process inherits) must never load code into it: hooks are off in every build.
+    -->
+    <StartupHookSupport>false</StartupHookSupport>
+  </PropertyGroup>
+  <!--
+    The payload's SHA-256, compiled in by build-release.ps1 (-p:PcTidyPayloadSha256=<64 hex>). The admin part installs
+    only a payload matching it (Payload\PayloadTrust.cs). Developer builds and uninstall.exe have none.
+  -->
+  <ItemGroup Condition="'$(PcTidyPayloadSha256)' != ''">
+    <AssemblyMetadata Include="PcTidyPayloadSha256" Value="$(PcTidyPayloadSha256)" />
+  </ItemGroup>
+  <PropertyGroup Condition="Exists('..\PcTidy.App\Assets\PcTidy.ico')">
+    <ApplicationIcon>..\PcTidy.App\Assets\PcTidy.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="..\PcTidy.App\Assets\PcTidy.ico" Link="Assets\PcTidy.ico" Condition="Exists('..\PcTidy.App\Assets\PcTidy.ico')" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PcTidy.Setup.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <!-- AclSafety: Setup checks the install folder the same way the app does before an admin prompt. -->
+    <ProjectReference Include="..\PcTidy.Platform\PcTidy.Platform.csproj" />
+  </ItemGroup>
+</Project>

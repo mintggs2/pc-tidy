@@ -1,0 +1,151 @@
+<c:TidyWindow
+    x:Class="PcTidy.Features.Organize.UI.RuleEditorWindow"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PcTidy.Features.Organize.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="{Binding WindowTitle}"
+    Width="760"
+    Height="720"
+    MinWidth="600"
+    MinHeight="480"
+    AutomationProperties.Name="Rule editor">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/PcTidy.Features.Organize;component/UI/OrganizeStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <ui:TitleBar Title="{Binding WindowTitle}" Height="40" ShowMaximize="False" ShowMinimize="False">
+        <ui:TitleBar.Icon>
+            <ui:ImageIcon Width="16" Height="16" Source="{DynamicResource TidyLogo}" />
+        </ui:TitleBar.Icon>
+    </ui:TitleBar>
+    <Grid Grid.Row="1" Margin="24,4,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Style="{StaticResource OrgCaption}" Text="Name" />
+                <ui:TextBox AutomationProperties.Name="Rule name" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                <CheckBox Margin="0,6,0,0" AutomationProperties.Name="Rule is on" Content="This rule is on" IsChecked="{Binding Enabled}" />
+
+                <!--  Conditions  -->
+                <Border Margin="0,14,0,0" Style="{StaticResource OrgCard}">
+                    <StackPanel>
+                        <DockPanel>
+                            <ui:Button Appearance="Transparent" AutomationProperties.Name="Add condition" Command="{Binding AddConditionCommand}" Content="Add condition" DockPanel.Dock="Right" Icon="{ui:SymbolIcon Add24}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock VerticalAlignment="Center" Style="{StaticResource OrgCardTitle}" Text="When a file matches" />
+                                <RadioButton Margin="12,0,0,0" AutomationProperties.Name="All conditions" Content="all (and)" GroupName="Mode" IsChecked="{Binding MatchAll}" />
+                                <RadioButton Margin="8,0,0,0" AutomationProperties.Name="Any condition" Content="any (or)" GroupName="Mode" IsChecked="{Binding MatchAll, Converter={x:Static local:Not.Instance}}" />
+                            </StackPanel>
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource OrgCaption}" Text="{Binding NestedGroupsNote}" Visibility="{Binding NestedGroupsNote, Converter={StaticResource OrgVisible}}" />
+                        <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding Conditions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type local:ConditionRowViewModel}">
+                                    <Border Padding="0,6" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                                        <DockPanel>
+                                            <ui:Button Padding="4" VerticalAlignment="Top" Appearance="Transparent" AutomationProperties.Name="Remove condition" Command="{Binding DataContext.RemoveConditionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" DockPanel.Dock="Right" Icon="{ui:SymbolIcon Delete24}" />
+                                            <StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <CheckBox MinWidth="0" AutomationProperties.Name="Not" Content="Not" IsChecked="{Binding Negate}" />
+                                                    <ComboBox Width="220" Margin="6,0,0,0" AutomationProperties.Name="Condition type" DisplayMemberPath="Label" ItemsSource="{x:Static local:ConditionRowViewModel.Kinds}" SelectedValue="{Binding Kind}" SelectedValuePath="Value" />
+                                                    <ComboBox Width="180" Margin="6,0,0,0" AutomationProperties.Name="Pattern type" DisplayMemberPath="Label" ItemsSource="{x:Static local:ConditionRowViewModel.Syntaxes}" SelectedValue="{Binding Syntax}" SelectedValuePath="Value" Visibility="{Binding ShowPattern, Converter={StaticResource OrgVisible}}" />
+                                                    <ComboBox Width="180" Margin="6,0,0,0" AutomationProperties.Name="Kind of file" ItemsSource="{x:Static local:ConditionRowViewModel.Categories}" SelectedItem="{Binding CategoryId}" Visibility="{Binding ShowCategory, Converter={StaticResource OrgVisible}}" />
+                                                </StackPanel>
+                                                <ui:TextBox Margin="0,6,0,0" AutomationProperties.Name="Condition value" PlaceholderText="{Binding ValuesHint}" Text="{Binding ValuesText, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowValues, Converter={StaticResource OrgVisible}}" />
+                                                <StackPanel Margin="0,6,0,0" Orientation="Horizontal" Visibility="{Binding ShowSize, Converter={StaticResource OrgVisible}}">
+                                                    <TextBlock VerticalAlignment="Center" Text="At least" />
+                                                    <ui:TextBox Width="90" Margin="6,0" AutomationProperties.Name="Minimum size in MB" Text="{Binding MinMb, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock VerticalAlignment="Center" Text="MB, at most" />
+                                                    <ui:TextBox Width="90" Margin="6,0" AutomationProperties.Name="Maximum size in MB" Text="{Binding MaxMb, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock VerticalAlignment="Center" Text="MB" />
+                                                </StackPanel>
+                                                <StackPanel Margin="0,6,0,0" Orientation="Horizontal" Visibility="{Binding ShowAge, Converter={StaticResource OrgVisible}}">
+                                                    <ComboBox Width="170" AutomationProperties.Name="Which date" DisplayMemberPath="Label" ItemsSource="{x:Static local:ConditionRowViewModel.DateFields}" SelectedValue="{Binding DateField}" SelectedValuePath="Value" />
+                                                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="older than" />
+                                                    <ui:TextBox Width="70" Margin="6,0" AutomationProperties.Name="Older than days" Text="{Binding OlderThanDays, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock VerticalAlignment="Center" Text="days, newer than" />
+                                                    <ui:TextBox Width="70" Margin="6,0" AutomationProperties.Name="Newer than days" Text="{Binding NewerThanDays, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <TextBlock VerticalAlignment="Center" Text="days" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!--  Action  -->
+                <Border Margin="0,12,0,0" Style="{StaticResource OrgCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource OrgCardTitle}" Text="Then" />
+                        <ComboBox Margin="0,6,0,0" AutomationProperties.Name="Action" DisplayMemberPath="Label" ItemsSource="{x:Static local:RuleEditorViewModel.ActionKinds}" SelectedValue="{Binding ActionKind}" SelectedValuePath="Value" />
+                        <StackPanel Margin="0,8,0,0" Visibility="{Binding ShowDestination, Converter={StaticResource OrgVisible}}">
+                            <TextBlock Style="{StaticResource OrgCaption}" Text="Folder. A short name like Documents\Invoices goes inside the folder being sorted (same drive, instant). {year} {month} {monthName} work here." />
+                            <DockPanel Margin="0,4,0,0">
+                                <ui:Button Margin="6,0,0,0" Appearance="Secondary" AutomationProperties.Name="Browse for folder" Command="{Binding BrowseDestinationCommand}" Content="Browse…" DockPanel.Dock="Right" />
+                                <ui:TextBox AutomationProperties.Name="Destination folder" Text="{Binding Destination, UpdateSourceTrigger=PropertyChanged}" />
+                            </DockPanel>
+                        </StackPanel>
+                        <StackPanel Margin="0,8,0,0" Visibility="{Binding ShowRename, Converter={StaticResource OrgVisible}}">
+                            <TextBlock Style="{StaticResource OrgCaption}" Text="New name without the extension. {name} is the current name; {date} {year} {month} {day} are the file's date." />
+                            <ui:TextBox Margin="0,4,0,0" AutomationProperties.Name="New name pattern" Text="{Binding RenamePattern, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                        <TextBlock Margin="0,10,0,2" Style="{StaticResource OrgCaption}" Text="If a file with the same name is already there (PC Tidy never overwrites)" />
+                        <ComboBox AutomationProperties.Name="Name clash" DisplayMemberPath="Label" ItemsSource="{x:Static local:RuleEditorViewModel.ClashPolicies}" SelectedValue="{Binding ClashPolicy}" SelectedValuePath="Value" />
+                        <CheckBox Margin="0,10,0,0" AutomationProperties.Name="Run automatically in watch mode" Content="Run automatically in watch mode (no confirm, still undoable)" IsChecked="{Binding RunAutomatically}" />
+                        <CheckBox Margin="24,0,0,0" AutomationProperties.Name="Allow automatic quarantine" Content="Also allow automatic quarantine" IsChecked="{Binding AllowAutomaticQuarantine}" Visibility="{Binding ShowQuarantineOption, Converter={StaticResource OrgVisible}}" />
+                    </StackPanel>
+                </Border>
+
+                <!--  Problems + test results  -->
+                <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding Problems}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Margin="0,2" Foreground="{DynamicResource SystemFillColorCautionBrush}" Text="{Binding}" TextWrapping="Wrap" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Border Margin="0,8,0,0" Style="{StaticResource OrgCard}" Visibility="{Binding TestSummary, Converter={StaticResource OrgVisible}}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource OrgCardTitle}" Text="{Binding TestSummary}" TextWrapping="Wrap" />
+                        <ItemsControl MaxHeight="220" Margin="0,6,0,0" AutomationProperties.Name="Files this rule matches" ItemsSource="{Binding TestMatches}" Style="{StaticResource OrgVirtualList}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="0,1" Style="{StaticResource OrgSecondary}" Text="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <DockPanel Grid.Row="1" Margin="0,12,0,0">
+            <ui:Button Appearance="Secondary" AutomationProperties.Name="Test this rule" Command="{Binding TestCommand}" Content="Test this rule" Icon="{ui:SymbolIcon Eye24}" ToolTip="Shows what it would catch. Moves nothing." />
+            <ui:ProgressRing Width="20" Height="20" Margin="10,0,0,0" IsIndeterminate="True" Visibility="{Binding IsTesting, Converter={StaticResource OrgVisible}}" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <ui:Button Margin="0,0,8,0" Appearance="Secondary" AutomationProperties.Name="Cancel" Command="{Binding CancelCommand}" Content="Cancel" IsCancel="True" />
+                <ui:Button Appearance="Primary" AutomationProperties.Name="Save rule" Command="{Binding SaveCommand}" Content="Save rule" IsDefault="True" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+    </Grid>
+</c:TidyWindow>

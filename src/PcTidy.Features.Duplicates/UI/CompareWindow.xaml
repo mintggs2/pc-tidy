@@ -1,0 +1,93 @@
+<c:TidyWindow
+    x:Class="PcTidy.Features.Duplicates.UI.CompareWindow"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:PcTidy.Features.Duplicates.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    Title="{Binding Title}"
+    Width="1000"
+    Height="700"
+    MinWidth="720"
+    MinHeight="480"
+    AutomationProperties.Name="{Binding Title}">
+
+    <Window.Resources>
+        <local:NullToCollapsedConverter x:Key="NullToCollapsed" />
+
+        <!--  One side: preview, then the facts, then "Keep this one".  -->
+        <DataTemplate x:Key="SideTemplate" DataType="{x:Type local:CompareSide}">
+            <Border Padding="14" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Border Background="{DynamicResource ControlFillColorTertiaryBrush}" CornerRadius="4">
+                        <Grid>
+                            <Image AutomationProperties.Name="{Binding Name, StringFormat='Preview of {0}'}" RenderOptions.BitmapScalingMode="HighQuality" Source="{Binding Preview}" Stretch="Uniform" />
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="No preview for this kind of file" Visibility="{Binding Preview, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}" />
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Row="1" Margin="0,10,0,0">
+                        <TextBlock FontSize="14" FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Folder}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}" />
+                        <TextBlock Margin="0,6,0,0" Text="{Binding SizeText}" />
+                        <TextBlock Text="{Binding Dimensions}" Visibility="{Binding Dimensions, Converter={StaticResource NullToCollapsed}}" />
+                        <TextBlock Text="{Binding Changed}" />
+                        <TextBlock Text="{Binding Taken}" Visibility="{Binding Taken, Converter={StaticResource NullToCollapsed}}" />
+                        <TextBlock Text="{Binding Camera}" Visibility="{Binding Camera, Converter={StaticResource NullToCollapsed}}" />
+                        <TextBlock Foreground="{DynamicResource SystemFillColorCautionBrush}" Text="{Binding Note}" TextWrapping="Wrap" ToolTip="{Binding Note}" Visibility="{Binding Note, Converter={StaticResource NullToCollapsed}}" />
+                        <ui:ToggleSwitch
+                            Margin="0,10,0,0"
+                            AutomationProperties.Name="{Binding KeepName}"
+                            Content="Keep this one"
+                            IsChecked="{Binding KeepToggle, Mode=TwoWay}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+    <ui:TitleBar Title="{Binding Title}" Height="40" ShowMinimize="False">
+        <ui:TitleBar.Icon>
+            <ui:ImageIcon Width="16" Height="16" Source="{DynamicResource TidyLogo}" />
+        </ui:TitleBar.Icon>
+    </ui:TitleBar>
+    <Grid Grid.Row="1" Margin="24,4,24,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="16" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Margin="0,0,0,10" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="KEPT" />
+        <DockPanel Grid.Column="2" Margin="0,0,0,10">
+            <TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Position}" />
+            <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="OTHER COPY" />
+        </DockPanel>
+
+        <ContentPresenter Grid.Row="1" Content="{Binding Left}" ContentTemplate="{StaticResource SideTemplate}" />
+        <ContentPresenter Grid.Row="1" Grid.Column="2" Content="{Binding Right}" ContentTemplate="{StaticResource SideTemplate}" />
+
+        <DockPanel Grid.Row="2" Grid.ColumnSpan="3" Margin="0,14,0,0">
+            <ui:Button Appearance="Primary" AutomationProperties.Name="Close the compare" Content="Done" DockPanel.Dock="Right" IsCancel="True" IsDefault="True" Click="OnClose" />
+            <StackPanel Orientation="Horizontal" Visibility="{Binding HasMoreThanTwo, Converter={StaticResource NullToCollapsed}}">
+                <ui:Button Margin="0,0,8,0" AutomationProperties.Name="Previous other copy" Command="{Binding PreviousCommand}" Content="Previous copy" Icon="{ui:SymbolIcon ArrowLeft24}" />
+                <ui:Button Margin="0,0,12,0" AutomationProperties.Name="Next other copy" Command="{Binding NextCommand}" Content="Next copy" Icon="{ui:SymbolIcon ArrowRight24}" />
+            </StackPanel>
+            <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="Turn on Keep this one for the copy you want. Nothing is removed here; tick what goes on the page." TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+    </Grid>
+    </Grid>
+</c:TidyWindow>

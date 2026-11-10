@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.Learning</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- PC Tidy's own learning database (<DataRoot>\learning\learned.db). Written only by LearningStore. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\PcTidy.UI\PcTidy.UI.csproj" />
+    <ProjectReference Include="..\PcTidy.Catalog\PcTidy.Catalog.csproj" />
+    <!-- Read-only use: OrganizeRule (suggested rules are produced in its exact shape) and ZoneIdentifier (download site). -->
+    <ProjectReference Include="..\PcTidy.Features.Organize\PcTidy.Features.Organize.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PcTidy.Features.Learning.Tests" />
+  </ItemGroup>
+</Project>

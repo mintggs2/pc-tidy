@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented scenario in the shape of `pnputil /enum-drivers /devices /format xml` output. Every slot, INF name, provider,
+     device, id, version and date is made up for the tests (see README.md). 20 oemNNN.inf packages + 1 defensive entry. -->
+<PnpUtil Version="10.0.22631" Command="/enum-drivers /devices /format xml">
+    <!-- Unreadable version: "older" can't be proven. -->
+    <Driver DriverName="oem103.inf">
+        <OriginalName>byupsmon.inf</OriginalName>
+        <ProviderName>Blue Yonder Airlines</ProviderName>
+        <ClassName>Battery</ClassName>
+        <ClassGuid>{72631e54-78a4-11d0-bcf7-00aa00b7b32a}</ClassGuid>
+        <DriverVersion>sometime</DriverVersion>
+        <SignerName></SignerName>
+    </Driver>
+    <!-- Display (important class): the older package, unused, still the GPU's previous driver (rollback target). -->
+    <Driver DriverName="oem117.inf">
+        <OriginalName>prismgfx.inf</OriginalName>
+        <ProviderName>NVIDIA</ProviderName>
+        <ClassName>Display</ClassName>
+        <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>01/22/2026 33.0.15.5108</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Camera family, middle version: used by a present device, but only devices.xml says so (no Devices here). -->
+    <Driver DriverName="oem126.inf">
+        <OriginalName>litcamstudio.inf</OriginalName>
+        <ProviderName>Litware, Inc.</ProviderName>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <DriverVersion>09/08/2024 4.3.205.2</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Exactly the same version and date as oem206: neither is "older". -->
+    <Driver DriverName="oem139.inf">
+        <OriginalName>alpinetilt.inf</OriginalName>
+        <ProviderName>Alpine Ski House</ProviderName>
+        <ClassName>Sensor</ClassName>
+        <ClassGuid>{5175d334-c371-4806-b3ba-71fd53c9258d}</ClassGuid>
+        <DriverVersion>04/17/2025 2.2.6.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Keyboard (important input class): the older package, unused. -->
+    <Driver DriverName="oem145.inf">
+        <OriginalName>tailmacro.inf</OriginalName>
+        <ProviderName>Tailspin Toys</ProviderName>
+        <ClassName>Keyboard</ClassName>
+        <ClassGuid>{4d36e96b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>11/18/2022 1.6.0.3</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Printer family, newer version: bound to the present printer. -->
+    <Driver DriverName="oem152.inf">
+        <OriginalName>fcphoto.inf</OriginalName>
+        <ProviderName>Fourth Coffee</ProviderName>
+        <ClassName>Printer</ClassName>
+        <ClassGuid>{4d36e979-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>01/29/2025 5.2.0.4</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="USB\VID_4C0F&amp;PID_0305\6&amp;FIXTURE&amp;2&amp;1">
+                <DeviceDescription>Fourth Coffee Photo Printer P2</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- A non-graphics AMD device: AMD's graphics tool must not be suggested for it. -->
+    <Driver DriverName="oem160.inf">
+        <OriginalName>quarrypm.inf</OriginalName>
+        <ProviderName>AMD</ProviderName>
+        <ClassName>SoftwareComponent</ClassName>
+        <ClassGuid>{5c4c3332-344d-483c-8739-259e934c9cc8}</ClassGuid>
+        <DriverVersion>12/09/2024 7.1.0.3</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="SWD\QUARRYPM\FIXTURE0">
+                <DeviceDescription>AMD Example Power Component</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Storage (important class), newer version: in use by the NVMe controller. -->
+    <Driver DriverName="oem187.inf">
+        <OriginalName>awvault.inf</OriginalName>
+        <ProviderName>Adventure Works</ProviderName>
+        <ClassName>SCSIAdapter</ClassName>
+        <ClassGuid>{4d36e97b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>06/30/2025 2.9.3.2</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_F1A7&amp;DEV_0B2E&amp;SUBSYS_0B2EF1A7&amp;REV_03\6&amp;FIXTURE&amp;0&amp;0040">
+                <DeviceDescription>Adventure Works NVMe Controller</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- The only package of its kind: never offered. -->
+    <Driver DriverName="oem198.inf">
+        <OriginalName>wwfaxline.inf</OriginalName>
+        <ProviderName>Wide World Importers</ProviderName>
+        <ClassName>Modem</ClassName>
+        <ClassGuid>{4d36e96d-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>08/03/2021 1.9.44.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <Driver DriverName="oem206.inf">
+        <OriginalName>alpinetilt.inf</OriginalName>
+        <ProviderName>Alpine Ski House</ProviderName>
+        <ClassName>Sensor</ClassName>
+        <ClassGuid>{5175d334-c371-4806-b3ba-71fd53c9258d}</ClassGuid>
+        <DriverVersion>04/17/2025 2.2.6.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- A Realtek-provided device: its drivers come from the board maker (the board page mentions it). -->
+    <Driver DriverName="oem219.inf">
+        <OriginalName>cardgate.inf</OriginalName>
+        <ProviderName>Realtek</ProviderName>
+        <ClassName>SDHost</ClassName>
+        <ClassGuid>{a0a588a4-c46f-4b37-b7ea-c82fe89870c6}</ClassGuid>
+        <DriverVersion>03/26/2024 11.4.0.27</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_7C3B&amp;DEV_0D19&amp;SUBSYS_00217C3B&amp;REV_01\6&amp;FIXTURE&amp;0&amp;0058">
+                <DeviceDescription>Realtek Example Card Reader</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Printer family, older version: unbound here, but a disconnected printer still uses it, so it is in use. -->
+    <Driver DriverName="oem231.inf">
+        <OriginalName>fcphoto.inf</OriginalName>
+        <ProviderName>Fourth Coffee</ProviderName>
+        <ClassName>Printer</ClassName>
+        <ClassGuid>{4d36e979-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>08/16/2022 5.0.1.12</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- The only package of its kind, used by a device that has a problem (code 37). -->
+    <Driver DriverName="oem245.inf">
+        <OriginalName>fabfinger.inf</OriginalName>
+        <ProviderName>Fabrikam</ProviderName>
+        <ClassName>Biometric</ClassName>
+        <ClassGuid>{53d29ef7-377c-4d14-864b-eb3a85769359}</ClassGuid>
+        <DriverVersion>05/05/2025 3.0.12.1</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <Driver DriverName="oem258.inf">
+        <OriginalName>byupsmon.inf</OriginalName>
+        <ProviderName>Blue Yonder Airlines</ProviderName>
+        <ClassName>Battery</ClassName>
+        <ClassGuid>{72631e54-78a4-11d0-bcf7-00aa00b7b32a}</ClassGuid>
+        <DriverVersion>10/30/2023 1.3.0.8</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Keyboard family, newer version: in use. -->
+    <Driver DriverName="oem273.inf">
+        <OriginalName>tailmacro.inf</OriginalName>
+        <ProviderName>Tailspin Toys</ProviderName>
+        <ClassName>Keyboard</ClassName>
+        <ClassGuid>{4d36e96b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>04/03/2025 1.7.2.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="HID\VID_2B7C&amp;PID_1104&amp;MI_00\7&amp;FIXTURE&amp;0&amp;0000">
+                <DeviceDescription>Tailspin Macro Keyboard</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Camera family, oldest oem version: unused, newer siblings exist, not an important class: the one "old" package. -->
+    <Driver DriverName="oem289.inf">
+        <OriginalName>litcamstudio.inf</OriginalName>
+        <ProviderName>Litware, Inc.</ProviderName>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <DriverVersion>03/14/2023 4.2.110.6</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Camera family, newest version: never removed, even though no device uses it. -->
+    <Driver DriverName="oem311.inf">
+        <OriginalName>litcamstudio.inf</OriginalName>
+        <ProviderName>Litware, Inc.</ProviderName>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <DriverVersion>02/19/2025 4.4.18.9</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Same original name, different provider text: its own family, so the only one. -->
+    <Driver DriverName="oem327.inf">
+        <OriginalName>litcamstudio.inf</OriginalName>
+        <ProviderName>Litware</ProviderName>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <DriverVersion>05/27/2022 4.1.3.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Display family, newer version: in use by the GPU. -->
+    <Driver DriverName="oem342.inf">
+        <OriginalName>prismgfx.inf</OriginalName>
+        <ProviderName>NVIDIA</ProviderName>
+        <ClassName>Display</ClassName>
+        <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>07/09/2026 33.0.15.6230</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_10DE&amp;DEV_3C5D&amp;SUBSYS_88A110DE&amp;REV_A2\6&amp;FIXTURE&amp;0&amp;0028">
+                <DeviceDescription>NVIDIA Example Graphics 7700</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Storage family, older version: unused, but an important class. -->
+    <Driver DriverName="oem364.inf">
+        <OriginalName>awvault.inf</OriginalName>
+        <ProviderName>Adventure Works</ProviderName>
+        <ClassName>SCSIAdapter</ClassName>
+        <ClassGuid>{4d36e97b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>10/05/2023 2.8.0.14</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Defensive: not an oemNNN.inf name (pnputil never lists one, but if it did it must never be touched).
+         It joins the camera family and is its oldest member. -->
+    <Driver DriverName="litcamstudio.inf">
+        <OriginalName>litcamstudio.inf</OriginalName>
+        <ProviderName>Litware, Inc.</ProviderName>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <DriverVersion>12/02/2021 4.0.7.1</DriverVersion>
+        <SignerName>Microsoft Windows</SignerName>
+    </Driver>
+</PnpUtil>

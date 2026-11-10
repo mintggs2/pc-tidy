@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PcTidy.Catalog = shared DATA (tweaks, bad-tweak checks, bloat lists, game recipes, vendor tools...).
+    Each v2 feature agent owns ONE subfolder (Tweaks\, Speed\, Apps\, Games\, ...). The lead owns the root files.
+    Safety reads RegistryCatalog.All to allow registry writes to exactly the listed values and nothing else.
+  -->
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Catalog</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+  </ItemGroup>
+</Project>

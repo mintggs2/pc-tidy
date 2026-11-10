@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.Search.Tests</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PcTidy.Features.Search\PcTidy.Features.Search.csproj" />
+    <ProjectReference Include="..\..\src\PcTidy.Hosting\PcTidy.Hosting.csproj" />
+    <ProjectReference Include="..\..\tools\PcTidy.TestbedGen\PcTidy.TestbedGen.csproj" />
+  </ItemGroup>
+</Project>

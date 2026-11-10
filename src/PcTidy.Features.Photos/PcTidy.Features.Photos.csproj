@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Features.Photos</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\PcTidy.UI\PcTidy.UI.csproj" />
+    <ProjectReference Include="..\PcTidy.Catalog\PcTidy.Catalog.csproj" />
+    <!-- Read-only reuse of Organize's categories, skip rules, EXIF reader, preview tree and page styles. -->
+    <ProjectReference Include="..\PcTidy.Features.Organize\PcTidy.Features.Organize.csproj" />
+  </ItemGroup>
+</Project>

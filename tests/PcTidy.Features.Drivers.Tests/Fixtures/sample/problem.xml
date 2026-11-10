@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented sample in the shape of `pnputil /enum-devices /problem /deviceids /format xml` output.
+     Every device and hardware id is made up; none comes from a real PC. 3 devices. -->
+<PnpUtil Version="10.0.26100" Command="/enum-devices /problem /deviceids /format xml">
+    <!-- Edge case: a hex problem code (0x1C = 28, no driver), no DriverName and an empty HardwareIds element. -->
+    <Device InstanceId="ACPI\LTW0099\1">
+        <DeviceDescription>Unknown device</DeviceDescription>
+        <ClassName>Unknown</ClassName>
+        <ClassGuid>{00000000-0000-0000-0000-000000000000}</ClassGuid>
+        <Status>Problem</Status>
+        <ProblemCode Problem="CM_PROB_FAILED_INSTALL">0x1C</ProblemCode>
+        <HardwareIds />
+        <CompatibleIds>
+            <CompatibleId>ACPI\LTW0099</CompatibleId>
+        </CompatibleIds>
+    </Device>
+    <!-- Edge case: a decimal problem code with a status (code 10, can't start). -->
+    <Device InstanceId="USB\VID_0F0F&amp;PID_0031\5&amp;1A&amp;0&amp;6">
+        <DeviceDescription>Woodgrove Flatbed Scanner</DeviceDescription>
+        <ClassName>Image</ClassName>
+        <ClassGuid>{6bdd1fc6-810f-11d0-bec7-08002be2092f}</ClassGuid>
+        <ManufacturerName>Woodgrove Devices</ManufacturerName>
+        <Status>Problem</Status>
+        <ProblemCode Problem="CM_PROB_FAILED_START">10</ProblemCode>
+        <ProblemStatus>0xC0000010</ProblemStatus>
+        <DriverName>oem15.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>USB\VID_0F0F&amp;PID_0031&amp;REV_0200</HardwareId>
+            <HardwareId>USB\VID_0F0F&amp;PID_0031</HardwareId>
+        </HardwareIds>
+        <CompatibleIds>
+            <CompatibleId>USB\Class_FF</CompatibleId>
+        </CompatibleIds>
+    </Device>
+    <!-- Edge case: disabled, with no ProblemCode element (code 0). -->
+    <Device InstanceId="SWD\TAILSPINNET\VirtualLan0">
+        <DeviceDescription>Tailspin Virtual Ethernet Adapter</DeviceDescription>
+        <ClassName>Net</ClassName>
+        <ClassGuid>{4d36e972-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Tailspin Toys</ManufacturerName>
+        <Status>Disabled</Status>
+        <DriverName>oem25.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>TAILSPIN_VLAN</HardwareId>
+        </HardwareIds>
+    </Device>
+</PnpUtil>

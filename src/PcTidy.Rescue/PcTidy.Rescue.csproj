@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PC Tidy Rescue: a small, plain WPF tool (no WPF-UI) that undoes PC Tidy runs from the journal
+    even when the main app is broken or uninstalled. Also a command-line tool (see RescueOptions).
+    Entry point is Program.Main (no App.xaml), so command-line mode never starts WPF.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>PcTidy.Rescue</RootNamespace>
+    <AssemblyName>PC Tidy Rescue</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <StartupObject>PcTidy.Rescue.Program</StartupObject>
+    <Description>PC Tidy Rescue: undo PC Tidy's changes, even if PC Tidy itself won't start.</Description>
+    <!-- Rescue can run elevated: never load DOTNET_STARTUP_HOOKS code from the environment. -->
+    <StartupHookSupport>false</StartupHookSupport>
+  </PropertyGroup>
+  <!-- Same icon as the app (read from the App project; not copied). -->
+  <PropertyGroup Condition="Exists('..\PcTidy.App\Assets\PcTidy.ico')">
+    <ApplicationIcon>..\PcTidy.App\Assets\PcTidy.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="..\PcTidy.App\Assets\PcTidy.ico" Link="Assets\PcTidy.ico" Condition="Exists('..\PcTidy.App\Assets\PcTidy.ico')" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PcTidy.Rescue.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Hosting\PcTidy.Hosting.csproj" />
+  </ItemGroup>
+</Project>

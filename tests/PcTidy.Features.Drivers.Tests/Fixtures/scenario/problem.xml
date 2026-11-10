@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented scenario in the shape of `pnputil /enum-devices /problem /deviceids /format xml` output. Every device and id
+     is made up for the tests (see README.md). 3 devices. -->
+<PnpUtil Version="10.0.22631" Command="/enum-devices /problem /deviceids /format xml">
+    <!-- No driver (code 28, decimal here; devices.xml writes it in hex). Windows Update has a driver for it. -->
+    <Device InstanceId="USB\VID_2E1F&amp;PID_0C11\6&amp;FIXTURE&amp;1&amp;4">
+        <DeviceDescription>Adatum USB Camera</DeviceDescription>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <Status>Problem</Status>
+        <ProblemCode Problem="CM_PROB_FAILED_INSTALL">28</ProblemCode>
+        <HardwareIds>
+            <HardwareId>USB\VID_2E1F&amp;PID_0C11&amp;REV_0102</HardwareId>
+            <HardwareId>USB\VID_2E1F&amp;PID_0C11</HardwareId>
+        </HardwareIds>
+    </Device>
+    <!-- A problem code with a status: the driver failed (code 37). -->
+    <Device InstanceId="USB\VID_51C3&amp;PID_0E09\6&amp;FIXTURE&amp;3&amp;4">
+        <DeviceDescription>Fabrikam Fingerprint Reader</DeviceDescription>
+        <ClassName>Biometric</ClassName>
+        <ClassGuid>{53d29ef7-377c-4d14-864b-eb3a85769359}</ClassGuid>
+        <ManufacturerName>Fabrikam</ManufacturerName>
+        <Status>Problem</Status>
+        <ProblemCode Problem="CM_PROB_FAILED_DRIVER_ENTRY">37</ProblemCode>
+        <ProblemStatus>0xC00000BB</ProblemStatus>
+        <DriverName>oem245.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>USB\VID_51C3&amp;PID_0E09&amp;REV_0110</HardwareId>
+            <HardwareId>USB\VID_51C3&amp;PID_0E09</HardwareId>
+        </HardwareIds>
+        <CompatibleIds>
+            <CompatibleId>USB\Class_FF&amp;SubClass_00</CompatibleId>
+        </CompatibleIds>
+    </Device>
+    <!-- Turned off on purpose: Status Disabled and no ProblemCode element (information, not a problem). -->
+    <Device InstanceId="PCI\VEN_B07E&amp;DEV_0716&amp;SUBSYS_0001B07E&amp;REV_02\6&amp;FIXTURE&amp;0&amp;0070">
+        <DeviceDescription>Wingtip Toys TV Tuner</DeviceDescription>
+        <ClassName>MEDIA</ClassName>
+        <ClassGuid>{4d36e96c-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Wingtip Toys</ManufacturerName>
+        <Status>Disabled</Status>
+        <DriverName>oem388.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>PCI\VEN_B07E&amp;DEV_0716&amp;SUBSYS_0001B07E</HardwareId>
+        </HardwareIds>
+    </Device>
+</PnpUtil>

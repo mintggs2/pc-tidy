@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented scenario in the shape of `pnputil /enum-devices /disconnected /properties /format xml` output. Every device,
+     id and date is made up for the tests (see README.md). The dates here are regional text and never trusted; the typed
+     ones are in machine.json. Test clock: 10 Nov 2026 12:00 UTC. -->
+<PnpUtil Version="10.0.22631" Command="/enum-devices /disconnected /properties /format xml">
+    <!-- Removable: a scanner last seen in July. -->
+    <Device InstanceId="USB\VID_6A0C&amp;PID_1142\6&amp;FIXTURE&amp;3&amp;1">
+        <DeviceDescription>Contoso Document Scanner</DeviceDescription>
+        <ClassName>Image</ClassName>
+        <ClassGuid>{6bdd1fc6-810f-11d0-bec7-08002be2092f}</ClassGuid>
+        <ManufacturerName>Contoso</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>sti.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_InstallDate" Type="FILETIME"><Value>5/21/2026 14:12:00</Value></Property>
+            <Property Key="DEVPKEY_Device_LastArrivalDate" Type="FILETIME"><Value>7/11/2026 16:24:00</Value></Property>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>7/13/2026 8:51:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Seen 14 days ago: probably just unplugged. -->
+    <Device InstanceId="HID\VID_7B19&amp;PID_00E4\8&amp;FIXTURE&amp;4&amp;0002">
+        <DeviceDescription>HID Keyboard Device</DeviceDescription>
+        <ClassName>Keyboard</ClassName>
+        <ClassGuid>{4d36e96b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>(Standard keyboards)</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>keyboard.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastArrivalDate" Type="FILETIME"><Value>10/24/2026 6:45:00</Value></Property>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>10/27/2026 17:52:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Snapshot by class (not by enumerator). -->
+    <Device InstanceId="VSSNAP\FIXTURE\3">
+        <DeviceDescription>Generic volume shadow copy</DeviceDescription>
+        <ClassName>VolumeSnapshot</ClassName>
+        <ClassGuid>{533c5b84-ec70-11d2-9505-00c04f79deaf}</ClassGuid>
+        <Status>Disconnected</Status>
+        <DriverName>volsnap.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>2/6/2026 3:30:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Removable, and it still uses third-party package oem231.inf (so oem231 counts as in use). -->
+    <Device InstanceId="USB\VID_4C0F&amp;PID_0201\6&amp;FIXTURE&amp;2&amp;3">
+        <DeviceDescription>Fourth Coffee Photo Printer P1</DeviceDescription>
+        <ClassName>Printer</ClassName>
+        <ClassGuid>{4d36e979-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Fourth Coffee</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>oem231.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastArrivalDate" Type="FILETIME"><Value>3/14/2026 7:41:00</Value></Property>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>3/18/2026 19:05:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Old, but its id has characters the safety rules don't accept. -->
+    <Device InstanceId="USB\VID_9F00&amp;PID_0B0B\WEIRD NAME[2]">
+        <DeviceDescription>Strange Leftover Gadget</DeviceDescription>
+        <ClassName>Sensor</ClassName>
+        <ClassGuid>{5175d334-c371-4806-b3ba-71fd53c9258d}</ClassGuid>
+        <Status>Disconnected</Status>
+        <DriverName>oem415.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>4/2/2026 5:59:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Software devices Windows recreates. -->
+    <Device InstanceId="ROOT\NET\0003">
+        <DeviceDescription>Fabrikam VPN Tunnel Adapter</DeviceDescription>
+        <ClassName>Net</ClassName>
+        <ClassGuid>{4d36e972-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <Status>Disconnected</Status>
+        <DriverName>oem402.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>12/12/2025 22:08:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- A USB drive's disk entry: disks are never offered. -->
+    <Device InstanceId="USBSTOR\DISK&amp;VEN_FABRIKAM&amp;PROD_POCKETDRIVE&amp;REV_1.00\FIXTURE0007&amp;0">
+        <DeviceDescription>Fabrikam Pocket Drive USB Device</DeviceDescription>
+        <ClassName>DiskDrive</ClassName>
+        <ClassGuid>{4d36e967-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <Status>Disconnected</Status>
+        <DriverName>disk.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>1/23/2026 11:16:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- No dates at all: unknown age, left alone. -->
+    <Device InstanceId="USB\VID_8D02&amp;PID_3310&amp;MI_00\7&amp;FIXTURE&amp;5&amp;0000">
+        <DeviceDescription>Contoso Travel Headset</DeviceDescription>
+        <ClassName>MEDIA</ClassName>
+        <ClassGuid>{4d36e96c-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <Status>Disconnected</Status>
+        <DriverName>usbaudio.inf</DriverName>
+    </Device>
+    <Device InstanceId="SWD\MMDEVAPI\{0.0.1.00000000}.{FIXTURE-7C21}">
+        <DeviceDescription>Microphone (Contoso Travel Headset)</DeviceDescription>
+        <ClassName>AudioEndpoint</ClassName>
+        <ClassGuid>{c166523c-fe0c-4a94-a586-f1a80cfbbf3e}</ClassGuid>
+        <Status>Disconnected</Status>
+        <DriverName>audioendpoint.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>1/23/2026 11:16:00</Value></Property>
+        </Properties>
+    </Device>
+</PnpUtil>

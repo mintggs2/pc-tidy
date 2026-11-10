@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented scenario in the shape of `pnputil /enum-devices /drivers /format xml` output. Every device, id, slot,
+     version and date is made up for the tests (see README.md). -->
+<PnpUtil Version="10.0.22631" Command="/enum-devices /drivers /format xml">
+    <!-- A device with a problem code and a status (code 37, driver failed). -->
+    <Device InstanceId="USB\VID_51C3&amp;PID_0E09\6&amp;FIXTURE&amp;3&amp;4">
+        <DeviceDescription>Fabrikam Fingerprint Reader</DeviceDescription>
+        <ClassName>Biometric</ClassName>
+        <ClassGuid>{53d29ef7-377c-4d14-864b-eb3a85769359}</ClassGuid>
+        <ManufacturerName>Fabrikam</ManufacturerName>
+        <Status>Problem</Status>
+        <ProblemCode Problem="CM_PROB_FAILED_DRIVER_ENTRY">37</ProblemCode>
+        <ProblemStatus>0xC00000BB</ProblemStatus>
+        <DriverName>oem245.inf</DriverName>
+    </Device>
+    <!-- Camera: installed oem126, the older oem289 still matches (rollback target). -->
+    <Device InstanceId="USB\VID_3D41&amp;PID_0A07&amp;MI_00\7&amp;FIXTURE&amp;1&amp;0000">
+        <DeviceDescription>Litware Studio Webcam</DeviceDescription>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <ManufacturerName>Litware, Inc.</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>oem126.inf</DriverName>
+        <MatchingDrivers>
+            <DriverName DriverName="oem126.inf">
+                <OriginalName>litcamstudio.inf</OriginalName>
+                <ProviderName>Litware, Inc.</ProviderName>
+                <ClassName>Camera</ClassName>
+                <DriverVersion>09/08/2024 4.3.205.2</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <Status>BestRanked/Installed</Status>
+            </DriverName>
+            <DriverName DriverName="oem289.inf">
+                <OriginalName>litcamstudio.inf</OriginalName>
+                <ProviderName>Litware, Inc.</ProviderName>
+                <ClassName>Camera</ClassName>
+                <DriverVersion>03/14/2023 4.2.110.6</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <Status>Outranked</Status>
+            </DriverName>
+        </MatchingDrivers>
+    </Device>
+    <!-- A disconnected device also appears in the full device list; it must not show as a present device. -->
+    <Device InstanceId="USB\VID_6A0C&amp;PID_1142\6&amp;FIXTURE&amp;3&amp;1">
+        <DeviceDescription>Contoso Document Scanner</DeviceDescription>
+        <ClassName>Image</ClassName>
+        <ClassGuid>{6bdd1fc6-810f-11d0-bec7-08002be2092f}</ClassGuid>
+        <ManufacturerName>Contoso</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>sti.inf</DriverName>
+    </Device>
+    <Device InstanceId="HID\VID_2B7C&amp;PID_1104&amp;MI_00\7&amp;FIXTURE&amp;0&amp;0000">
+        <DeviceDescription>Tailspin Macro Keyboard</DeviceDescription>
+        <ClassName>Keyboard</ClassName>
+        <ClassGuid>{4d36e96b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Tailspin Toys</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>oem273.inf</DriverName>
+        <MatchingDrivers>
+            <DriverName DriverName="oem273.inf">
+                <OriginalName>tailmacro.inf</OriginalName>
+                <ProviderName>Tailspin Toys</ProviderName>
+                <ClassName>Keyboard</ClassName>
+                <DriverVersion>04/03/2025 1.7.2.0</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <Status>BestRanked/Installed</Status>
+            </DriverName>
+        </MatchingDrivers>
+    </Device>
+    <!-- Logitech hardware with an in-box driver and no G HUB installed: the tool is suggested. -->
+    <Device InstanceId="USB\VID_9A3E&amp;PID_C7A1\6&amp;FIXTURE&amp;1&amp;2">
+        <DeviceDescription>Logitech Example Wireless Receiver</DeviceDescription>
+        <ClassName>USB</ClassName>
+        <ClassGuid>{36fc9e60-c465-11cf-8056-444553540000}</ClassGuid>
+        <ManufacturerName>Logitech</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>usbccgp.inf</DriverName>
+    </Device>
+    <!-- A code written in hex (0x1C = 28, no driver) and no DriverName. -->
+    <Device InstanceId="USB\VID_2E1F&amp;PID_0C11\6&amp;FIXTURE&amp;1&amp;4">
+        <DeviceDescription>Adatum USB Camera</DeviceDescription>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <Status>Problem</Status>
+        <ProblemCode Problem="CM_PROB_FAILED_INSTALL">0x1C</ProblemCode>
+    </Device>
+    <Device InstanceId="PCI\VEN_7C3B&amp;DEV_0D19&amp;SUBSYS_00217C3B&amp;REV_01\6&amp;FIXTURE&amp;0&amp;0058">
+        <DeviceDescription>Realtek Example Card Reader</DeviceDescription>
+        <ClassName>SDHost</ClassName>
+        <ClassGuid>{a0a588a4-c46f-4b37-b7ea-c82fe89870c6}</ClassGuid>
+        <ManufacturerName>Realtek</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>oem219.inf</DriverName>
+        <MatchingDrivers>
+            <DriverName DriverName="oem219.inf">
+                <OriginalName>cardgate.inf</OriginalName>
+                <ProviderName>Realtek</ProviderName>
+                <ClassName>SDHost</ClassName>
+                <DriverVersion>03/26/2024 11.4.0.27</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <Status>BestRanked/Installed</Status>
+            </DriverName>
+        </MatchingDrivers>
+    </Device>
+    <!-- Turned off: Status Disabled and no ProblemCode element. -->
+    <Device InstanceId="PCI\VEN_B07E&amp;DEV_0716&amp;SUBSYS_0001B07E&amp;REV_02\6&amp;FIXTURE&amp;0&amp;0070">
+        <DeviceDescription>Wingtip Toys TV Tuner</DeviceDescription>
+        <ClassName>MEDIA</ClassName>
+        <ClassGuid>{4d36e96c-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Wingtip Toys</ManufacturerName>
+        <Status>Disabled</Status>
+        <DriverName>oem388.inf</DriverName>
+    </Device>
+    <Device InstanceId="PCI\VEN_10DE&amp;DEV_3C5D&amp;SUBSYS_88A110DE&amp;REV_A2\6&amp;FIXTURE&amp;0&amp;0028">
+        <DeviceDescription>NVIDIA Example Graphics 7700</DeviceDescription>
+        <ClassName>Display</ClassName>
+        <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>NVIDIA</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>oem342.inf</DriverName>
+        <MatchingDrivers>
+            <DriverName DriverName="oem342.inf">
+                <OriginalName>prismgfx.inf</OriginalName>
+                <ProviderName>NVIDIA</ProviderName>
+                <ClassName>Display</ClassName>
+                <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+                <DriverVersion>07/09/2026 33.0.15.6230</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <MatchingDeviceId>PCI\VEN_10DE&amp;DEV_3C5D</MatchingDeviceId>
+                <Rank>00D12001</Rank>
+                <Status>BestRanked/Installed</Status>
+            </DriverName>
+            <DriverName DriverName="oem117.inf">
+                <OriginalName>prismgfx.inf</OriginalName>
+                <ProviderName>NVIDIA</ProviderName>
+                <ClassName>Display</ClassName>
+                <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+                <DriverVersion>01/22/2026 33.0.15.5108</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <MatchingDeviceId>PCI\VEN_10DE&amp;DEV_3C5D</MatchingDeviceId>
+                <Rank>00D12001</Rank>
+                <Status>Outranked</Status>
+            </DriverName>
+            <!-- An in-box fallback driver: never a rollback target. -->
+            <DriverName DriverName="display.inf">
+                <ProviderName>Microsoft</ProviderName>
+                <ClassName>Display</ClassName>
+                <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+                <DriverVersion>06/21/2006 10.0.22621.1</DriverVersion>
+                <SignerName>Microsoft Windows</SignerName>
+                <MatchingDeviceId>PCI\CC_0300</MatchingDeviceId>
+                <Rank>00FE2001</Rank>
+                <Status>Outranked</Status>
+            </DriverName>
+        </MatchingDrivers>
+    </Device>
+    <Device InstanceId="USB\VID_4C0F&amp;PID_0305\6&amp;FIXTURE&amp;2&amp;1">
+        <DeviceDescription>Fourth Coffee Photo Printer P2</DeviceDescription>
+        <ClassName>Printer</ClassName>
+        <ClassGuid>{4d36e979-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Fourth Coffee</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>oem152.inf</DriverName>
+        <MatchingDrivers>
+            <DriverName DriverName="oem152.inf">
+                <OriginalName>fcphoto.inf</OriginalName>
+                <ProviderName>Fourth Coffee</ProviderName>
+                <ClassName>Printer</ClassName>
+                <DriverVersion>01/29/2025 5.2.0.4</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <Status>BestRanked/Installed</Status>
+            </DriverName>
+        </MatchingDrivers>
+    </Device>
+    <!-- AMD hardware that isn't a display adapter. -->
+    <Device InstanceId="SWD\QUARRYPM\FIXTURE0">
+        <DeviceDescription>AMD Example Power Component</DeviceDescription>
+        <ClassName>SoftwareComponent</ClassName>
+        <ClassGuid>{5c4c3332-344d-483c-8739-259e934c9cc8}</ClassGuid>
+        <ManufacturerName>AMD</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>oem160.inf</DriverName>
+        <MatchingDrivers>
+            <DriverName DriverName="oem160.inf">
+                <OriginalName>quarrypm.inf</OriginalName>
+                <ProviderName>AMD</ProviderName>
+                <ClassName>SoftwareComponent</ClassName>
+                <DriverVersion>12/09/2024 7.1.0.3</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <Status>BestRanked/Installed</Status>
+            </DriverName>
+        </MatchingDrivers>
+    </Device>
+    <Device InstanceId="PCI\VEN_F1A7&amp;DEV_0B2E&amp;SUBSYS_0B2EF1A7&amp;REV_03\6&amp;FIXTURE&amp;0&amp;0040">
+        <DeviceDescription>Adventure Works NVMe Controller</DeviceDescription>
+        <ClassName>SCSIAdapter</ClassName>
+        <ClassGuid>{4d36e97b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Adventure Works</ManufacturerName>
+        <Status>Started</Status>
+        <DriverName>oem187.inf</DriverName>
+        <MatchingDrivers>
+            <DriverName DriverName="oem187.inf">
+                <OriginalName>awvault.inf</OriginalName>
+                <ProviderName>Adventure Works</ProviderName>
+                <ClassName>SCSIAdapter</ClassName>
+                <DriverVersion>06/30/2025 2.9.3.2</DriverVersion>
+                <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+                <Status>BestRanked/Installed</Status>
+            </DriverName>
+        </MatchingDrivers>
+    </Device>
+</PnpUtil>

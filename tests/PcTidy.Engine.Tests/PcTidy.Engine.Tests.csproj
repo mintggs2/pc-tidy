@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Engine.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\..\src\PcTidy.Engine\PcTidy.Engine.csproj" />
+    <!-- Perf test only: the real composition root (SafetyGuard, Restart Manager) in sandbox mode. -->
+    <ProjectReference Include="..\..\src\PcTidy.Hosting\PcTidy.Hosting.csproj" />
+  </ItemGroup>
+</Project>

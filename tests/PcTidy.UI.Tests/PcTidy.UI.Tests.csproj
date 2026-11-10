@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.UI.Tests</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="WPF-UI" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PcTidy.Core\PcTidy.Core.csproj" />
+    <ProjectReference Include="..\..\src\PcTidy.UI\PcTidy.UI.csproj" />
+    <!-- The shell's pure parts (what-is classification, export/import, updates, alerts) are tested through the app. -->
+    <ProjectReference Include="..\..\src\PcTidy.App\PcTidy.App.csproj" />
+    <ProjectReference Include="..\..\src\PcTidy.Hosting\PcTidy.Hosting.csproj" />
+  </ItemGroup>
+</Project>

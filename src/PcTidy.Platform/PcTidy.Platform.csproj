@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Platform</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+    <!-- Read-only data: the vulnerable-driver list a driver restore refuses (PcCare\VulnerableDriverCatalog). -->
+    <ProjectReference Include="..\PcTidy.Catalog\PcTidy.Catalog.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PcTidy.Platform.Tests" />
+  </ItemGroup>
+</Project>

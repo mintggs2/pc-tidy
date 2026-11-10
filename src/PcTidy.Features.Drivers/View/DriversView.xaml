@@ -1,0 +1,160 @@
+<UserControl
+    x:Class="PcTidy.Features.Drivers.View.DriversView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:flow="clr-namespace:PcTidy.UI.Flow;assembly=PcTidy.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Drivers"
+    FontFamily="{DynamicResource TidyText}">
+
+    <Grid Margin="{DynamicResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{DynamicResource PageTitle}" Text="Drivers" />
+                    <c:BadgePill Margin="12,6,0,0" Text="Check each item" Tone="Caution" />
+                </StackPanel>
+                <TextBlock x:Name="Subtitle" Style="{DynamicResource PageSubtitle}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <ui:Button
+                x:Name="ScanButton"
+                Grid.Column="1"
+                Margin="16,6,0,0"
+                VerticalAlignment="Top"
+                Appearance="Secondary"
+                AutomationProperties.Name="Scan"
+                Click="OnScanClick"
+                Content="Scan"
+                Icon="{ui:SymbolIcon ArrowClockwise24}" />
+        </Grid>
+
+        <!--  Step bar and tabs  -->
+        <StackPanel Grid.Row="1" Margin="0,16,0,12">
+            <c:StepBar x:Name="Steps" Margin="0,0,0,12" />
+            <c:Segmented
+                x:Name="Tabs"
+                Items="Devices|Problems|Updates|Clean up driver store|Old devices"
+                Label="Drivers sections"
+                SelectionChanged="OnTabChanged" />
+        </StackPanel>
+
+        <!--  Tab notes and the store option  -->
+        <StackPanel Grid.Row="2">
+            <ui:InfoBar
+                x:Name="TabNote"
+                Margin="0,0,0,10"
+                IsClosable="False"
+                IsOpen="False"
+                Severity="Informational" />
+            <DockPanel x:Name="ImportantPanel" Margin="2,0,0,10" Visibility="Collapsed">
+                <ui:ToggleSwitch
+                    x:Name="ImportantToggle"
+                    AutomationProperties.Name="Let me pick important drivers"
+                    Checked="OnImportantToggled"
+                    Content="Let me pick important drivers"
+                    Unchecked="OnImportantToggled" />
+                <TextBlock
+                    Margin="14,0,0,0"
+                    VerticalAlignment="Center"
+                    Style="{DynamicResource Caption}"
+                    Text="System, storage, network, Bluetooth, display and input drivers. Pick them one by one, only if you're sure."
+                    TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </StackPanel>
+
+        <!--  Ready: nothing scanned yet  -->
+        <Border x:Name="ReadyState" Grid.Row="3" VerticalAlignment="Top" Style="{DynamicResource TidyCard}">
+            <c:EmptyState
+                x:Name="ReadyEmpty"
+                ActionClick="OnScanClick"
+                ActionIcon="ScanDash24"
+                ActionText="Scan now"
+                Icon="DeveloperBoard24"
+                Message="PC Tidy reads Windows' own driver list. Scanning only looks: nothing changes until you confirm, and every driver change starts with a backup."
+                Title="Scan to see your drivers" />
+        </Border>
+
+        <!--  Scanning  -->
+        <Border x:Name="ScanningState" Grid.Row="3" Padding="28,24" VerticalAlignment="Top" Style="{DynamicResource TidyCard}" Visibility="Collapsed">
+            <StackPanel>
+                <DockPanel>
+                    <ui:ProgressRing Width="40" Height="40" Margin="0,0,16,0" IsIndeterminate="True" />
+                    <ui:Button
+                        VerticalAlignment="Center"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Stop scanning"
+                        Click="OnCancelScan"
+                        Content="Stop"
+                        DockPanel.Dock="Right"
+                        Icon="{ui:SymbolIcon Dismiss24}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Style="{DynamicResource SectionTitle}" Text="Looking at your drivers…" />
+                        <TextBlock x:Name="ScanMessage" Style="{DynamicResource SecondaryTrim}" />
+                    </StackPanel>
+                </DockPanel>
+                <ProgressBar Height="4" Margin="0,18,0,0" IsIndeterminate="True" />
+                <TextBlock Margin="0,14,0,0" Style="{DynamicResource Caption}" Text="Scanning only looks. Asking Windows Update can take a little while." />
+            </StackPanel>
+        </Border>
+
+        <!--  Results (one list, the model swaps with the tab)  -->
+        <flow:ResultsPanel x:Name="Results" Grid.Row="3" Visibility="Collapsed" />
+        <c:EmptyState
+            x:Name="TabEmpty"
+            Grid.Row="3"
+            VerticalAlignment="Top"
+            Icon="CheckmarkCircle24"
+            Title="Nothing here"
+            Visibility="Collapsed" />
+
+        <!--  Sticky bottom bar  -->
+        <Border x:Name="StickyBar" Grid.Row="4" Style="{DynamicResource StickyBar}" Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <c:SelectionGlyph x:Name="SelectionIcon" Margin="0,0,14,0" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="SelectedText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="SelectedCaption" Style="{DynamicResource Caption}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <ui:Button
+                        x:Name="SimulateButton"
+                        Height="40"
+                        Margin="0,0,8,0"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Simulate: see what would happen, change nothing"
+                        Click="OnSimulate"
+                        Content="Simulate"
+                        Icon="{ui:SymbolIcon Beaker24}"
+                        ToolTip="See exactly what would happen. Nothing changes." />
+                    <ui:Button
+                        x:Name="PrimaryButton"
+                        Height="40"
+                        MinWidth="150"
+                        Appearance="Primary"
+                        Click="OnPrimary"
+                        FontWeight="SemiBold"
+                        Icon="{ui:SymbolIcon Checkmark24}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

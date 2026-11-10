@@ -1,0 +1,364 @@
+<UserControl
+    x:Class="PcTidy.Features.Apps.UI.AppsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:local="clr-namespace:PcTidy.Features.Apps.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    d:DataContext="{d:DesignInstance Type=local:AppsViewModel}"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    AutomationProperties.Name="Apps">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <local:InverseBoolToVisibilityConverter x:Key="NotBoolToVis" />
+        <local:NullToVisibilityConverter x:Key="NullToVis" />
+
+        <!--  Row: subtle hover/selected fill + accent pill, like the other lists  -->
+        <Style x:Key="AppsRowItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="4,1" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Border x:Name="Bg" Padding="{TemplateBinding Padding}" Background="Transparent" CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                            </Border>
+                            <Border
+                                x:Name="Pill"
+                                Width="3"
+                                Height="16"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource AccentFillColorDefaultBrush}"
+                                CornerRadius="1.5"
+                                Visibility="Hidden" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                                <Setter TargetName="Pill" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LeftoverRowItem" TargetType="ListBoxItem" BasedOn="{StaticResource AppsRowItem}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="{DynamicResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Style="{DynamicResource PageTitle}" Text="Apps" />
+                <TextBlock Style="{DynamicResource PageSubtitle}" Text="Everything installed on this PC, with its size and when you last used it. Uninstalling uses the app's own uninstaller after a restore point." />
+            </StackPanel>
+            <ui:Button
+                Grid.Column="1"
+                Margin="16,6,0,0"
+                VerticalAlignment="Top"
+                Appearance="Secondary"
+                AutomationProperties.Name="Scan again: read the app list again"
+                Command="{Binding LoadCommand}"
+                Content="Scan again"
+                Icon="{ui:SymbolIcon ArrowClockwise24}" />
+        </Grid>
+
+        <!--  Toolbar: search, filter, sort  -->
+        <WrapPanel Grid.Row="1" Margin="0,16,0,12" Orientation="Horizontal" Visibility="{Binding ShowLeftovers, Converter={StaticResource NotBoolToVis}}">
+            <ui:TextBox
+                Width="240"
+                Margin="0,0,12,6"
+                AutomationProperties.Name="Search apps"
+                Icon="{ui:SymbolIcon Search24}"
+                PlaceholderText="Search apps or publishers"
+                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+            <c:Segmented
+                Margin="0,0,12,6"
+                Items="All|Desktop|Store|Games|Came with Windows"
+                Label="Show"
+                SelectedIndex="{Binding FilterIndex, Mode=TwoWay}" />
+            <StackPanel Margin="0,0,12,6" VerticalAlignment="Center" Orientation="Horizontal">
+                <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Style="{DynamicResource Secondary}" Text="Sort by" />
+                <ComboBox MinWidth="140" AutomationProperties.Name="Sort apps by" SelectedIndex="{Binding SortIndex, Mode=TwoWay}">
+                    <ComboBoxItem Content="Size" />
+                    <ComboBoxItem Content="Last used (oldest first)" />
+                    <ComboBoxItem Content="Install date (newest first)" />
+                    <ComboBoxItem Content="Name" />
+                </ComboBox>
+            </StackPanel>
+            <CheckBox
+                Margin="0,0,0,6"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Hide Microsoft apps"
+                Content="Hide Microsoft apps"
+                IsChecked="{Binding HideMicrosoft}" />
+        </WrapPanel>
+
+        <!--  ================= List + details =================  -->
+        <Grid Grid.Row="2" Visibility="{Binding ShowLeftovers, Converter={StaticResource NotBoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="380" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <Border Padding="0,8" Style="{DynamicResource TidyCard}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Margin="16,4,16,8" Style="{DynamicResource Caption}" Text="{Binding StatusText}" />
+                    <ListBox
+                        x:Name="AppList"
+                        Grid.Row="1"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        AutomationProperties.Name="Installed apps"
+                        ItemContainerStyle="{StaticResource AppsRowItem}"
+                        ItemsSource="{Binding Rows}"
+                        ScrollViewer.CanContentScroll="True"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        SelectedItem="{Binding Selected, Mode=TwoWay}"
+                        VirtualizingPanel.IsVirtualizing="True"
+                        VirtualizingPanel.ScrollUnit="Pixel"
+                        VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type local:AppRow}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="96" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:SymbolIcon Margin="0,0,12,0" VerticalAlignment="Center" FontSize="20" Symbol="{Binding Icon}" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Style="{DynamicResource BodyStrong}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Style="{DynamicResource Caption}" Text="{Binding Subtitle}" />
+                                    </StackPanel>
+                                    <c:BadgePill
+                                        Grid.Column="2"
+                                        Margin="8,0"
+                                        ShowDot="False"
+                                        Text="{Binding Tag}"
+                                        Tone="{Binding TagTone}"
+                                        Visibility="{Binding HasTag, Converter={StaticResource BoolToVis}}" />
+                                    <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock HorizontalAlignment="Right" Style="{DynamicResource BodyStrong}" Text="{Binding SizeText}" />
+                                        <TextBlock HorizontalAlignment="Right" Style="{DynamicResource Caption}" Text="{Binding LastUsedText, StringFormat='used {0}'}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+                        <ui:ProgressRing Width="40" Height="40" IsIndeterminate="True" />
+                        <TextBlock Margin="0,12,0,0" HorizontalAlignment="Center" Style="{DynamicResource Secondary}" Text="Reading your installed apps… (nothing is changed)" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!--  Details  -->
+            <Border Grid.Column="2" Style="{DynamicResource TidyCard}">
+                <Grid>
+                    <c:EmptyState
+                        Icon="AppsList24"
+                        Message="Pick an app to see its size, when you last used it, and how to remove it."
+                        Title="No app selected"
+                        Visibility="{Binding HasSelection, Converter={StaticResource NotBoolToVis}}" />
+                    <Grid Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel>
+                            <TextBlock Style="{DynamicResource SectionTitle}" Text="{Binding Selected.Name}" TextWrapping="Wrap" />
+                            <TextBlock Margin="0,2,0,8" Style="{DynamicResource Secondary}" Text="{Binding Selected.Subtitle}" />
+                        </StackPanel>
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <ItemsControl AutomationProperties.Name="App details" Focusable="False" ItemsSource="{Binding Facts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type local:FactRow}">
+                                            <StackPanel Margin="0,0,0,8">
+                                                <TextBlock Style="{DynamicResource Caption}" Text="{Binding Label}" />
+                                                <TextBox
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    IsReadOnly="True"
+                                                    Padding="0"
+                                                    AutomationProperties.Name="{Binding Label}"
+                                                    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                    Text="{Binding Value, Mode=OneWay}"
+                                                    TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ui:InfoBar
+                                    Margin="0,4,0,0"
+                                    IsClosable="False"
+                                    IsOpen="True"
+                                    Message="{Binding UninstallWarning}"
+                                    Severity="Warning"
+                                    Visibility="{Binding UninstallWarning, Converter={StaticResource NullToVis}}" />
+                                <ui:InfoBar
+                                    Margin="0,4,0,0"
+                                    IsClosable="False"
+                                    IsOpen="True"
+                                    Message="{Binding UninstallBlockedReason}"
+                                    Severity="Informational"
+                                    Visibility="{Binding UninstallBlockedReason, Converter={StaticResource NullToVis}}" />
+                            </StackPanel>
+                        </ScrollViewer>
+                        <WrapPanel Grid.Row="2" Margin="0,12,0,0" IsEnabled="{Binding IsBusy, Converter={x:Static local:InverseBoolConverter.Instance}}">
+                            <ui:Button
+                                Margin="0,0,8,8"
+                                Appearance="Transparent"
+                                AutomationProperties.Name="Simulate the uninstall without changing anything"
+                                Command="{Binding SimulateCommand}"
+                                Content="Simulate"
+                                IsEnabled="{Binding CanUninstall}"
+                                ToolTip="Shows what would happen. Nothing is run." />
+                            <!--  Destructive action: never first, never the default button.  -->
+                            <ui:Button
+                                Margin="0,0,8,8"
+                                Appearance="Secondary"
+                                AutomationProperties.Name="{Binding UninstallText}"
+                                Command="{Binding UninstallCommand}"
+                                Content="{Binding UninstallText}"
+                                Icon="{ui:SymbolIcon DeleteDismiss24}"
+                                IsEnabled="{Binding CanUninstall}" />
+                            <ui:Button
+                                Margin="0,0,8,8"
+                                Appearance="Transparent"
+                                AutomationProperties.Name="Find leftovers of this app"
+                                Command="{Binding FindLeftoversCommand}"
+                                Content="Find leftovers"
+                                Icon="{ui:SymbolIcon FolderSearch24}"
+                                Visibility="{Binding CanFindLeftovers, Converter={StaticResource BoolToVis}}" />
+                            <ui:Button
+                                Margin="0,0,8,8"
+                                Appearance="Transparent"
+                                AutomationProperties.Name="Open the app's folder in Explorer"
+                                Command="{Binding OpenLocationCommand}"
+                                Content="Open folder"
+                                Icon="{ui:SymbolIcon FolderOpen24}"
+                                Visibility="{Binding CanOpenLocation, Converter={StaticResource BoolToVis}}" />
+                        </WrapPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!--  ================= Leftovers =================  -->
+        <Grid Grid.Row="1" Grid.RowSpan="2" Margin="0,16,0,0" Visibility="{Binding ShowLeftovers, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <DockPanel Margin="0,0,0,12">
+                <ui:Button
+                    Margin="0,0,12,0"
+                    VerticalAlignment="Top"
+                    Appearance="Transparent"
+                    AutomationProperties.Name="Back to the app list"
+                    Command="{Binding CloseLeftoversCommand}"
+                    Content="Back"
+                    DockPanel.Dock="Left"
+                    Icon="{ui:SymbolIcon ArrowLeft24}" />
+                <StackPanel>
+                    <TextBlock Style="{DynamicResource SectionTitle}" Text="{Binding LeftoverTitle}" />
+                    <TextBlock Style="{DynamicResource Secondary}" Text="{Binding LeftoverSubtitle}" />
+                </StackPanel>
+            </DockPanel>
+            <Border Grid.Row="1" Padding="0,8" Style="{DynamicResource TidyCard}">
+                <ListBox
+                    Background="Transparent"
+                    BorderThickness="0"
+                    AutomationProperties.Name="Leftovers"
+                    ItemContainerStyle="{StaticResource LeftoverRowItem}"
+                    ItemsSource="{Binding Leftovers}"
+                    ScrollViewer.CanContentScroll="True"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.ScrollUnit="Pixel">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type local:LeftoverRow}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="80" />
+                                </Grid.ColumnDefinitions>
+                                <CheckBox
+                                    MinWidth="0"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Top"
+                                    AutomationProperties.Name="{Binding AccessibleName}"
+                                    IsChecked="{Binding IsSelected}"
+                                    IsEnabled="{Binding IsEnabled}" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Style="{DynamicResource BodyStrong}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Style="{DynamicResource Caption}" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}" />
+                                    <TextBlock Margin="0,2,0,0" Style="{DynamicResource Secondary}" Text="{Binding Reason}" TextWrapping="Wrap" />
+                                    <TextBlock
+                                        Margin="0,2,0,0"
+                                        Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                        Style="{DynamicResource Secondary}"
+                                        Text="{Binding DisabledReason}"
+                                        TextWrapping="Wrap"
+                                        Visibility="{Binding DisabledReason, Converter={StaticResource NullToVis}}" />
+                                </StackPanel>
+                                <c:BadgePill Grid.Column="2" Margin="8,2,8,0" VerticalAlignment="Top" Text="{Binding ConfidenceText}" Tone="{Binding ConfidenceTone}" />
+                                <TextBlock Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{DynamicResource BodyStrong}" Text="{Binding SizeText}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+            <!--  Sticky action bar  -->
+            <Border Grid.Row="2" Style="{DynamicResource StickyBar}">
+                <DockPanel>
+                    <ui:Button
+                        Appearance="Primary"
+                        AutomationProperties.Name="Move the selected leftovers to quarantine"
+                        Command="{Binding RemoveLeftoversCommand}"
+                        Content="Move to quarantine"
+                        DockPanel.Dock="Right"
+                        Icon="{ui:SymbolIcon Broom24}" />
+                    <TextBlock VerticalAlignment="Center" Style="{DynamicResource BodyStrong}" Text="{Binding LeftoverTotals}" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

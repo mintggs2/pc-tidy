@@ -1,0 +1,223 @@
+<UserControl
+    x:Class="PcTidy.Features.PcCare.View.PcCareView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:flow="clr-namespace:PcTidy.UI.Flow;assembly=PcTidy.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="PC care"
+    FontFamily="{DynamicResource TidyText}">
+
+    <Grid Margin="{DynamicResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{DynamicResource PageTitle}" Text="PC care" />
+                    <c:BadgePill Margin="12,6,0,0" Text="Check each item" Tone="Caution" />
+                </StackPanel>
+                <TextBlock x:Name="Subtitle" Style="{DynamicResource PageSubtitle}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <ui:Button
+                x:Name="ScanButton"
+                Grid.Column="1"
+                Margin="16,6,0,0"
+                VerticalAlignment="Top"
+                Appearance="Secondary"
+                AutomationProperties.Name="Scan"
+                Click="OnScanClick"
+                Content="Scan"
+                Icon="{ui:SymbolIcon ArrowClockwise24}" />
+        </Grid>
+
+        <!--  Tabs: four groups, then the group's own tabs. Wraps to a second line on narrow windows, never off-screen.  -->
+        <StackPanel Grid.Row="1" Margin="0,16,0,8">
+            <c:StepBar x:Name="Steps" Margin="0,0,0,12" />
+            <WrapPanel Orientation="Horizontal">
+                <c:Segmented
+                    x:Name="TabGroups"
+                    Margin="0,0,16,8"
+                    Label="PC care groups"
+                    SelectionChanged="OnGroupChanged" />
+                <c:Segmented
+                    x:Name="Tabs"
+                    Margin="0,0,0,8"
+                    Label="PC care sections"
+                    SelectionChanged="OnTabChanged" />
+            </WrapPanel>
+        </StackPanel>
+
+        <!--  Tab note and the tab's own controls  -->
+        <StackPanel Grid.Row="2">
+            <ui:InfoBar
+                x:Name="TabNote"
+                Margin="0,0,0,10"
+                IsClosable="False"
+                IsOpen="False"
+                Severity="Informational" />
+
+            <WrapPanel x:Name="TabTools" Margin="2,0,0,10" Orientation="Horizontal" Visibility="Collapsed">
+                <CheckBox
+                    x:Name="AgreementsBox"
+                    Margin="0,0,16,6"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="I accept the source and package agreements"
+                    Checked="OnPageChoiceChanged"
+                    Content="I accept the source and package agreements"
+                    Unchecked="OnPageChoiceChanged" />
+                <TextBlock
+                    x:Name="AgreementsNote"
+                    Margin="0,0,16,6"
+                    VerticalAlignment="Center"
+                    Style="{DynamicResource Caption}"
+                    Text="Each app's licence, and for Store apps the Microsoft Store terms (aka.ms/microsoft-store-terms-of-transaction)."
+                    TextWrapping="Wrap" />
+                <ui:Button
+                    x:Name="DnsButton"
+                    Margin="0,0,8,6"
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Run the DNS speed test"
+                    Click="OnDnsTest"
+                    Content="Run DNS speed test"
+                    Icon="{ui:SymbolIcon Timer24}" />
+                <ui:Button
+                    x:Name="TweaksButton"
+                    Margin="0,0,8,6"
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Open Tweaks to put Microsoft Defender back"
+                    Click="OnOpenTweaks"
+                    Content="Open Tweaks"
+                    Icon="{ui:SymbolIcon Wrench24}" />
+                <ui:Button
+                    x:Name="DriversButton"
+                    Margin="0,0,8,6"
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Open the Drivers section"
+                    Click="OnOpenDrivers"
+                    Content="Open Drivers"
+                    Icon="{ui:SymbolIcon DeveloperBoard24}" />
+                <ui:Button
+                    x:Name="PickFilesButton"
+                    Margin="0,0,16,6"
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Pick files to shred"
+                    Click="OnPickFiles"
+                    Content="Pick files…"
+                    Icon="{ui:SymbolIcon DocumentAdd24}" />
+                <CheckBox
+                    x:Name="ShredAckBox"
+                    Margin="0,0,0,6"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="I understand shredded files can't be recovered"
+                    Checked="OnPageChoiceChanged"
+                    Unchecked="OnPageChoiceChanged" />
+            </WrapPanel>
+
+            <!--  Health report: the facts at a glance, as a plain list (nothing to tick, no badges)  -->
+            <Border x:Name="FactsCard" Margin="0,0,0,10" Padding="18,12" Style="{DynamicResource TidyCard}" Visibility="Collapsed">
+                <DockPanel>
+                    <TextBlock Margin="0,0,0,8" DockPanel.Dock="Top" Style="{DynamicResource Caption}" TextWrapping="Wrap">
+                        <Run FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="This PC at a glance" />
+                        <Run Text="  Read-only facts that go into the report." />
+                    </TextBlock>
+                    <!--  Kept short so the "save the report" rows below always have room; the rest scrolls.  -->
+                    <ScrollViewer MaxHeight="150" Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <c:ResponsiveGrid x:Name="FactsGrid" Margin="0,0,10,0" Gap="8" MaxColumns="3" MinItemWidth="190" />
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+
+        <!--  Ready: nothing scanned yet  -->
+        <Border x:Name="ReadyState" Grid.Row="3" VerticalAlignment="Top" Style="{DynamicResource TidyCard}">
+            <c:EmptyState
+                ActionClick="OnScanClick"
+                ActionIcon="ScanDash24"
+                ActionText="Scan now"
+                Icon="HeartPulse24"
+                Message="PC Tidy reads Windows' own status: updates, security, crashes, restore points and more. Scanning only looks: nothing changes until you confirm."
+                Title="Scan to check your PC" />
+        </Border>
+
+        <!--  Scanning  -->
+        <Border x:Name="ScanningState" Grid.Row="3" Padding="28,24" VerticalAlignment="Top" Style="{DynamicResource TidyCard}" Visibility="Collapsed">
+            <StackPanel>
+                <DockPanel>
+                    <ui:ProgressRing Width="40" Height="40" Margin="0,0,16,0" IsIndeterminate="True" />
+                    <ui:Button
+                        VerticalAlignment="Center"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Stop scanning"
+                        Click="OnCancelScan"
+                        Content="Stop"
+                        DockPanel.Dock="Right"
+                        Icon="{ui:SymbolIcon Dismiss24}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="ScanTitle" Style="{DynamicResource SectionTitle}" Text="Checking your PC…" />
+                        <TextBlock x:Name="ScanMessage" Style="{DynamicResource SecondaryTrim}" />
+                    </StackPanel>
+                </DockPanel>
+                <ProgressBar Height="4" Margin="0,18,0,0" IsIndeterminate="True" />
+                <TextBlock Margin="0,14,0,0" Style="{DynamicResource Caption}" Text="Scanning only looks. Asking winget for app updates can take a little while." />
+            </StackPanel>
+        </Border>
+
+        <!--  Results (one list, the model swaps with the tab)  -->
+        <flow:ResultsPanel x:Name="Results" Grid.Row="3" Visibility="Collapsed" />
+        <c:EmptyState
+            x:Name="TabEmpty"
+            Grid.Row="3"
+            VerticalAlignment="Top"
+            Icon="CheckmarkCircle24"
+            Title="Nothing here"
+            Visibility="Collapsed" />
+
+        <!--  Sticky bottom bar  -->
+        <Border x:Name="StickyBar" Grid.Row="4" Style="{DynamicResource StickyBar}" Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <c:SelectionGlyph x:Name="SelectionIcon" Margin="0,0,14,0" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="SelectedText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="SelectedCaption" Style="{DynamicResource Caption}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <ui:Button
+                        x:Name="SimulateButton"
+                        Height="40"
+                        Margin="0,0,8,0"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Simulate: see what would happen, change nothing"
+                        Click="OnSimulate"
+                        Content="Simulate"
+                        Icon="{ui:SymbolIcon Beaker24}"
+                        ToolTip="See exactly what would happen. Nothing changes." />
+                    <ui:Button
+                        x:Name="PrimaryButton"
+                        Height="40"
+                        MinWidth="150"
+                        Appearance="Primary"
+                        Click="OnPrimary"
+                        FontWeight="SemiBold"
+                        Icon="{ui:SymbolIcon Checkmark24}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

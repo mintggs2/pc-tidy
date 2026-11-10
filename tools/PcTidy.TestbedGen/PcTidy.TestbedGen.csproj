@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PcTidy.TestbedGen: deterministic fake-PC generator, hash manifest and compare tool.
+    Console exe AND a library: EndToEnd tests reference this project and call TestbedBuilder in-process.
+    UseWPF is only for System.Windows.Media.Imaging (real JPEG/PNG bytes with EXIF); no UI.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PcTidy.TestbedGen</RootNamespace>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PcTidy.Core\PcTidy.Core.csproj" />
+  </ItemGroup>
+</Project>

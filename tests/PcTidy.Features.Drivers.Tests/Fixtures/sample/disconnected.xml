@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented sample in the shape of `pnputil /enum-devices /disconnected /properties /format xml` output.
+     Every device, hardware id and date is made up; none comes from a real PC. 14 devices.
+     The tests' clock is 10 Nov 2026 12:00 UTC. Every date below is regional text, as pnputil prints it, so none of
+     them is trusted: with no typed facts (this folder has no machine.json) no device here may be offered for removal. -->
+<PnpUtil Version="10.0.26100" Command="/enum-devices /disconnected /properties /format xml">
+    <!-- Edge case: en-US text more than 30 days before the clock (last removal 2 Aug 2026).
+         HardwareIds and CompatibleIds as elements. -->
+    <Device InstanceId="HID\VID_3C3C&amp;PID_0002&amp;MI_00\7&amp;4E&amp;0&amp;0000">
+        <DeviceDescription>Wingtip Wireless Mouse</DeviceDescription>
+        <ClassName>HIDClass</ClassName>
+        <ClassGuid>{745a17a0-74d3-11d0-b6fe-00a0c90f57da}</ClassGuid>
+        <ManufacturerName>(Standard system devices)</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>input.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>HID\VID_3C3C&amp;PID_0002&amp;REV_0100&amp;MI_00</HardwareId>
+            <HardwareId>HID\VID_3C3C&amp;PID_0002&amp;MI_00</HardwareId>
+        </HardwareIds>
+        <CompatibleIds>
+            <CompatibleId>HID_DEVICE_SYSTEM_MOUSE</CompatibleId>
+            <CompatibleId>HID_DEVICE</CompatibleId>
+        </CompatibleIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastArrivalDate" Type="FILETIME"><Value>7/30/2026 9:15:00</Value></Property>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>8/2/2026 10:00:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: en-US text less than 30 days before the clock (4 Nov 2026).
+         The second device of third-party package oem38.inf (drivers.xml lists it as Disconnected). -->
+    <Device InstanceId="USB\VID_0F0F&amp;PID_0001\5&amp;1A&amp;0&amp;4">
+        <DeviceDescription>Woodgrove USB Hub</DeviceDescription>
+        <ClassName>USB</ClassName>
+        <ClassGuid>{36fc9e60-c465-11cf-8056-444553540000}</ClassGuid>
+        <ManufacturerName>Woodgrove Devices</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>oem38.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>USB\VID_0F0F&amp;PID_0001&amp;REV_0100</HardwareId>
+            <HardwareId>USB\VID_0F0F&amp;PID_0001</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>11/4/2026 9:05:42</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: en-GB day-first text. 3 Nov 2026 (7 days ago); read month-first it would be 11 Mar (over 30 days). -->
+    <Device InstanceId="USB\VID_2B2B&amp;PID_0C02&amp;MI_00\6&amp;5F&amp;0&amp;0000">
+        <DeviceDescription>Northwind Conference Camera</DeviceDescription>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <ManufacturerName>Microsoft</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>usbvideo.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>USB\VID_2B2B&amp;PID_0C02&amp;MI_00</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>03/11/2026 10:00:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: de-DE dotted text (install 15 Jan 2025, removal 4 Nov 2026). -->
+    <Device InstanceId="USB\VID_4D4D&amp;PID_0001\5&amp;6A&amp;0&amp;7">
+        <DeviceDescription>A. Datum USB Serial Adapter</DeviceDescription>
+        <ClassName>Ports</ClassName>
+        <ClassGuid>{4d36e978-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>A. Datum Corporation</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>oem27.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>USB\VID_4D4D&amp;PID_0001</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_InstallDate" Type="FILETIME"><Value>15.01.2025 08:00:00</Value></Property>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>04.11.2026 09:05:42</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: year-first text without seconds (21 Oct 2026). -->
+    <Device InstanceId="BTHENUM\{0000110b-0000-1000-8000-00805f9b34fb}_VID&amp;00010F0F_PID&amp;0002\8&amp;8C&amp;0&amp;0000000000AB_C00000000">
+        <DeviceDescription>Tailspin Earbuds Stereo</DeviceDescription>
+        <ClassName>MEDIA</ClassName>
+        <ClassGuid>{4d36e96c-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Microsoft</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>btha2dp.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>2026/10/21 13:37</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: 12-hour text with AM (2 Aug 2026); also a software device Windows recreates. -->
+    <Device InstanceId="SWD\MMDEVAPI\{0.0.0.00000000}.{7d1e5a10-0000-4000-8000-000000000006}">
+        <DeviceDescription>Headphones (Tailspin Earbuds)</DeviceDescription>
+        <ClassName>AudioEndpoint</ClassName>
+        <ClassGuid>{c166523c-fe0c-4a94-a586-f1a80cfbbf3e}</ClassGuid>
+        <ManufacturerName>Microsoft</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>audioendpoint.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>8/2/2026 10:00:00 AM</Value></Property>
+        </Properties>
+    </Device>
+    <!-- A USB stick's disk entry (a protected class), last seen well over 30 days ago. -->
+    <Device InstanceId="USBSTOR\Disk&amp;Ven_Woodgrov&amp;Prod_Flash_Drive&amp;Rev_1.00\0000000000AB&amp;0">
+        <DeviceDescription>Woodgrove Flash Drive USB Device</DeviceDescription>
+        <ClassName>DiskDrive</ClassName>
+        <ClassGuid>{4d36e967-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>(Standard disk drives)</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>disk.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>USBSTOR\DiskWoodgrovFlash_Drive_____1.00</HardwareId>
+            <HardwareId>GenDisk</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>6/1/2025 12:00:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: no HardwareIds element; the ids come from the DEVPKEY_Device_HardwareIds property instead.
+         Edge case: an empty Value element. -->
+    <Device InstanceId="HID\VID_3C3C&amp;PID_0003\7&amp;5F&amp;0&amp;0000">
+        <DeviceDescription>Wingtip Game Controller</DeviceDescription>
+        <ClassName>HIDClass</ClassName>
+        <ClassGuid>{745a17a0-74d3-11d0-b6fe-00a0c90f57da}</ClassGuid>
+        <ManufacturerName>(Standard system devices)</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>input.inf</DriverName>
+        <Properties>
+            <Property Key="DEVPKEY_Device_HardwareIds" Type="STRING_LIST">
+                <Value>HID\VID_3C3C&amp;PID_0003&amp;REV_0200</Value>
+                <Value>HID\VID_3C3C&amp;PID_0003</Value>
+            </Property>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value></Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: no Properties, no DriverName and an empty HardwareIds element. -->
+    <Device InstanceId="USB\VID_5E5E&amp;PID_0001\0123456789AB">
+        <DeviceDescription>Lucerne Smart Card Reader</DeviceDescription>
+        <ClassName>SmartCardReader</ClassName>
+        <ClassGuid>{50dd5230-ba8a-11d1-bf5d-0000f805f530}</ClassGuid>
+        <Status>Disconnected</Status>
+        <HardwareIds />
+    </Device>
+    <!-- Edge case: a software network device whose package (oem57.inf) is no longer in the driver store. -->
+    <Device InstanceId="ROOT\NET\0000">
+        <DeviceDescription>Contoso VPN Adapter</DeviceDescription>
+        <ClassName>Net</ClassName>
+        <ClassGuid>{4d36e972-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Contoso Ltd.</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>oem57.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>contoso_vpn</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>1/5/2026 9:00:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: an apostrophe and brackets in the description; en-US text over 30 days old. -->
+    <Device InstanceId="USB\VID_6F6F&amp;PID_0001&amp;MI_02\6&amp;7A&amp;0&amp;0002">
+        <DeviceDescription>Margie's Travel Adapter (Interface 2)</DeviceDescription>
+        <ClassName>USB</ClassName>
+        <ClassGuid>{36fc9e60-c465-11cf-8056-444553540000}</ClassGuid>
+        <ManufacturerName>(Standard USB Host Controller)</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>usb.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>USB\VID_6F6F&amp;PID_0001&amp;MI_02</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>1/5/2026 9:00:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: en-US text 26 days before the clock (just inside the 30-day wait, 15 Oct 2026). -->
+    <Device InstanceId="DISPLAY\PRW0B2C\5&amp;3D&amp;0&amp;UID4353">
+        <DeviceDescription>Proseware Portable Monitor</DeviceDescription>
+        <ClassName>Monitor</ClassName>
+        <ClassGuid>{4d36e96e-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>(Standard monitor types)</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>monitor.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>MONITOR\PRW0B2C</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>10/15/2026 18:30:00</Value></Property>
+        </Properties>
+    </Device>
+    <!-- Edge case: the same property key twice (the first one is kept); both are regional text. -->
+    <Device InstanceId="PCI\VEN_1234&amp;DEV_0043&amp;SUBSYS_00431234&amp;REV_1A\4&amp;E1&amp;0&amp;00E3">
+        <DeviceDescription>Tailspin Wi-Fi 6 Adapter #2</DeviceDescription>
+        <ClassName>Net</ClassName>
+        <ClassGuid>{4d36e972-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <ManufacturerName>Tailspin Toys</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>oem6.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>PCI\VEN_1234&amp;DEV_0043&amp;SUBSYS_00431234&amp;REV_1A</HardwareId>
+            <HardwareId>PCI\VEN_1234&amp;DEV_0043&amp;SUBSYS_00431234</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>9/9/2026 9:09:09</Value></Property>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>10/10/2026 10:10:10</Value></Property>
+        </Properties>
+    </Device>
+    <!-- A software print queue (leap-day en-US text). -->
+    <Device InstanceId="SWD\PRINTENUM\{4c5e0000-0000-4000-8000-000000000014}">
+        <DeviceDescription>A. Datum Office Printer</DeviceDescription>
+        <ClassName>PrintQueue</ClassName>
+        <ClassGuid>{1ed2bbf9-11f0-4084-b21f-ad83a8e6dcdc}</ClassGuid>
+        <ManufacturerName>Microsoft</ManufacturerName>
+        <Status>Disconnected</Status>
+        <DriverName>printqueue.inf</DriverName>
+        <HardwareIds>
+            <HardwareId>PRINTENUM\LocalPrintQueue</HardwareId>
+        </HardwareIds>
+        <Properties>
+            <Property Key="DEVPKEY_Device_LastRemovalDate" Type="FILETIME"><Value>2/29/2024 23:59:59</Value></Property>
+        </Properties>
+    </Device>
+</PnpUtil>

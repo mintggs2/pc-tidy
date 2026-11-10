@@ -1,0 +1,4 @@
+Name                   Id                           Version   Available Source
+-------------------------------------------------------------------------------
+Some Very Long App …   Contoso.SomeVeryLongAppNa…   1.0       2.0       winget
+Another Long App…      Contoso.AnotherLongAppNa…    3.0       3.1       winget

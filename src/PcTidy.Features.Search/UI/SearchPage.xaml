@@ -1,0 +1,274 @@
+<UserControl
+    x:Class="PcTidy.Features.Search.UI.SearchPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Search"
+    FontFamily="{StaticResource TidyText}">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/PcTidy.UI;component/Themes/TidyGridView.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid Margin="{StaticResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{StaticResource PageTitle}" Text="Search" />
+                <c:BadgePill x:Name="RiskPill" Margin="12,6,0,0" />
+            </StackPanel>
+            <TextBlock
+                Style="{StaticResource PageSubtitle}"
+                Text="Find any file in an instant, keep your favorite folders one click away, and get a tidy folder structure suggested for each drive." />
+        </StackPanel>
+
+        <c:Segmented
+            x:Name="Tabs"
+            Grid.Row="1"
+            Margin="0,14,0,14"
+            Items="Search|Suggest a folder structure"
+            Label="Search sections" />
+
+        <!--  Search tab: box, results, favorites. Wide: favorites on the right. Narrow (below ~1100 px windows): the
+              results take the whole width and Favorites opens under them from its button (see OnSearchTabSizeChanged).  -->
+        <Grid x:Name="SearchTab" Grid.Row="2" SizeChanged="OnSearchTabSizeChanged">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="FavoritesGap" Width="16" />
+                <ColumnDefinition x:Name="FavoritesColumn" Width="260" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <ui:Button
+                        x:Name="TipsButton"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Stretch"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Search tips"
+                        Click="OnTips"
+                        Content="Tips"
+                        DockPanel.Dock="Right"
+                        Icon="{ui:SymbolIcon QuestionCircle24}" />
+                    <ToggleButton
+                        x:Name="FavoritesToggle"
+                        Margin="8,0,0,0"
+                        Padding="12,0"
+                        VerticalAlignment="Stretch"
+                        AutomationProperties.Name="Show or hide Favorites"
+                        Checked="OnFavoritesToggled"
+                        DockPanel.Dock="Right"
+                        ToolTip="Your favorite folders"
+                        Unchecked="OnFavoritesToggled"
+                        Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Margin="0,0,6,0" FontSize="16" Symbol="Star24" />
+                            <TextBlock x:Name="FavoritesToggleText" VerticalAlignment="Center" Text="Favorites" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <ui:TextBox
+                        x:Name="QueryBox"
+                        AutomationProperties.Name="Search files and folders"
+                        FontSize="16"
+                        Icon="{ui:SymbolIcon Search24}"
+                        KeyDown="OnQueryKeyDown"
+                        PlaceholderText="Search, e.g.  holiday ext:jpg"
+                        TextChanged="OnQueryChanged"
+                        ToolTip="Words match file and folder names. Filters like ext:pdf, size:&gt;1gb or dm:lastyear narrow it down (Tips shows them all)." />
+                </DockPanel>
+
+                <!--  Syntax help  -->
+                <Border x:Name="TipsPanel" Grid.Row="1" Margin="0,10,0,0" Padding="14,10" Style="{StaticResource TidyCard}" Visibility="Collapsed">
+                    <ItemsControl x:Name="TipsList" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <c:ResponsiveGrid Gap="6" MaxColumns="2" MinItemWidth="260" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Width="150" FontFamily="Cascadia Mono, Consolas" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Example}" />
+                                    <TextBlock Style="{StaticResource Secondary}" Text="{Binding Meaning}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <StackPanel Grid.Row="2" Margin="0,10,0,8">
+                    <DockPanel>
+                        <!--  The index build, with its label right next to it.  -->
+                        <ProgressBar x:Name="BuildBar" Width="80" Height="3" Margin="10,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Building the index" DockPanel.Dock="Right" IsIndeterminate="True" Visibility="Collapsed" />
+                        <TextBlock x:Name="StatusText" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                    </DockPanel>
+                    <TextBlock x:Name="NotesText" Style="{StaticResource Caption}" Foreground="{DynamicResource SystemFillColorCautionBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+                </StackPanel>
+
+                <Border Grid.Row="3" Padding="0" Style="{StaticResource TidyCard}">
+                    <Grid>
+                        <ListView
+                            x:Name="ResultsList"
+                            AutomationProperties.Name="Search results"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            ItemContainerStyle="{StaticResource TidyGridRow}"
+                            KeyDown="OnResultsKeyDown"
+                            MouseDoubleClick="OnResultDoubleClick"
+                            ScrollViewer.CanContentScroll="True"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            SelectionChanged="OnResultSelected"
+                            SelectionMode="Single"
+                            SizeChanged="OnResultsSizeChanged"
+                            VirtualizingPanel.IsVirtualizing="True"
+                            VirtualizingPanel.ScrollUnit="Item"
+                            VirtualizingPanel.VirtualizationMode="Recycling">
+                            <ListView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Click="OnShowInFolder" Header="Show in folder" />
+                                    <MenuItem Click="OnAddResultToFavorites" Header="Add folder to Favorites" />
+                                    <MenuItem Click="OnCopyPath" Header="Copy path" />
+                                </ContextMenu>
+                            </ListView.ContextMenu>
+                            <ListView.View>
+                                <!--  Widths are set from the list's width (OnResultsSizeChanged), so all four columns always show.  -->
+                                <GridView AllowsColumnReorder="False" ColumnHeaderContainerStyle="{StaticResource TidyGridHeader}">
+                                    <GridViewColumn x:Name="NameColumn" Width="240">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader x:Name="NameHeader" Click="OnSortHeader" Content="Name" Tag="Name" />
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <!--  A DockPanel (not a horizontal StackPanel) so long names trim at the column edge.  -->
+                                                <DockPanel Margin="4,0,0,0">
+                                                    <ui:SymbolIcon Margin="0,0,8,0" DockPanel.Dock="Left" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="{Binding Icon}" />
+                                                    <TextBlock Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn x:Name="FolderColumn" Width="300">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader x:Name="FolderHeader" Click="OnSortHeader" Content="Folder" Tag="Folder" />
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Folder}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Folder}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn x:Name="SizeColumn" Width="90">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader x:Name="SizeHeader" Click="OnSortHeader" Content="Size" Tag="Size" />
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SizeText}" TextTrimming="CharacterEllipsis" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn x:Name="ModifiedColumn" Width="140">
+                                        <GridViewColumn.Header>
+                                            <GridViewColumnHeader x:Name="ModifiedHeader" Click="OnSortHeader" Content="Modified" Tag="Modified" />
+                                        </GridViewColumn.Header>
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                        <c:EmptyState x:Name="ResultsEmpty" Icon="Search24" Title="Type to search" Message="Words match file and folder names. Add filters like ext:pdf or size:&gt;1gb (Tips shows them all)." />
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Row="4" Margin="0,10,0,0" Orientation="Horizontal">
+                    <ui:Button
+                        x:Name="ShowInFolderButton"
+                        Margin="0,0,8,0"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Show the selected result in its folder"
+                        Click="OnShowInFolder"
+                        Content="Show in folder"
+                        Icon="{ui:SymbolIcon FolderOpen24}"
+                        IsEnabled="False" />
+                    <ui:Button
+                        x:Name="AddFavoriteFromResultButton"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Add the selected result's folder to Favorites"
+                        Click="OnAddResultToFavorites"
+                        Content="Add folder to Favorites"
+                        Icon="{ui:SymbolIcon Star24}"
+                        IsEnabled="False" />
+                </StackPanel>
+            </Grid>
+
+            <!--  Favorites  -->
+            <Border x:Name="FavoritesCard" Grid.Column="2" Padding="14" Style="{StaticResource TidyCard}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Favorites" />
+                    <TextBlock Grid.Row="1" Margin="0,2,0,8" Style="{StaticResource Caption}" Text="PC Tidy's own list. Double-click to open." TextWrapping="Wrap" />
+                    <Grid Grid.Row="2">
+                        <ListBox
+                            x:Name="FavoritesListBox"
+                            AutomationProperties.Name="Favorite folders"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            DisplayMemberPath="Label"
+                            MouseDoubleClick="OnOpenFavorite"
+                            SelectionChanged="OnFavoriteSelected"
+                            VirtualizingPanel.IsVirtualizing="True">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="ToolTip" Value="{Binding Path}" />
+                                    <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                        <TextBlock x:Name="FavoritesEmpty" Style="{StaticResource Secondary}" Text="No favorites yet. Add a folder, or right-click a search result." TextWrapping="Wrap" />
+                    </Grid>
+                    <WrapPanel Grid.Row="3" Margin="0,10,0,0">
+                        <ui:Button Margin="0,0,6,6" Appearance="Secondary" AutomationProperties.Name="Add a favorite folder" Click="OnAddFavorite" Icon="{ui:SymbolIcon Add24}" ToolTip="Add a folder" />
+                        <ui:Button x:Name="FavOpen" Margin="0,0,6,6" Appearance="Secondary" AutomationProperties.Name="Open the favorite in File Explorer" Click="OnOpenFavorite" Icon="{ui:SymbolIcon FolderOpen24}" IsEnabled="False" ToolTip="Open" />
+                        <ui:Button x:Name="FavUp" Margin="0,0,6,6" Appearance="Secondary" AutomationProperties.Name="Move the favorite up" Click="OnFavoriteUp" Icon="{ui:SymbolIcon ArrowUp24}" IsEnabled="False" ToolTip="Move up" />
+                        <ui:Button x:Name="FavDown" Margin="0,0,6,6" Appearance="Secondary" AutomationProperties.Name="Move the favorite down" Click="OnFavoriteDown" Icon="{ui:SymbolIcon ArrowDown24}" IsEnabled="False" ToolTip="Move down" />
+                        <ui:Button x:Name="FavRemove" Margin="0,0,6,6" Appearance="Secondary" AutomationProperties.Name="Remove from Favorites" Click="OnRemoveFavorite" Icon="{ui:SymbolIcon Delete24}" IsEnabled="False" ToolTip="Remove from Favorites (the folder itself stays)" />
+                        <ui:Button x:Name="FavPin" Margin="0,0,6,6" Appearance="Secondary" AutomationProperties.Name="Pin to Quick access in File Explorer" Click="OnPinFavorite" Content="Pin to Quick access" Icon="{ui:SymbolIcon Pin24}" IsEnabled="False" />
+                    </WrapPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <ContentControl x:Name="StructureHost" Grid.Row="2" Focusable="False" Visibility="Collapsed" />
+    </Grid>
+</UserControl>

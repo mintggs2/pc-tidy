@@ -1,0 +1,240 @@
+<UserControl
+    x:Class="PcTidy.Features.Photos.UI.SortPageFrame"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:local="clr-namespace:PcTidy.Features.Photos.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    x:Name="Frame">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/PcTidy.Features.Photos;component/UI/SortStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <!--  Rows never wider than their list (see RowMaxWidth). Kept here so Organize's shared list style stays untouched.  -->
+            <Style x:Key="SortRowContainer" TargetType="ContentPresenter">
+                <Setter Property="MaxWidth" Value="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={x:Static local:RowMaxWidth.Instance}, ConverterParameter=10}" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <!--  The standard flow frame: header, step bar, notes, options, content (only the lists scroll), sticky action bar.  -->
+    <Grid Margin="32,16,32,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Header: title + Quick/Deep + Scan  -->
+        <DockPanel>
+            <StackPanel Margin="16,6,0,0" VerticalAlignment="Top" DockPanel.Dock="Right" Orientation="Horizontal">
+                <c:Segmented
+                    Margin="0,0,10,0"
+                    Items="Quick|Deep"
+                    Label="Scan depth"
+                    SelectedIndex="{Binding DepthIndex}"
+                    ToolTip="{Binding DeepHint, ElementName=Frame}" />
+                <ui:Button
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Scan"
+                    Command="{Binding ScanCommand}"
+                    Content="Scan"
+                    Icon="{ui:SymbolIcon ArrowClockwise24}"
+                    Visibility="{Binding IsScanning, Converter={StaticResource OrgVisible}, ConverterParameter=invert}" />
+                <ui:Button
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Stop scanning"
+                    Command="{Binding CancelScanCommand}"
+                    Content="Stop"
+                    Icon="{ui:SymbolIcon Dismiss24}"
+                    Visibility="{Binding IsScanning, Converter={StaticResource OrgVisible}}" />
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Style="{StaticResource OrgPageTitle}" Text="{Binding Title}" />
+                <!--  Up to two lines, so the explanation isn't cut off at 1000 px.  -->
+                <TextBlock MaxHeight="40" Style="{StaticResource OrgSubtitle}" Text="{Binding Subtitle}" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" ToolTip="{Binding Subtitle}" />
+            </StackPanel>
+        </DockPanel>
+
+        <c:StepBar Grid.Row="1" Margin="0,12,0,10" Captions="{Binding StepCaptions}" Current="{Binding Step}" />
+
+        <!--  OneDrive: ask first, said once. One compact bar: title and the two ways to say yes; the explanation can be closed.  -->
+        <Border
+            Grid.Row="2"
+            Margin="0,0,0,10"
+            Padding="14,10"
+            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{Binding PermissionMessage, Converter={StaticResource OrgVisible}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <ui:SymbolIcon Margin="0,0,10,0" VerticalAlignment="Center" FontSize="18" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Cloud24" />
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Allow PC Tidy to sort this OneDrive folder" TextWrapping="Wrap" />
+                <WrapPanel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <ui:Button Appearance="Primary" AutomationProperties.Name="Allow this OneDrive folder" Command="{Binding AllowCommand}" Content="Allow this folder" Icon="{ui:SymbolIcon Checkmark24}" />
+                    <ui:Button Margin="8,0,0,0" Appearance="Secondary" AutomationProperties.Name="Open Settings" Command="{Binding OpenSettingsCommand}" Content="Open Settings" Icon="{ui:SymbolIcon Settings24}" />
+                    <ui:Button
+                        Margin="4,0,0,0"
+                        Padding="6"
+                        Appearance="Transparent"
+                        AutomationProperties.Name="Hide the OneDrive explanation"
+                        Command="{Binding HidePermissionDetailsCommand}"
+                        Icon="{ui:SymbolIcon Dismiss16}"
+                        ToolTip="Hide the explanation (the Allow button stays)"
+                        Visibility="{Binding PermissionDetailsOpen, Converter={StaticResource OrgVisible}}" />
+                </WrapPanel>
+                <TextBlock
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Grid.ColumnSpan="2"
+                    Margin="0,6,0,0"
+                    Style="{StaticResource OrgCaption}"
+                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                    Text="{Binding PermissionMessage}"
+                    Visibility="{Binding PermissionDetailsOpen, Converter={StaticResource OrgVisible}}" />
+            </Grid>
+        </Border>
+
+        <!--  Page options (folders, mode…), folded to one line once there's a list, and scan notes.  -->
+        <StackPanel Grid.Row="3" Margin="0,0,0,10">
+            <DockPanel Visibility="{Binding OptionsOpen, Converter={StaticResource OrgVisible}, ConverterParameter=invert}">
+                <ui:Button
+                    Padding="8,4"
+                    Appearance="Transparent"
+                    AutomationProperties.Name="Show the options"
+                    Command="{Binding ToggleOptionsCommand}"
+                    Content="Change options"
+                    DockPanel.Dock="Right"
+                    Icon="{ui:SymbolIcon ChevronDown16}" />
+                <TextBlock VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis">
+                    <Run FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Options:" />
+                    <Run Text="{Binding OptionsSummary, Mode=OneWay}" />
+                </TextBlock>
+            </DockPanel>
+            <DockPanel Visibility="{Binding OptionsOpen, Converter={StaticResource OrgVisible}}">
+                <ui:Button
+                    Padding="8,4"
+                    VerticalAlignment="Top"
+                    Appearance="Transparent"
+                    AutomationProperties.Name="Hide the options"
+                    Command="{Binding ToggleOptionsCommand}"
+                    Content="Hide"
+                    DockPanel.Dock="Right"
+                    Icon="{ui:SymbolIcon ChevronUp16}"
+                    Visibility="{Binding HasPreview, Converter={StaticResource OrgVisible}}" />
+                <ContentPresenter Content="{Binding Options, ElementName=Frame}" />
+            </DockPanel>
+            <ItemsControl MaxHeight="150" Focusable="False" ItemsSource="{Binding Notes}" Style="{StaticResource OrgVirtualList}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ui:InfoBar Margin="0,6,0,0" IsClosable="True" IsOpen="True" Loaded="OnNoteLoaded" Message="{Binding}" Severity="Informational" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <!--  Content card  -->
+        <Border Grid.Row="4" Padding="16,12" Style="{StaticResource OrgCard}">
+            <Grid>
+                <!--  Ready  -->
+                <c:EmptyState
+                    x:Name="ReadyState"
+                    ActionClick="OnScanNow"
+                    ActionIcon="ScanDash24"
+                    ActionText="Scan now"
+                    Icon="{Binding Icon, ElementName=Frame}"
+                    Message="Scanning only looks. You get the full before and after with a reason for every file, and nothing changes until you confirm."
+                    Title="Scan to see what would change">
+                    <c:EmptyState.Visibility>
+                        <MultiBinding Converter="{x:Static local:AllFalseVisible.Instance}">
+                            <Binding Path="HasPreview" />
+                            <Binding Path="IsScanning" />
+                            <Binding Path="IsDone" />
+                        </MultiBinding>
+                    </c:EmptyState.Visibility>
+                </c:EmptyState>
+
+                <!--  Scanning  -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsScanning, Converter={StaticResource OrgVisible}}">
+                    <ui:ProgressRing HorizontalAlignment="Center" IsIndeterminate="True" />
+                    <TextBlock Margin="0,12,0,0" HorizontalAlignment="Center" Style="{StaticResource OrgSecondary}" Text="{Binding ProgressText}" />
+                </StackPanel>
+
+                <!--  Done  -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsDone, Converter={StaticResource OrgVisible}}">
+                    <ui:SymbolIcon HorizontalAlignment="Center" FontSize="40" Foreground="{DynamicResource TidyAccentBrush}" Symbol="CheckmarkCircle24" />
+                    <TextBlock MaxWidth="520" Margin="0,12,0,0" HorizontalAlignment="Center" FontSize="15" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding DoneText}" TextAlignment="Center" TextWrapping="Wrap" />
+                    <StackPanel Margin="0,16,0,0" HorizontalAlignment="Center" Orientation="Horizontal">
+                        <ui:Button Appearance="Primary" AutomationProperties.Name="Undo this run" Command="{Binding UndoCommand}" Content="Undo" Icon="{ui:SymbolIcon ArrowUndo24}" Visibility="{Binding CanUndo, Converter={StaticResource OrgVisible}}" />
+                        <ui:Button Margin="8,0" Appearance="Secondary" AutomationProperties.Name="Open History" Command="{Binding OpenHistoryCommand}" Content="History" Icon="{ui:SymbolIcon History24}" />
+                        <ui:Button Appearance="Secondary" AutomationProperties.Name="Scan again" Command="{Binding ScanCommand}" Content="Scan again" Icon="{ui:SymbolIcon ArrowClockwise24}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!--  Preview: the change list, the before → after tree, or what stays put  -->
+                <DockPanel Visibility="{Binding HasPreview, Converter={StaticResource OrgVisible}}">
+                    <c:Segmented
+                        Margin="0,0,0,10"
+                        DockPanel.Dock="Top"
+                        Items="Changes|Before → after|Stays put"
+                        Label="Preview view"
+                        SelectedIndex="{Binding ViewIndex}" />
+                    <Grid>
+                        <ItemsControl AutomationProperties.Name="Changes" ItemContainerStyle="{StaticResource SortRowContainer}" ItemsSource="{Binding Rows}" Style="{StaticResource OrgVirtualList}" Visibility="{Binding ViewIndex, Converter={StaticResource SortIndexVisible}, ConverterParameter=0}" />
+
+                        <Grid Visibility="{Binding ViewIndex, Converter={StaticResource SortIndexVisible}, ConverterParameter=1}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <DockPanel>
+                                <TextBlock Margin="0,0,0,6" DockPanel.Dock="Top" Style="{StaticResource OrgCardTitle}" Text="Now" />
+                                <ItemsControl AutomationProperties.Name="Now" ItemTemplate="{StaticResource OrgTreeRow}" ItemContainerStyle="{StaticResource SortRowContainer}" ItemsSource="{Binding BeforeRows}" Style="{StaticResource OrgVirtualList}" />
+                            </DockPanel>
+                            <DockPanel Grid.Column="2">
+                                <TextBlock Margin="0,0,0,6" DockPanel.Dock="Top" Style="{StaticResource OrgCardTitle}" Text="After (what you ticked)" />
+                                <ItemsControl AutomationProperties.Name="After" ItemTemplate="{StaticResource OrgTreeRow}" ItemContainerStyle="{StaticResource SortRowContainer}" ItemsSource="{Binding AfterRows}" Style="{StaticResource OrgVirtualList}" />
+                            </DockPanel>
+                        </Grid>
+
+                        <ItemsControl AutomationProperties.Name="Stays put" ItemTemplate="{StaticResource SortSkipRow}" ItemContainerStyle="{StaticResource SortRowContainer}" ItemsSource="{Binding SkippedRows}" Style="{StaticResource OrgVirtualList}" Visibility="{Binding ViewIndex, Converter={StaticResource SortIndexVisible}, ConverterParameter=2}" />
+                    </Grid>
+                </DockPanel>
+            </Grid>
+        </Border>
+
+        <!--  Sticky action bar: counts from PlanCounts, the same as the confirm dialog.  -->
+        <Border Grid.Row="5" Style="{StaticResource OrgStickyBar}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <ui:Button Height="40" Margin="0,0,8,0" Appearance="Secondary" AutomationProperties.Name="Simulate" Command="{Binding SimulateCommand}" Content="Simulate" Icon="{ui:SymbolIcon Beaker24}" ToolTip="See what would happen, with no changes at all" />
+                    <ui:Button Height="40" MinWidth="160" Appearance="Primary" AutomationProperties.Name="{Binding PrimaryText}" Command="{Binding RunCommand}" Content="{Binding PrimaryText}" FontWeight="SemiBold">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon Symbol="{Binding PrimaryIcon}" />
+                        </ui:Button.Icon>
+                    </ui:Button>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding SelectedText}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Style="{StaticResource OrgSecondary}" Text="{Binding SelectedCaption}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,493 @@
+<UserControl
+    x:Class="PcTidy.Features.Services.UI.ServicesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:local="clr-namespace:PcTidy.Features.Services.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Services">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <local:InverseBoolToVisibilityConverter x:Key="NotBoolToVis" />
+
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,10,0,2" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="Value" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        </Style>
+
+        <DataTemplate DataType="{x:Type local:ServiceRowViewModel}">
+            <Border
+                x:Name="Card"
+                Margin="0,0,0,6"
+                Padding="12,10,10,10"
+                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox
+                        Margin="0,1,6,0"
+                        VerticalAlignment="Top"
+                        AutomationProperties.Name="{Binding AutomationName}"
+                        IsChecked="{Binding IsChecked}"
+                        IsEnabled="{Binding CanChange}" />
+                    <StackPanel Grid.Column="1" Opacity="{Binding TextOpacity}">
+                        <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Margin="0,2,0,0" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" MaxHeight="36" Text="{Binding WhatItDoes}" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" />
+                        <TextBlock Margin="0,2,0,0" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding MetaLine}" TextTrimming="CharacterEllipsis" />
+                        <ItemsControl Margin="0,6,0,0" Focusable="False" ItemsSource="{Binding Tags}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <c:BadgePill Margin="0,0,6,4" ShowDot="False" Text="{Binding Text}" Tone="{Binding Tone}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding NotOfferedReason}" TextTrimming="CharacterEllipsis" Visibility="{Binding HasNotOfferedReason, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                    <c:BadgePill Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Top" Text="{Binding Verdict.Text}" Tone="{Binding Verdict.Tone}" />
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    <Setter TargetName="Card" Property="BorderThickness" Value="2" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="{DynamicResource TidyPageMargin}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!--  Header  -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Style="{DynamicResource PageTitle}" Text="Services" />
+                <!--  One line on short windows (the page sets MaxHeight; the full text is in the tooltip), so the list keeps its room.  -->
+                <TextBlock
+                    x:Name="SubtitleText"
+                    Style="{DynamicResource PageSubtitle}"
+                    Text="{Binding Subtitle}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="Wrap"
+                    ToolTip="{Binding Subtitle}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="16,6,0,0" VerticalAlignment="Top" Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" Visibility="{Binding HasScanned, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Show drivers" />
+                    <ui:ToggleSwitch Margin="0,0,16,0" VerticalAlignment="Center" AutomationProperties.Name="Show drivers too" IsChecked="{Binding ShowDrivers, Mode=TwoWay}" />
+                </StackPanel>
+                <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Expert mode" />
+                <ui:ToggleSwitch Margin="0,0,14,0" VerticalAlignment="Center" AutomationProperties.Name="Expert mode: also offer services that only help in some setups" IsChecked="{Binding ExpertMode, Mode=TwoWay}" />
+                <!--  Before the first scan the big "Scan now" in the card is the only scan button.  -->
+                <ui:Button
+                    Appearance="Secondary"
+                    AutomationProperties.Name="Scan services again"
+                    Command="{Binding ScanCommand}"
+                    Content="Scan again"
+                    Icon="{ui:SymbolIcon ArrowClockwise24}"
+                    Visibility="{Binding HasScanned, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+        </Grid>
+
+        <!--  The shared Scan, Preview, Confirm, Done steps, like every section that changes something  -->
+        <c:StepBar x:Name="Steps" Grid.Row="1" Margin="0,12,0,4" Captions="{Binding StepCaptions}" Current="{Binding Step}" />
+
+        <!--  Expert banner, repairs, notes  -->
+        <StackPanel Grid.Row="2" Margin="0,8,0,0">
+            <ui:InfoBar
+                Title="Expert mode is on"
+                Margin="0,0,0,8"
+                IsClosable="False"
+                IsOpen="True"
+                Message="Services that only help in some setups (no printer, no Bluetooth…) can now be picked. Each says what might stop working and can be undone. They're never in profiles or Optimize everything, and security, update and anti-cheat services are never offered."
+                Severity="Warning"
+                Visibility="{Binding ShowExpertWarning, Converter={StaticResource BoolToVis}}" />
+            <Border
+                Margin="0,0,0,8"
+                Padding="14,8"
+                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource SystemFillColorCautionBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="{Binding HasRepairs, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <ui:Button
+                        Margin="12,0,0,0"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Tick the repairs"
+                        Command="{Binding TickRepairsCommand}"
+                        Content="Tick repairs"
+                        DockPanel.Dock="Right" />
+                    <ui:SymbolIcon Margin="0,0,10,0" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource SystemFillColorCautionBrush}" Symbol="Warning24" />
+                    <TextBlock VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding RepairText}" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+            <!--  Notes: background facts, not warnings. One line with "More"; all of them when opened.  -->
+            <DockPanel Margin="2,0,0,6" Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}">
+                <ui:Button
+                    Margin="8,-4,0,-4"
+                    Padding="8,2"
+                    VerticalAlignment="Top"
+                    Appearance="Transparent"
+                    AutomationProperties.Name="{Binding NotesToggleName}"
+                    Command="{Binding ToggleNotesCommand}"
+                    Content="{Binding NotesToggleText}"
+                    DockPanel.Dock="Right"
+                    FontSize="12"
+                    Visibility="{Binding HasMoreNotes, Converter={StaticResource BoolToVis}}" />
+                <ui:SymbolIcon Margin="0,1,8,0" VerticalAlignment="Top" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="Info16" />
+                <ItemsControl Focusable="False" ItemsSource="{Binding VisibleNotes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Margin="0,0,0,2" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding}" TextWrapping="Wrap" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+        </StackPanel>
+
+        <!--  Profiles: cards, or one row of compact chips on short windows  -->
+        <ItemsControl Grid.Row="3" Margin="0,0,0,8" Focusable="False" ItemsSource="{Binding Profiles}" Visibility="{Binding ShowProfileCards, Converter={StaticResource BoolToVis}}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Rows="1" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border
+                        Margin="0,0,8,0"
+                        Padding="12,10"
+                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <DockPanel>
+                            <ui:Button
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Appearance="Secondary"
+                                AutomationProperties.Name="{Binding AutomationName}"
+                                Command="{Binding DataContext.ApplyProfileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"
+                                Content="Tick"
+                                DockPanel.Dock="Right"
+                                IsEnabled="{Binding CanApply}"
+                                ToolTip="{Binding Description}" />
+                            <StackPanel>
+                                <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Title}" />
+                                <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Status}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <DockPanel Grid.Row="3" Margin="0,0,0,8" Visibility="{Binding ShowProfileChips, Converter={StaticResource BoolToVis}}">
+            <TextBlock Margin="0,0,10,0" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Profiles" />
+            <ItemsControl Focusable="False" ItemsSource="{Binding Profiles}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ui:Button
+                            Margin="0,0,6,0"
+                            Padding="10,4"
+                            Appearance="Secondary"
+                            AutomationProperties.Name="{Binding AutomationName}"
+                            Command="{Binding DataContext.ApplyProfileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}"
+                            Content="{Binding ChipText}"
+                            IsEnabled="{Binding CanApply}"
+                            ToolTip="{Binding ChipTip}"
+                            ToolTipService.ShowOnDisabled="True" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </DockPanel>
+
+        <!--  Filters and search on one row (the search box shrinks first; 1000 px wide and up fits)  -->
+        <Grid Grid.Row="4" Margin="0,0,0,8" Visibility="{Binding HasScanned, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <c:Segmented Margin="0,0,10,0" Items="{Binding FilterItems}" Label="Show" SelectedIndex="{Binding Filter, Mode=TwoWay}" />
+            <ui:TextBox
+                Grid.Column="1"
+                MinWidth="140"
+                MaxWidth="260"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Search services by name, publisher or what they do"
+                Icon="{ui:SymbolIcon Search24}"
+                PlaceholderText="Search services"
+                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
+
+        <!--  Ready / scanning  -->
+        <Border
+            Grid.Row="5"
+            VerticalAlignment="Top"
+            Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{Binding HasScanned, Converter={StaticResource NotBoolToVis}}">
+            <StackPanel>
+                <c:EmptyState
+                    ActionClick="OnScanClick"
+                    ActionIcon="ScanDash24"
+                    ActionText="Scan now"
+                    Icon="WindowWrench24"
+                    Message="PC Tidy reads every service (nothing changes): what it does, who made it, how it starts and whether it's safe to change."
+                    Title="Scan to see your services"
+                    Visibility="{Binding IsScanning, Converter={StaticResource NotBoolToVis}}" />
+                <DockPanel Margin="28,24" Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}">
+                    <ui:Button
+                        VerticalAlignment="Center"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Stop scanning"
+                        Command="{Binding CancelScanCommand}"
+                        Content="Stop"
+                        DockPanel.Dock="Right" />
+                    <ui:ProgressRing Width="36" Height="36" Margin="0,0,16,0" IsIndeterminate="True" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Reading your services…" />
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding ScanMessage}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DockPanel>
+            </StackPanel>
+        </Border>
+
+        <!--  List and details  -->
+        <Grid Grid.Row="5" Visibility="{Binding HasScanned, Converter={StaticResource BoolToVis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="300" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="300" />
+            </Grid.ColumnDefinitions>
+            <ListBox
+                x:Name="RowsList"
+                AutomationProperties.Name="Services"
+                Background="Transparent"
+                BorderThickness="0"
+                HorizontalContentAlignment="Stretch"
+                ItemsSource="{Binding Rows}"
+                ScrollViewer.CanContentScroll="True"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.ScrollUnit="Pixel"
+                VirtualizingPanel.VirtualizationMode="Recycling">
+                <!--  Own template: rows must wrap to the list's width (never measured as infinitely wide), and only the list scrolls.  -->
+                <ListBox.Template>
+                    <ControlTemplate TargetType="ListBox">
+                        <ScrollViewer
+                            Padding="0,0,10,0"
+                            CanContentScroll="True"
+                            Focusable="False"
+                            HorizontalScrollBarVisibility="Disabled"
+                            VerticalScrollBarVisibility="Auto">
+                            <ItemsPresenter />
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ListBox.Template>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+                        <!--  Pixel scrolling measures rows as infinitely wide; pin them to the visible width so text wraps and trims.  -->
+                        <Setter Property="Width" Value="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
+                        <Setter Property="HorizontalAlignment" Value="Left" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <ContentPresenter />
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+            <c:EmptyState
+                Icon="Search24"
+                Message="{Binding EmptyText}"
+                Title="Nothing here"
+                Visibility="{Binding ShowEmpty, Converter={StaticResource BoolToVis}}" />
+
+            <!--  Details pane  -->
+            <Border
+                Grid.Column="2"
+                Padding="16,14"
+                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <Grid>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontSize="13"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Text="Pick a service to see what it does, what it needs and whether it's safe to change."
+                        TextAlignment="Center"
+                        TextWrapping="Wrap"
+                        Visibility="{Binding HasDetails, Converter={StaticResource NotBoolToVis}}" />
+                    <ScrollViewer
+                        AutomationProperties.Name="Service details"
+                        DataContext="{Binding SelectedRow}"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto"
+                        Visibility="{Binding DataContext.HasDetails, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <DockPanel>
+                                <c:BadgePill Margin="8,2,0,0" VerticalAlignment="Top" DockPanel.Dock="Right" Text="{Binding Verdict.Text}" Tone="{Binding Verdict.Tone}" />
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Title}" TextWrapping="Wrap" />
+                            </DockPanel>
+                            <TextBlock FontFamily="Cascadia Mono, Consolas" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Name}" />
+
+                            <TextBlock Style="{StaticResource Caption}" Text="WHAT IT DOES" />
+                            <TextBlock Style="{StaticResource Value}" Text="{Binding WhatItDoes}" />
+
+                            <TextBlock Style="{StaticResource Caption}" Text="SAFE TO CHANGE?" />
+                            <TextBlock Margin="0,0,0,4" Style="{StaticResource Value}" FontWeight="SemiBold" Text="{Binding NotOfferedReason}" Visibility="{Binding HasNotOfferedReason, Converter={StaticResource BoolToVis}}" />
+                            <ItemsControl Focusable="False" ItemsSource="{Binding Reasons}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,0,0,4">
+                                            <TextBlock Margin="0,0,6,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="•" />
+                                            <TextBlock FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding}" TextWrapping="Wrap" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <StackPanel Visibility="{Binding CanChange, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Style="{StaticResource Caption}" Text="CHANGE TO" />
+                                <ItemsControl Focusable="False" ItemsSource="{Binding Options}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <RadioButton
+                                                Margin="0,0,0,6"
+                                                AutomationProperties.HelpText="{Binding Explanation}"
+                                                AutomationProperties.Name="{Binding Label}"
+                                                GroupName="ServiceOptions"
+                                                IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                                                <StackPanel>
+                                                    <TextBlock FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Label}" />
+                                                    <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Explanation}" TextWrapping="Wrap" />
+                                                </StackPanel>
+                                            </RadioButton>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <CheckBox AutomationProperties.Name="Include this change" Content="Include this change" IsChecked="{Binding IsChecked}" />
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource Caption}" Text="STARTS · NOW" />
+                            <TextBlock Style="{StaticResource Value}" Text="{Binding MetaLine}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="USES" />
+                            <TextBlock Style="{StaticResource Value}" Text="{Binding UsageText}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="NEEDS" />
+                            <TextBlock Style="{StaticResource Value}" Text="{Binding NeedsText}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="NEEDED BY" />
+                            <TextBlock Style="{StaticResource Value}" Text="{Binding NeededByText}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="PUBLISHER" />
+                            <TextBlock Style="{StaticResource Value}" Text="{Binding Publisher}" />
+                            <TextBlock Style="{StaticResource Value}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Signature}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="FILE" />
+                            <TextBlock FontFamily="Cascadia Mono, Consolas" Style="{StaticResource Value}" FontSize="12" Text="{Binding File}" />
+                            <StackPanel Visibility="{Binding HasSource, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Style="{StaticResource Caption}" Text="SOURCE" />
+                                <TextBlock Style="{StaticResource Value}" FontSize="12" Text="{Binding SourceText}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!--  Sticky bottom bar  -->
+        <Border
+            Grid.Row="6"
+            Margin="0,10,0,0"
+            Padding="20,12"
+            Background="{DynamicResource CardBackgroundFillColorSecondaryBrush}"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{Binding HasScanned, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding SelectionText}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SelectionCaption}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <ui:Button
+                        Height="40"
+                        Margin="0,0,8,0"
+                        Appearance="Transparent"
+                        AutomationProperties.Name="Untick everything"
+                        Command="{Binding ClearSelectionCommand}"
+                        Content="Clear" />
+                    <ui:Button
+                        Height="40"
+                        Margin="0,0,8,0"
+                        Appearance="Secondary"
+                        AutomationProperties.Name="Simulate: see what would happen, change nothing"
+                        Command="{Binding SimulateCommand}"
+                        Content="Simulate"
+                        Icon="{ui:SymbolIcon Beaker24}" />
+                    <ui:Button
+                        Height="40"
+                        MinWidth="150"
+                        Appearance="Primary"
+                        AutomationProperties.Name="Preview and apply the ticked changes"
+                        Command="{Binding PreviewCommand}"
+                        Content="Preview changes"
+                        FontWeight="SemiBold"
+                        Icon="{ui:SymbolIcon Checkmark24}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

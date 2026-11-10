@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    PcTidy.Engine = the only place (with PcTidy.Platform) that changes files.
+    Run journal, quarantine, executor, undo, and the file action handlers.
+  -->
+  <PropertyGroup>
+    <RootNamespace>PcTidy.Engine</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- CookiesDeleteExcept edits a copy of the browser's cookie database (SQLite). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Tests force the cross-volume copy path through internal options. -->
+    <InternalsVisibleTo Include="PcTidy.Engine.Tests" />
+  </ItemGroup>
+</Project>

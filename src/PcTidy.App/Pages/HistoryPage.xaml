@@ -1,0 +1,129 @@
+<UserControl
+    x:Class="PcTidy.App.Pages.HistoryPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:p="clr-namespace:PcTidy.App.Pages"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="History"
+    FontFamily="{StaticResource TidyText}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolVis" />
+        <DataTemplate DataType="{x:Type p:RunGroupRow}">
+            <Border x:Name="Row" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                <Grid Margin="16,10,16,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" MinWidth="0" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="34" Height="34" VerticalAlignment="Center" Style="{StaticResource IconTile}">
+                        <ui:SymbolIcon FontSize="17" Foreground="{DynamicResource TidyAccentBrush}" Symbol="{Binding Icon}" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding When}" />
+                    </StackPanel>
+                    <!--  BadgePill manages its own Visibility, so an unfinished row hides it through this wrapper  -->
+                    <Border Grid.Column="2" Visibility="{Binding ShowsUndo, Converter={StaticResource BoolVis}}">
+                        <c:BadgePill MinWidth="104" Margin="0,0,12,0" Text="{Binding Status}" />
+                    </Border>
+                    <ui:Button
+                        Grid.Column="3"
+                        MinWidth="96"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.Name="{Binding UndoAutomationName}"
+                        Click="OnUndoRow"
+                        Content="Undo"
+                        Icon="{ui:SymbolIcon ArrowUndo24}"
+                        IsEnabled="{Binding CanUndo}"
+                        Visibility="{Binding ShowsUndo, Converter={StaticResource BoolVis}}" />
+                    <!--  A run that didn't finish: finish it, or roll back what was done  -->
+                    <StackPanel Grid.Column="3" HorizontalAlignment="Right" Orientation="Horizontal" Visibility="{Binding IsUnfinished, Converter={StaticResource BoolVis}}">
+                        <ui:Button
+                            Margin="0,0,6,0"
+                            Appearance="Primary"
+                            AutomationProperties.Name="{Binding ResumeAutomationName}"
+                            Click="OnResumeRow"
+                            Content="Resume"
+                            Icon="{ui:SymbolIcon Play24}" />
+                        <ui:Button
+                            AutomationProperties.Name="{Binding RollbackAutomationName}"
+                            Click="OnRollbackRow"
+                            Content="Roll back"
+                            Icon="{ui:SymbolIcon ArrowUndo24}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="32,16,32,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Style="{StaticResource PageTitle}" Text="History" />
+                <TextBlock Style="{StaticResource PageSubtitle}" Text="Every change PC Tidy made, newest first. Undo any run while it's still restorable." />
+            </StackPanel>
+            <ui:TextBox
+                x:Name="SearchBox"
+                Grid.Column="1"
+                Width="240"
+                Margin="16,6,0,0"
+                VerticalAlignment="Top"
+                AutomationProperties.Name="Search history"
+                Icon="{ui:SymbolIcon Search24}"
+                PlaceholderText="Search history"
+                TextChanged="OnSearch" />
+        </Grid>
+
+        <StackPanel x:Name="UnfinishedPanel" Grid.Row="1" Margin="0,14,0,0" />
+
+        <c:Segmented x:Name="Filter" Grid.Row="2" Margin="0,14,0,12" Label="Show runs from" />
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="DetailGap" Width="16" />
+                <ColumnDefinition x:Name="DetailColumn" Width="300" />
+            </Grid.ColumnDefinitions>
+
+            <Border x:Name="ListCard" Padding="0,4" Style="{StaticResource TidyCard}">
+                <Grid>
+                    <ListBox x:Name="RunList" AutomationProperties.Name="Runs" SelectionChanged="OnSelect" Style="{StaticResource TidyFlatList}" />
+                    <c:EmptyState x:Name="Empty" Icon="History24" Title="No runs yet" Message="Every clean, sort and change shows up here with its own Undo." Visibility="Collapsed" />
+                </Grid>
+            </Border>
+
+            <Border x:Name="DetailCard" Grid.Column="2" Padding="18,16" VerticalAlignment="Top" Style="{StaticResource TidyCard}">
+                <StackPanel>
+                    <TextBlock x:Name="DetailWhen" Style="{StaticResource CaptionStrong}" />
+                    <TextBlock x:Name="DetailHeadline" Margin="0,4,0,0" Style="{StaticResource SectionTitle}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="DetailSub" Style="{StaticResource Secondary}" />
+                    <Border Margin="0,12,0,12" Style="{StaticResource RowDivider}" />
+                    <Grid x:Name="DetailFacts" />
+                    <Border Margin="0,12,0,12" Style="{StaticResource RowDivider}" />
+                    <DockPanel>
+                        <ui:SymbolIcon Margin="0,0,8,0" VerticalAlignment="Top" FontSize="15" Foreground="{DynamicResource TidyAccentBrush}" Symbol="ShieldCheckmark24" />
+                        <TextBlock x:Name="DetailRestore" Style="{StaticResource Caption}" />
+                    </DockPanel>
+                    <ui:Button x:Name="DetailUndo" Margin="0,14,0,0" HorizontalAlignment="Stretch" Appearance="Primary" AutomationProperties.Name="Undo this run" Click="OnUndoSelected" Content="Undo this run" Icon="{ui:SymbolIcon ArrowUndo24}" />
+                    <ui:Button Margin="0,6,0,0" HorizontalAlignment="Stretch" Appearance="Secondary" AutomationProperties.Name="Show every step" Click="OnSteps" Content="Show every step" Icon="{ui:SymbolIcon TextBulletListSquare24}" />
+                    <Button Margin="0,10,0,0" HorizontalAlignment="Center" AutomationProperties.Name="Show the technical log for this run in Explorer" Click="OnOpenLog" Content="Show technical log" Style="{StaticResource LinkButton}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

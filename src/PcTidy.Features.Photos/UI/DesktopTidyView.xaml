@@ -1,0 +1,41 @@
+<UserControl
+    x:Class="PcTidy.Features.Photos.UI.DesktopTidyView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:local="clr-namespace:PcTidy.Features.Photos.UI"
+    xmlns:org="clr-namespace:PcTidy.Features.Organize.UI;assembly=PcTidy.Features.Organize"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Desktop tidy">
+
+    <UserControl.Resources>
+        <org:VisibleWhenConverter x:Key="DeskVisible" />
+    </UserControl.Resources>
+
+    <local:SortPageFrame
+        DeepHint="Deep also opens .exe files to tell old installers (which may move) from programs (which stay). Slower."
+        Icon="Desktop24">
+        <local:SortPageFrame.Options>
+            <WrapPanel>
+                <c:Segmented
+                    Margin="0,0,16,6"
+                    Items="Move old clutter|Group by type"
+                    Label="What to do"
+                    SelectedIndex="{Binding ModeIndex}" />
+                <StackPanel Margin="0,0,16,6" Orientation="Horizontal" Visibility="{Binding IsOldClutter, Converter={StaticResource DeskVisible}}">
+                    <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Untouched for" />
+                    <ui:NumberBox
+                        Width="120"
+                        AutomationProperties.Name="Days untouched"
+                        Loaded="OnDaysLoaded"
+                        Maximum="3650"
+                        Minimum="1"
+                        SpinButtonPlacementMode="Compact"
+                        Value="{Binding OldAfterDays}" />
+                    <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="days → Old desktop\year-month" />
+                </StackPanel>
+                <CheckBox Margin="0,0,0,6" AutomationProperties.Name="Include shortcuts" Content="Include shortcuts" IsChecked="{Binding IncludeShortcuts}" ToolTip="Off: shortcuts (.lnk, .url) always stay on your Desktop." />
+            </WrapPanel>
+        </local:SortPageFrame.Options>
+    </local:SortPageFrame>
+</UserControl>

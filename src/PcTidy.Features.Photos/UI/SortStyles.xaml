@@ -1,0 +1,80 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:local="clr-namespace:PcTidy.Features.Photos.UI"
+    xmlns:org="clr-namespace:PcTidy.Features.Organize.UI;assembly=PcTidy.Features.Organize"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+
+    <!--  Organize's page look (cards, sticky bar, titles, virtualized list, before/after tree row), reused as is.  -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/PcTidy.Features.Organize;component/UI/OrganizeStyles.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <local:ThumbnailConverter x:Key="SortThumbnail" />
+    <local:IndexVisibleConverter x:Key="SortIndexVisible" />
+    <org:NotNull x:Key="SortNotNull" />
+
+    <!--  Group header: tri-state "all" box, title, count, badge, description.  -->
+    <DataTemplate DataType="{x:Type local:ChangeGroup}">
+        <Border Margin="0,10,0,2" Padding="8,8,8,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <CheckBox MinWidth="0" Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="{Binding CheckName}" IsChecked="{Binding AllChecked}" IsEnabled="{Binding HasSelectable}" IsThreeState="False" />
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Margin="8,0" VerticalAlignment="Center" Style="{StaticResource OrgSecondary}" Text="{Binding CountText}" />
+                <c:BadgePill Grid.Column="3" Badge="{Binding Badge}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,2,0,0" Style="{StaticResource OrgCaption}" Text="{Binding Description}" />
+            </Grid>
+        </Border>
+    </DataTemplate>
+
+    <!--  One change: tick, thumbnail (photos) or icon, name, from → to, why, badge, size.  -->
+    <DataTemplate DataType="{x:Type local:ChangeRow}">
+        <Border Padding="8,6" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" ToolTip="{Binding Reason}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="64" />
+                </Grid.ColumnDefinitions>
+                <CheckBox MinWidth="0" Margin="0,0,8,0" VerticalAlignment="Center" AutomationProperties.Name="{Binding CheckName}" IsChecked="{Binding IsChecked}" IsEnabled="{Binding IsSelectable}" />
+                <Border Grid.Column="1" Width="44" Height="44" Margin="0,0,10,0" Background="{DynamicResource ControlFillColorSecondaryBrush}" ClipToBounds="True" CornerRadius="4">
+                    <Grid>
+                        <ui:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="20" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="{Binding Icon, Converter={StaticResource OrgSymbol}}" />
+                        <Image Source="{Binding PreviewPath, Converter={StaticResource SortThumbnail}}" Stretch="UniformToFill" AutomationProperties.Name="{Binding Title, StringFormat='Preview of {0}'}" />
+                    </Grid>
+                </Border>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Style="{StaticResource OrgSecondary}" Text="{Binding Detail}" />
+                    <TextBlock MaxHeight="34" Style="{StaticResource OrgCaption}" Text="{Binding Reason}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <c:BadgePill Grid.Column="3" Margin="8,0" Badge="{Binding Badge}" />
+                <TextBlock Grid.Column="4" VerticalAlignment="Center" Style="{StaticResource OrgSecondary}" Text="{Binding SizeText}" TextAlignment="Right" />
+            </Grid>
+        </Border>
+    </DataTemplate>
+
+    <!--  Something that stays put, and why.  -->
+    <DataTemplate x:Key="SortSkipRow">
+        <DockPanel Margin="4,5">
+            <ui:SymbolIcon Margin="0,0,10,0" VerticalAlignment="Top" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="{Binding Icon, Converter={StaticResource OrgSymbol}}" />
+            <StackPanel>
+                <TextBlock FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Style="{StaticResource OrgCaption}" Text="{Binding Reason}" />
+            </StackPanel>
+        </DockPanel>
+    </DataTemplate>
+</ResourceDictionary>

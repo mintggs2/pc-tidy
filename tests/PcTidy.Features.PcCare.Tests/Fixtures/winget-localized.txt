@@ -1,0 +1,5 @@
+Name                         ID                         Version     Verfügbar    Quelle
+-------------------------------------------------------------------------------------------
+Mozilla Firefox (x64 de)     Mozilla.Firefox            131.0       132.0.1      winget
+Notepad++ (64-bit x64)       Notepad++.Notepad++        8.6.9       8.7          winget
+2 Aktualisierungen verfügbar.

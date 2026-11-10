@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Invented sample in the shape of `pnputil /enum-drivers /devices /format xml` output.
+     Every slot number, INF name, provider, hardware id, version and date is made up for the parser tests;
+     none comes from a real PC. 20 packages; 13 of them list at least one device with an instance id. -->
+<PnpUtil Version="10.0.26100" Command="/enum-drivers /devices /format xml">
+    <!-- The Display package the tests look up: in use by one started device. -->
+    <Driver DriverName="oem4.inf">
+        <OriginalName>fabrikam-gfx.inf</OriginalName>
+        <ProviderName>Fabrikam, Inc.</ProviderName>
+        <ClassName>Display</ClassName>
+        <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>08/14/2026 41.3.120.15</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_1A2B&amp;DEV_0001&amp;SUBSYS_00011A2B&amp;REV_01\4&amp;C0FFEE&amp;0&amp;0010">
+                <DeviceDescription>Fabrikam Graphics Adapter</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: same INF as oem4, provider differs only by case ("FABRIKAM, INC." vs "Fabrikam, Inc."). -->
+    <Driver DriverName="oem9.inf">
+        <OriginalName>fabrikam-gfx.inf</OriginalName>
+        <ProviderName>FABRIKAM, INC.</ProviderName>
+        <ClassName>Display</ClassName>
+        <ClassGuid>{4d36e968-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>02/03/2026 41.2.100.3</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Edge case: two INFs for one device (this extension INF lists the same GPU instance as oem4).
+         Edge case: elements the parser doesn't read (ClassVersion, ExtensionId) must be ignored. -->
+    <Driver DriverName="oem17.inf">
+        <OriginalName>fabrikam-gfxext.inf</OriginalName>
+        <ProviderName>Fabrikam, Inc.</ProviderName>
+        <ClassName>Extensions</ClassName>
+        <ClassGuid>{e2f84ce7-8efa-411c-aa69-97454ca4cb57}</ClassGuid>
+        <ClassVersion>1.0</ClassVersion>
+        <ExtensionId>{6c1f0a2e-0000-4000-8000-0000000000a1}</ExtensionId>
+        <DriverVersion>08/14/2026 41.3.120.15</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_1A2B&amp;DEV_0001&amp;SUBSYS_00011A2B&amp;REV_01\4&amp;C0FFEE&amp;0&amp;0010">
+                <DeviceDescription>Fabrikam Graphics Adapter</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: oem2 and oem31 have the same version (2.1.0.5) with different dates (11 Mar vs 3 Nov 2025). -->
+    <Driver DriverName="oem2.inf">
+        <OriginalName>contoso-audio.inf</OriginalName>
+        <ProviderName>Contoso Ltd.</ProviderName>
+        <ClassName>MEDIA</ClassName>
+        <ClassGuid>{4d36e96c-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>03/11/2025 2.1.0.5</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="HDAUDIO\FUNC_01&amp;VEN_0F0F&amp;DEV_0001&amp;SUBSYS_0F0F0001&amp;REV_1000\5&amp;AB12&amp;0&amp;0001">
+                <DeviceDescription>Contoso High Definition Audio</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: provider with a trailing space ("Contoso Ltd. "); the parser trims it. -->
+    <Driver DriverName="oem31.inf">
+        <OriginalName>contoso-audio.inf</OriginalName>
+        <ProviderName>Contoso Ltd. </ProviderName>
+        <ClassName>MEDIA</ClassName>
+        <ClassGuid>{4d36e96c-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>11/03/2025 2.1.0.5</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Edge case: single-digit month and day in the date (M/d/yyyy). -->
+    <Driver DriverName="oem12.inf">
+        <OriginalName>contoso-audiofx.inf</OriginalName>
+        <ProviderName>Contoso Ltd.</ProviderName>
+        <ClassName>SoftwareComponent</ClassName>
+        <ClassGuid>{5c4c3332-344d-483c-8739-259e934c9cc8}</ClassGuid>
+        <DriverVersion>5/7/2025 1.0.3.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="SWD\DRIVERENUM\{3b8d0000-0000-4000-8000-000000000012}#ContosoFx&amp;1&amp;0">
+                <DeviceDescription>Contoso Audio Effects Component</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: regional date text the parser still reads (year first, yyyy/MM/dd). -->
+    <Driver DriverName="oem25.inf">
+        <OriginalName>tailspin-net.inf</OriginalName>
+        <ProviderName>Tailspin Toys</ProviderName>
+        <ClassName>Net</ClassName>
+        <ClassGuid>{4d36e972-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>2024/03/05 7.12.0.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_1234&amp;DEV_0042&amp;SUBSYS_00421234&amp;REV_02\4&amp;D00D&amp;0&amp;00E1">
+                <DeviceDescription>Tailspin 2.5GbE Network Adapter</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <Driver DriverName="oem6.inf">
+        <OriginalName>tailspin-wifi.inf</OriginalName>
+        <ProviderName>Tailspin Toys</ProviderName>
+        <ClassName>Net</ClassName>
+        <ClassGuid>{4d36e972-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>09/30/2025 23.40.1.2</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_1234&amp;DEV_0043&amp;SUBSYS_00431234&amp;REV_1A\4&amp;D00D&amp;0&amp;00E2">
+                <DeviceDescription>Tailspin Wi-Fi 6 Adapter</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <Driver DriverName="oem20.inf">
+        <OriginalName>tailspin-bt.inf</OriginalName>
+        <ProviderName>Tailspin Toys</ProviderName>
+        <ClassName>Bluetooth</ClassName>
+        <ClassGuid>{e0cbf06c-cd8b-4647-bb8a-263b43f0f974}</ClassGuid>
+        <DriverVersion>09/30/2025 23.40.1.2</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="USB\VID_1234&amp;PID_0044\5&amp;BEEF&amp;0&amp;10">
+                <DeviceDescription>Tailspin Bluetooth Radio</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: two-part version ("1.0").
+         Edge case: one package, two devices: one started, one disconnected (that one is also in disconnected.xml). -->
+    <Driver DriverName="oem38.inf">
+        <OriginalName>woodgrove-hub.inf</OriginalName>
+        <ProviderName>Woodgrove Devices</ProviderName>
+        <ClassName>USB</ClassName>
+        <ClassGuid>{36fc9e60-c465-11cf-8056-444553540000}</ClassGuid>
+        <DriverVersion>01/09/2023 1.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="USB\VID_0F0F&amp;PID_0001\5&amp;1A&amp;0&amp;2">
+                <DeviceDescription>Woodgrove USB Hub</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+            <Device InstanceId="USB\VID_0F0F&amp;PID_0001\5&amp;1A&amp;0&amp;4">
+                <DeviceDescription>Woodgrove USB Hub</DeviceDescription>
+                <Status>Disconnected</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: a device entry with an empty InstanceId is dropped, so this package lists no devices. -->
+    <Driver DriverName="oem15.inf">
+        <OriginalName>woodgrove-scan.inf</OriginalName>
+        <ProviderName>Woodgrove Devices</ProviderName>
+        <ClassName>Image</ClassName>
+        <ClassGuid>{6bdd1fc6-810f-11d0-bec7-08002be2092f}</ClassGuid>
+        <DriverVersion>10/12/2023 2.7.4.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="">
+                <DeviceDescription>Woodgrove Flatbed Scanner</DeviceDescription>
+                <Status>Problem</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: non-ASCII text in a description (trade mark sign). -->
+    <Driver DriverName="oem41.inf">
+        <OriginalName>northwind-cam.inf</OriginalName>
+        <ProviderName>Northwind Traders</ProviderName>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <DriverVersion>12/12/2024 10.0.1.7</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="USB\VID_2B2B&amp;PID_0C01&amp;MI_00\6&amp;2F&amp;0&amp;0000">
+                <DeviceDescription>Northwind HD Webcam™</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <Driver DriverName="oem8.inf">
+        <OriginalName>northwind-cam.inf</OriginalName>
+        <ProviderName>Northwind Traders</ProviderName>
+        <ClassName>Camera</ClassName>
+        <ClassGuid>{ca3e7ab9-b4c3-4ae6-8251-579ef933890f}</ClassGuid>
+        <DriverVersion>04/20/2023 9.8.0.1</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <!-- Edge case: spaces around the DriverName attribute (trimmed to "oem27.inf").
+         Edge case: an empty Devices element. -->
+    <Driver DriverName=" oem27.inf ">
+        <OriginalName>adatum-serial.inf</OriginalName>
+        <ProviderName>A. Datum Corporation</ProviderName>
+        <ClassName>Ports</ClassName>
+        <ClassGuid>{4d36e978-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>10/10/2022 5.4.3.2</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices />
+    </Driver>
+    <!-- Edge case: empty SignerName (an unsigned package). -->
+    <Driver DriverName="oem33.inf">
+        <OriginalName>adatum-printer.inf</OriginalName>
+        <ProviderName>A. Datum Corporation</ProviderName>
+        <ClassName>Printer</ClassName>
+        <ClassGuid>{4d36e979-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>07/07/2021 6.1.0.0</DriverVersion>
+        <SignerName></SignerName>
+    </Driver>
+    <!-- One package bound to two started devices. -->
+    <Driver DriverName="oem3.inf">
+        <OriginalName>litware-chipset.inf</OriginalName>
+        <ProviderName>Litware, Inc.</ProviderName>
+        <ClassName>System</ClassName>
+        <ClassGuid>{4d36e97d-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>02/14/2025 4.0.0.12</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_1234&amp;DEV_0100&amp;SUBSYS_01001234&amp;REV_00\3&amp;11&amp;0&amp;A0">
+                <DeviceDescription>Litware SMBus Controller</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+            <Device InstanceId="ACPI\LTW0001\0">
+                <DeviceDescription>Litware Power Management Controller</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: an escaped quote in a description (27" monitor). -->
+    <Driver DriverName="oem44.inf">
+        <OriginalName>proseware-monitor.inf</OriginalName>
+        <ProviderName>Proseware, Inc.</ProviderName>
+        <ClassName>Monitor</ClassName>
+        <ClassGuid>{4d36e96e-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>1/2/2024 1.0.0.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="DISPLAY\PRW0A1B\5&amp;2C&amp;0&amp;UID4352">
+                <DeviceDescription>Proseware 27&quot; Monitor</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: an escaped ampersand in a description. -->
+    <Driver DriverName="oem11.inf">
+        <OriginalName>lucerne-raid.inf</OriginalName>
+        <ProviderName>Lucerne Publishing</ProviderName>
+        <ClassName>SCSIAdapter</ClassName>
+        <ClassGuid>{4d36e97b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>05/05/2025 8.8.0.1</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="PCI\VEN_1234&amp;DEV_0200&amp;SUBSYS_02001234&amp;REV_00\3&amp;22&amp;0&amp;10">
+                <DeviceDescription>Lucerne RAID &amp; AHCI Controller</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+    <!-- Edge case: an apostrophe in the provider name. -->
+    <Driver DriverName="oem36.inf">
+        <OriginalName>margie-sensor.inf</OriginalName>
+        <ProviderName>Margie's Travel</ProviderName>
+        <ClassName>Sensor</ClassName>
+        <ClassGuid>{5175d334-c371-4806-b3ba-71fd53c9258d}</ClassGuid>
+        <DriverVersion>03/03/2024 2.0.0.0</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+    </Driver>
+    <Driver DriverName="oem19.inf">
+        <OriginalName>wingtip-kbd.inf</OriginalName>
+        <ProviderName>Wingtip Toys</ProviderName>
+        <ClassName>Keyboard</ClassName>
+        <ClassGuid>{4d36e96b-e325-11ce-bfc1-08002be10318}</ClassGuid>
+        <DriverVersion>11/11/2024 1.5.0.3</DriverVersion>
+        <SignerName>Microsoft Windows Hardware Compatibility Publisher</SignerName>
+        <Devices>
+            <Device InstanceId="HID\VID_3C3C&amp;PID_0001&amp;MI_00\7&amp;3D&amp;0&amp;0000">
+                <DeviceDescription>Wingtip Gaming Keyboard</DeviceDescription>
+                <Status>Started</Status>
+            </Device>
+        </Devices>
+    </Driver>
+</PnpUtil>

@@ -1,0 +1,30 @@
+{
+  "homepage": "http://start.searchfun.example/home",
+  "homepage_is_newtabpage": false,
+  "session": {
+    "restore_on_startup": 4,
+    "startup_urls": [ "https://www.google.com/", "http://deals.example-ads.net/start" ]
+  },
+  "default_search_provider_data": {
+    "template_url_data": {
+      "short_name": "Search Fun",
+      "keyword": "searchfun",
+      "url": "https://search.searchfun.example/results?q={searchTerms}"
+    }
+  },
+  "extensions": {
+    "settings": {
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+        "location": 1,
+        "from_webstore": true,
+        "state": 1,
+        "manifest": { "name": "Good Ad Blocker", "version": "1.0" },
+        "active_permissions": { "api": [ "storage", "declarativeNetRequest" ], "explicit_host": [ "<all_urls>" ] }
+      },
+      "mhjfbmdgcfjbbpaeojofohoefgiehjai": {
+        "location": 5,
+        "manifest": { "name": "Chrome PDF Viewer" }
+      }
+    }
+  }
+}
