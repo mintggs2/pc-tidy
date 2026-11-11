@@ -156,7 +156,7 @@ Using the portable zip? Close PC Tidy and delete its folder. Your data is in `%L
 
 ## Privacy
 
-**Nothing leaves your PC.** No telemetry, no account, no ads, no tracking. PC Tidy works fully offline. Details: [PRIVACY.md](PRIVACY.md).
+**Nothing about you or your PC leaves it.** No telemetry, no account, no ads, no tracking. PC Tidy works offline; the one thing it does online by itself is a daily update check with GitHub that sends only `PC-Tidy/<version>` (switch it off in Settings › Updates). Details: [PRIVACY.md](PRIVACY.md).
 
 ## System requirements
 

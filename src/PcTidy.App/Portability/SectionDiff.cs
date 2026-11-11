@@ -23,8 +23,8 @@ internal sealed record SectionRow(string Name, string Before, string After, bool
 /// (rules, games, apps) item by item, lists of plain values (folders) value by value. A new list item is added with its
 /// "do this on its own" switches OFF; each such switch that the file has on becomes its own, flagged row.
 /// <para>Rows that would let PC Tidy act without asking (watch mode, automatic rules, automatic quarantine, Boost closing
-/// apps, anything named "Auto…") are <see cref="SectionRow.Automatic"/>; an address PC Tidy would contact (the update
-/// feed) <see cref="SectionRow.Loosens"/>. Both start unticked.</para>
+/// apps, anything named "Auto…") are <see cref="SectionRow.Automatic"/>; an address PC Tidy would contact (any "…Url"
+/// setting; the updater's own address is fixed in code and can't be imported) <see cref="SectionRow.Loosens"/>. Both start unticked.</para>
 /// </summary>
 internal static class SectionDiff
 {
@@ -179,7 +179,7 @@ internal static class SectionDiff
         }
         bool contacts = last.EndsWith("Url", StringComparison.OrdinalIgnoreCase) && theirs.ValueKind == JsonValueKind.String && theirs.GetString() is { Length: > 0 };
         var note = contacts
-            ? "PC Tidy would contact this address. Whoever runs it decides which updates PC Tidy offers to install, so only tick it if you trust it."
+            ? "PC Tidy would contact this address, so only tick it if you trust whoever runs it."
             : automatic ? "It lets PC Tidy act on its own, without asking each time."
             : switchedOff ? "Anything in it that runs on its own was switched off. Switch it on in that section yourself if you want it." : null;
         return new SectionRow(Label(path), mine is { } m ? Show(m) : "Default", Show(theirs), automatic, contacts, note, PathsIn(theirs).ToList(),

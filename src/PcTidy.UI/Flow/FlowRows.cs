@@ -41,7 +41,15 @@ public sealed class SectionRow : ListRow
     public SymbolRegular Icon { get; }
     private string _summary = "";
     public string Summary { get => _summary; set { if (SetProperty(ref _summary, value)) OnPropertyChanged(nameof(AutomationName)); } }
-    public override string AutomationName => $"Section {Title}. {Summary}";
+    private string? _note;
+    /// <summary>A second line under the title, e.g. "Found at 12:41, before PC Tidy closed" for a resumed section.</summary>
+    public string? Note
+    {
+        get => _note;
+        set { if (SetProperty(ref _note, value)) { OnPropertyChanged(nameof(HasNote)); OnPropertyChanged(nameof(AutomationName)); } }
+    }
+    public bool HasNote => !string.IsNullOrEmpty(_note);
+    public override string AutomationName => $"Section {Title}. {(HasNote ? Note + ". " : "")}{Summary}";
 }
 
 /// <summary>A scan group header (card top) with a tri-state checkbox and expand/collapse.</summary>

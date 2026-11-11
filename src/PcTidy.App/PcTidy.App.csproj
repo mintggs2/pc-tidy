@@ -18,6 +18,10 @@
     <None Include="Assets\make-icon.ps1" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The updater's release proof (Updates.VerifiedRelease) is made only by the update checker; tests build their own. -->
+    <InternalsVisibleTo Include="PcTidy.UI.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="WPF-UI" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <!-- Optional tray icon (off by default) and Windows notifications (unpackaged; needs the Windows 10 SDK target). -->

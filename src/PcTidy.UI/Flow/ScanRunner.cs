@@ -1,5 +1,6 @@
 using PcTidy.Core;
 using PcTidy.Core.Model;
+using PcTidy.UI.Flow.Resume;
 
 namespace PcTidy.UI.Flow;
 
@@ -11,7 +12,11 @@ namespace PcTidy.UI.Flow;
 public interface IFixedHeightPage { }
 
 /// <summary>Per-scanner outcome: a result, or a friendly reason it couldn't finish.</summary>
-public sealed record ScannerOutcome(IFeatureScanner Scanner, ScanResult? Result, string? Problem, bool Cancelled);
+public sealed record ScannerOutcome(IFeatureScanner Scanner, ScanResult? Result, string? Problem, bool Cancelled)
+{
+    /// <summary>Set when the result was reused from a scan saved part way: when that section finished.</summary>
+    public DateTime? FoundAtUtc { get; init; }
+}
 
 /// <summary>Builds scan contexts from the service provider and runs read-only scanners off the UI thread.</summary>
 public static class ScanRunner
@@ -45,25 +50,43 @@ public static class ScanRunner
     /// Runs scanners one after another on a background thread. A scanner that throws is reported with a
     /// plain reason and the rest still run. Progress callbacks arrive on the caller's synchronization context.
     /// </summary>
-    public static async Task<IReadOnlyList<ScannerOutcome>> RunAsync(
+    public static Task<IReadOnlyList<ScannerOutcome>> RunAsync(
         IReadOnlyList<IFeatureScanner> scanners, ScanContext ctx,
         Action<int, IFeatureScanner, ScanProgress> onProgress, CancellationToken ct)
+        => RunAsync(scanners, ctx, onProgress, ct, checkpoint: null);
+
+    /// <summary>
+    /// As above, saving a checkpoint after each finished section (<paramref name="checkpoint"/>, null = none). Sections the
+    /// checkpoint reuses aren't scanned again: their saved result is returned with <see cref="ScannerOutcome.FoundAtUtc"/>.
+    /// The checkpoint is deleted when every section has run, and kept (marked stopped) when the user stops.
+    /// </summary>
+    public static async Task<IReadOnlyList<ScannerOutcome>> RunAsync(
+        IReadOnlyList<IFeatureScanner> scanners, ScanContext ctx,
+        Action<int, IFeatureScanner, ScanProgress> onProgress, CancellationToken ct, ScanCheckpointSession? checkpoint)
     {
         var outcomes = new List<ScannerOutcome>();
         for (int i = 0; i < scanners.Count; i++)
         {
             var scanner = scanners[i];
             int index = i;
+            if (checkpoint?.Reused.TryGetValue(index, out var saved) == true && saved.Result is { } reused)
+            {
+                outcomes.Add(new ScannerOutcome(scanner, reused, null, false) { FoundAtUtc = saved.FinishedUtc });
+                onProgress(index, scanner, new ScanProgress("Done", 1));
+                continue;
+            }
             var progress = new Progress<ScanProgress>(p => onProgress(index, scanner, p));
             onProgress(index, scanner, new ScanProgress("Starting…", 0));
             try
             {
                 var result = await Task.Run(() => scanner.ScanAsync(ctx, progress, ct), ct).ConfigureAwait(true);
                 outcomes.Add(new ScannerOutcome(scanner, result, null, false));
+                if (checkpoint is not null && !ct.IsCancellationRequested) await checkpoint.SectionFinishedAsync(index, scanner, result).ConfigureAwait(true);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 outcomes.Add(new ScannerOutcome(scanner, null, "Stopped", true));
+                checkpoint?.Stopped();
                 break;
             }
             catch (Exception ex)
@@ -72,6 +95,7 @@ public static class ScanRunner
             }
             onProgress(index, scanner, new ScanProgress("Done", 1));
         }
+        if (checkpoint is not null && !outcomes.Any(o => o.Cancelled)) checkpoint.Completed();
         return outcomes;
     }
 }

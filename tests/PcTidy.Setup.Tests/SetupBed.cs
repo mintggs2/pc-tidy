@@ -140,7 +140,7 @@ public sealed class SetupBed : IDisposable
         catch { /* another test is using it */ }
     }
 
-    private static string FindCodeRoot()
+    internal static string FindCodeRoot()
     {
         var d = new DirectoryInfo(AppContext.BaseDirectory);
         while (d != null && !File.Exists(Path.Combine(d.FullName, "PcTidy.sln"))) d = d.Parent;

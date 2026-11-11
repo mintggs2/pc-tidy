@@ -15,7 +15,10 @@
                     <ui:SymbolIcon FontSize="16" Foreground="{DynamicResource TidyAccentBrush}" Symbol="{Binding Icon}" />
                 </Border>
                 <TextBlock VerticalAlignment="Center" DockPanel.Dock="Right" Style="{StaticResource Caption}" Text="{Binding Summary}" />
-                <TextBlock VerticalAlignment="Center" FontSize="16" Style="{StaticResource SectionTitle}" Text="{Binding Title}" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock FontSize="16" Style="{StaticResource SectionTitle}" Text="{Binding Title}" />
+                    <TextBlock Style="{StaticResource Caption}" Text="{Binding Note}" Visibility="{Binding HasNote, Converter={StaticResource BoolVis}}" />
+                </StackPanel>
             </DockPanel>
         </DataTemplate>
 

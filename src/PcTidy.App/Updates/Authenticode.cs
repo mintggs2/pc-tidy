@@ -6,11 +6,20 @@ namespace PcTidy.App.Updates;
 
 public enum SignatureState { NotSigned, Valid, Invalid }
 
-/// <summary>An Authenticode result: the state and, when valid, who signed it (the signing certificate's subject).</summary>
+/// <summary>
+/// An Authenticode result: the state and, when valid, who signed it: the signing certificate's subject, its
+/// thumbprint, its issuer and the SHA-256 of its public key (SubjectPublicKeyInfo), so a publisher is never matched
+/// by the subject text alone (3.1.1 review L10).
+/// </summary>
 public sealed record SignatureInfo(SignatureState State, string? Signer = null, string? Thumbprint = null)
 {
     public static readonly SignatureInfo NotSigned = new(SignatureState.NotSigned);
     public static readonly SignatureInfo Invalid = new(SignatureState.Invalid);
+
+    /// <summary>The signing certificate's issuer (the CA that issued it).</summary>
+    public string? Issuer { get; init; }
+    /// <summary>SHA-256 (hex) of the signing certificate's SubjectPublicKeyInfo.</summary>
+    public string? PublicKeySha256 { get; init; }
 
     /// <summary>"CN=…, O=…" → the CN (or the whole subject when there is no CN), for dialogs.</summary>
     public string SignerName => Signer is null ? "" :
@@ -84,7 +93,8 @@ public static class Authenticode
 #pragma warning disable SYSLIB0057 // the signer of an Authenticode signature; no replacement API in .NET 8
             using var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(path));
 #pragma warning restore SYSLIB0057
-            return new SignatureInfo(SignatureState.Valid, cert.Subject, cert.Thumbprint);
+            var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(cert.PublicKey.ExportSubjectPublicKeyInfo()));
+            return new SignatureInfo(SignatureState.Valid, cert.Subject, cert.Thumbprint) { Issuer = cert.Issuer, PublicKeySha256 = key };
         }
         catch (System.Security.Cryptography.CryptographicException) { return SignatureInfo.Invalid; }
     }
@@ -129,23 +139,64 @@ public static class Authenticode
 }
 
 /// <summary>
-/// Who may install an update (UPD-1). The feed's checksum only proves the download wasn't damaged on the way: whoever
-/// controls the feed chooses the checksum too. So an installer may only be started when it is validly signed by the
-/// SAME publisher (certificate subject) as the PC Tidy that is running. An unsigned PC Tidy (this beta) can't tell who
-/// made an update, so it never installs one by itself: it only offers to open the release page.
+/// Who may install an update (UPD-1, decided 2026-11-11 by the lead and the Hub; recorded here on purpose).
+/// <list type="bullet">
+/// <item><b>The running PC Tidy is signed:</b> the update must be validly signed by the SAME publisher (certificate
+/// subject plus the same certificate, public key or issuer: <see cref="SamePublisher"/>). A checksum alone proves
+/// nothing here, because whoever controls a release chooses its checksum too.</item>
+/// <item><b>The running PC Tidy is unsigned</b> (the beta: no code signing, by the owner's choice on 2026-11-11): it
+/// can't check who made an update, so it accepts one only with a <see cref="VerifiedRelease"/>: the file came over
+/// HTTPS from the mintggs2/pc-tidy Releases API, the release is not a draft or a pre-release, its version is higher,
+/// the file name is exactly the expected one, and its SHA-256 matches that release's SHA256SUMS.txt. A signed update
+/// offered to an unsigned copy is fine too (with the same proof).</item>
+/// <item><b>An invalid signature is always refused</b>, whatever the running copy.</item>
+/// </list>
+/// Once PC Tidy is published signed, the first rule applies by itself: nothing to switch. The file stays locked against
+/// writes from the final hash check until Setup has started (<see cref="VerifiedInstaller"/>).
 /// </summary>
 public static class UpdateTrust
 {
-    public const string UnsignedSelf = "This copy of PC Tidy isn't digitally signed (a test version), so it can't check who made an update, and it won't download or install one by itself.";
+    public const string UnsignedSelf = "This copy of PC Tidy isn't digitally signed (a test version), so it installs an update only when it comes straight from PC Tidy's GitHub releases and matches their checksums.";
+    public const string InvalidSignature = "The installer's digital signature isn't valid, so it wasn't started.";
+    public const string DamagedSelf = "This copy of PC Tidy has a digital signature that isn't valid, so it won't install updates by itself. Get the new version from the release page.";
 
     /// <summary>Null when <paramref name="installer"/> may be started, else the plain-English reason it may not.</summary>
-    public static string? Problem(SignatureInfo own, SignatureInfo installer)
+    /// <param name="release">Proof that the file passed every release check (null: it didn't, or it isn't known).</param>
+    public static string? Problem(SignatureInfo own, SignatureInfo installer, VerifiedRelease? release = null)
     {
-        if (own.State != SignatureState.Valid || own.Signer is null) return UnsignedSelf;
-        if (installer.State == SignatureState.NotSigned) return "The installer isn't digitally signed, so PC Tidy can't tell who made it. It wasn't started.";
-        if (installer.State != SignatureState.Valid || installer.Signer is null) return "The installer's digital signature isn't valid, so it wasn't started.";
-        if (!string.Equals(own.Signer, installer.Signer, StringComparison.Ordinal))
-            return $"The installer is signed by \"{installer.SignerName}\", not by PC Tidy's publisher (\"{own.SignerName}\"), so it wasn't started.";
-        return null;
+        if (installer.State == SignatureState.Invalid || (installer.State == SignatureState.Valid && installer.Signer is null)) return InvalidSignature;
+        if (own.State == SignatureState.Valid && own.Signer is not null)
+        {
+            if (installer.State == SignatureState.NotSigned) return "The installer isn't digitally signed, so PC Tidy can't tell who made it. It wasn't started.";
+            if (!SamePublisher(own, installer))
+                return $"The installer is signed by \"{installer.SignerName}\", not by PC Tidy's publisher (\"{own.SignerName}\"), so it wasn't started.";
+            return null;
+        }
+        if (own.State != SignatureState.NotSigned) return DamagedSelf;
+        // Unsigned PC Tidy (the beta): only with the release proof, whether the update is unsigned or signed.
+        return release is null ? UnsignedSelf : null;
+    }
+
+    /// <summary>
+    /// The same publisher (review L10): the same certificate subject AND the same certificate (thumbprint), or the same
+    /// public key, or a renewed certificate from the same issuer. A certificate with an identical subject from another
+    /// CA, with another key, is refused. Nothing to compare (unknown thumbprint, key and issuer) counts as different.
+    /// </summary>
+    public static bool SamePublisher(SignatureInfo own, SignatureInfo other)
+    {
+        if (own.Signer is null || !string.Equals(own.Signer, other.Signer, StringComparison.Ordinal)) return false;
+        static bool Same(string? a, string? b) => a is { Length: > 0 } && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        return Same(own.Thumbprint, other.Thumbprint) || Same(own.PublicKeySha256, other.PublicKeySha256)
+               || (own.Issuer is { Length: > 0 } && string.Equals(own.Issuer, other.Issuer, StringComparison.Ordinal));
+    }
+
+    /// <summary>One sentence for the install confirm: why this file is trusted.</summary>
+    public static string Describe(SignatureInfo own, SignatureInfo installer)
+    {
+        const string fromGitHub = "It came over HTTPS from PC Tidy's GitHub releases (mintggs2/pc-tidy), it is a finished release newer than this one, its file name is exactly right and its SHA-256 matches the release's SHA256SUMS.txt.";
+        if (own.State == SignatureState.Valid) return Authenticode.Describe(installer);
+        return installer.State == SignatureState.Valid
+            ? $"It is digitally signed by {installer.SignerName}. {fromGitHub}"
+            : $"Neither this PC Tidy nor the update is digitally signed (the beta isn't). {fromGitHub}";
     }
 }

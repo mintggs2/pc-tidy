@@ -11,7 +11,7 @@ namespace PcTidy.App.Portability;
 /// <summary>
 /// One difference between this PC's settings and an imported file, with its own tick (each section's settings are
 /// compared setting by setting, see <see cref="SectionDiff"/>). Changes that would loosen PC Tidy's protection (fewer
-/// protected folders, more OneDrive folders allowed, Expert mode, no purge question, an update feed address), changes
+/// protected folders, more OneDrive folders allowed, Expert mode, no purge question, any address PC Tidy would contact), changes
 /// that let it act on its own (watch mode, automatic rules and quarantine, Boost closing apps) and paths that aren't on
 /// this PC start unticked and are flagged; things that change Windows are listed, never applied.
 /// </summary>
@@ -83,6 +83,9 @@ public static class ImportPreview
             var incomingBlob = Normalized(key, value, current);
             current.Features.TryGetValue(key, out var stored);
             JsonElement? mine = stored.ValueKind != JsonValueKind.Undefined ? stored : SectionDefaults(key);
+            // The shell section is compared as ShellPrefs on both sides, so a setting that no longer exists (the old
+            // custom update address, UpdateFeedUrl) is neither shown nor imported: nothing can redirect the updater.
+            if (key == ShellPrefs.Key) mine = JsonSerializer.SerializeToElement(SafeShell(current), AppSettings.Json);
             if (mine is { } m && JsonText(m) == JsonText(incomingBlob)) continue;
             foreach (var row in SectionDiff.Rows(key, mine, incomingBlob))
             {

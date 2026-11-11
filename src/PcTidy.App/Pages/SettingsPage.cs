@@ -254,7 +254,8 @@ public sealed partial class SettingsPage : UserControl
         info.Children.Add(privacy);
         info.Children.Add(Styled(new TextBlock
         {
-            Text = "No telemetry: PC Tidy doesn't collect usage data, crash reports or file lists. Crash logs stay in your data folder. It works fully offline.",
+            Text = "No telemetry: PC Tidy doesn't collect usage data, crash reports or file lists. Crash logs stay in your data folder. It works fully offline. "
+                   + "The only thing it does online by itself is the daily update check: it asks PC Tidy's releases on GitHub for the newest version and sends only \"PC-Tidy/\" and its version number. Switch it off in Settings › Updates.",
             Margin = new Thickness(24, 2, 0, 0),
         }, "Secondary"));
         if (_services.IsDemo) info.Children.Add(Styled(new TextBlock { Text = _services.DemoReason ?? "", Margin = new Thickness(0, 8, 0, 0) }, "Caption"));

@@ -53,6 +53,9 @@ public sealed class PageProvider : INavigationViewPageProvider
         return page;
     }
 
+    /// <summary>Every page created so far (never creates one).</summary>
+    public IReadOnlyList<object> Created => _pages.Values.ToList();
+
     /// <summary>The page for a key if it was created already (never creates one).</summary>
     public bool IsCreated(Type pageType, out object? page) => _pages.TryGetValue(pageType, out page);
 

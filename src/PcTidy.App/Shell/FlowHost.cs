@@ -429,6 +429,28 @@ public sealed class FlowHost : IShellFlowHost
         finally { _dialogGate.Release(); }
     }
 
+    /// <summary>
+    /// Like <see cref="ShowDialogAsync"/>, but <paramref name="stillWanted"/> is asked again once this dialog's turn has
+    /// come (holding the gate), and the dialog isn't shown when it says no: null. The update notice uses it, so a notice
+    /// that waited behind "Undo this run?" never opens on top of the undo that question started (3.1.1 review M3).
+    /// </summary>
+    public async Task<ContentDialogResult?> ShowDialogIfAsync(ContentDialog dialog, Func<bool> stillWanted)
+    {
+        await _dialogGate.WaitAsync();
+        try
+        {
+            if (!stillWanted()) return null;
+            return await dialog.ShowAsync();
+        }
+        finally { _dialogGate.Release(); }
+    }
+
+    /// <summary>
+    /// True while a dialog is open or waiting its turn (the gate is taken: the confirm dialog, "Undo this run?", a
+    /// message), or a modal window such as a folder picker is up. The updater counts this as busy.
+    /// </summary>
+    public bool IsDialogOpen => _dialogGate.CurrentCount == 0 || System.Windows.Interop.ComponentDispatcher.IsThreadModal;
+
     internal static TextBlock Body(string text)
     {
         var t = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, MaxWidth = 520 };

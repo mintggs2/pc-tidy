@@ -7,8 +7,16 @@ PC Tidy is a **beta**. Every change it makes can be previewed, simulated and und
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-11-11
+
+### Added
+- **Updates from inside PC Tidy**: PC Tidy checks GitHub for a newer version (at most once a day, and from Settings > Check for updates), shows what's new and asks before doing anything: Update now, Later, or Skip this version. It never updates by itself and never while something is running. The download is checked against the release's `SHA256SUMS.txt` before it's used. Installed copies update with one Windows admin prompt and keep your settings, quarantine and history; portable copies get the new version unpacked into a new folder next to the old one. You can switch the automatic check off in Settings. Copies older than 3.1.1 don't have this yet, so update those by hand once.
+- **Resume last scan**: a scan saves its progress after each finished section, so a restart, crash or closed window no longer starts it from zero. On the next start PC Tidy offers Resume or Start over. Saved progress is dropped after 24 hours; if Windows was updated in between, sections that read Windows settings are scanned again, and a section whose files changed a lot is scanned again too.
+- Before a long scan, a note says when Windows Update is waiting to restart the PC (PC Tidy only reads this, it never changes update settings).
+
 ### Changed
-- PC Tidy's own code is now released under the MIT License (see LICENSE). Third-party components keep their own licences.
+- PC Tidy's own code is now released under the MIT License (see `LICENSE`), and `LICENSE` ships with the app. Third-party components keep their own licences.
+- PC Tidy now goes online for the update check (on by default, can be switched off; it sends only its version number to GitHub). See `PRIVACY.md`.
 
 ## [3.1.0] - 2026-11-11
 

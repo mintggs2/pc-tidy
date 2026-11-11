@@ -12,6 +12,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -45,8 +46,11 @@
 
         <c:StepBar x:Name="Steps" Grid.Row="2" Margin="0,16,0,12" />
 
+        <!--  Resume a scan saved part way, and the "Windows Update is waiting to restart" note for Deep scans (built in code)  -->
+        <StackPanel x:Name="FlowNotes" Grid.Row="3" Visibility="Collapsed" />
+
         <!--  Ready: nothing scanned yet  -->
-        <Border x:Name="ReadyState" Grid.Row="3" VerticalAlignment="Top" Padding="0" Style="{StaticResource TidyCard}">
+        <Border x:Name="ReadyState" Grid.Row="4" VerticalAlignment="Top" Padding="0" Style="{StaticResource TidyCard}">
             <c:EmptyState
                 x:Name="ReadyEmpty"
                 ActionClick="OnScanClick"
@@ -56,7 +60,7 @@
         </Border>
 
         <!--  Scanning  -->
-        <Border x:Name="ScanningState" Grid.Row="3" Padding="28,24" VerticalAlignment="Top" Style="{StaticResource TidyCard}" Visibility="Collapsed">
+        <Border x:Name="ScanningState" Grid.Row="4" Padding="28,24" VerticalAlignment="Top" Style="{StaticResource TidyCard}" Visibility="Collapsed">
             <StackPanel>
                 <DockPanel>
                     <ui:ProgressRing Width="40" Height="40" Margin="0,0,16,0" IsIndeterminate="True" />
@@ -81,7 +85,7 @@
         </Border>
 
         <!--  Preview  -->
-        <Grid x:Name="PreviewState" Grid.Row="3" Visibility="Collapsed">
+        <Grid x:Name="PreviewState" Grid.Row="4" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -143,10 +147,10 @@
         </Grid>
 
         <!--  Simulation report  -->
-        <flow:SimulationReportView x:Name="SimulationState" Grid.Row="3" Visibility="Collapsed" />
+        <flow:SimulationReportView x:Name="SimulationState" Grid.Row="4" Visibility="Collapsed" />
 
         <!--  Done  -->
-        <Grid x:Name="DoneState" Grid.Row="3" Visibility="Collapsed">
+        <Grid x:Name="DoneState" Grid.Row="4" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="1.7*" />
                 <ColumnDefinition Width="16" />

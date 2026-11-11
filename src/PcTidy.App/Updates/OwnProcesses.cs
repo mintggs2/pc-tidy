@@ -8,7 +8,7 @@ public sealed record UninstallEntry(string UninstallerPath, string InstallLocati
 
 /// <summary>
 /// The programs of PC Tidy's own that the shell may start besides Explorer and Rescue (see FlowHost): a downloaded
-/// update installer (<c>--silent</c>, only through <see cref="VerifiedInstaller"/>), the installed uninstaller
+/// update Setup (only through <see cref="VerifiedInstaller"/>), the installed uninstaller
 /// (<c>--uninstall</c>), and the browser for a release page (https only). All only after the user's OK, never in demo
 /// or practice mode, and every path is checked right before.
 /// </summary>

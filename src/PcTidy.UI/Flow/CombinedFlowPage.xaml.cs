@@ -3,6 +3,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using PcTidy.Core;
 using PcTidy.Core.Model;
+using PcTidy.UI.Flow.Resume;
 using Wpf.Ui.Controls;
 using TextBlock = System.Windows.Controls.TextBlock;
 
@@ -87,6 +88,7 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         SimulationState.Visibility = s == FlowState.Simulation ? Visibility.Visible : Visibility.Collapsed;
         DoneState.Visibility = s == FlowState.Done ? Visibility.Visible : Visibility.Collapsed;
         DepthPicker.IsEnabled = s != FlowState.Scanning;
+        if (s is not (FlowState.Ready or FlowState.Scanning)) { FlowNotes.Children.Clear(); FlowNotes.Visibility = Visibility.Collapsed; }
         int n = _model.Sections.Count;
         switch (s)
         {
@@ -105,6 +107,79 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         var secs = _sections();
         SectionList.Text = secs.Count == 0 ? "No sections are available in this build yet." : string.Join(" · ", secs.Select(x => x.Title));
         ScanButton.IsEnabled = secs.Count > 0;
+        ShowFlowNotes(offerResume: true);
+    }
+
+    // ---------------- resume a scan saved part way; the restart note ----------------
+
+    private ScanResume? Resume => ScanResume.From(_services);
+
+    /// <summary>The saved part-way scan this page would offer to resume (tests and screenshots).</summary>
+    public ScanCheckpoint? PendingCheckpoint => Resume?.Pending(ScanResume.CombinedFlow);
+
+    /// <summary>True when the "Windows Update is waiting to restart" note is on the page.</summary>
+    public bool ShowsRestartWarning => FlowNotes.Children.OfType<FrameworkElement>().Any(e => Equals(e.Tag, "restart-warning"));
+
+    /// <summary>True when the page offers "Resume / Start over".</summary>
+    public bool ShowsResumeOffer => FlowNotes.Children.OfType<FrameworkElement>().Any(e => Equals(e.Tag, "resume-offer"));
+
+    /// <summary>Quick or Deep (the depth switch).</summary>
+    public ScanDepth Depth
+    {
+        get => DepthPicker.SelectedIndex == 1 ? ScanDepth.Deep : ScanDepth.Quick;
+        set => DepthPicker.SelectedIndex = value == ScanDepth.Deep ? 1 : 0;
+    }
+
+    private int _notesVersion;
+
+    /// <summary>The latest refresh of the resume offer and restart note (tests and screenshots wait on it).</summary>
+    public Task FlowNotesTask { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// The resume offer and the restart note. The checkpoint header and the registry are read off the UI thread
+    /// (3.1.1 review M2); only the newest refresh fills the panel, and the offer only while the page is still Ready.
+    /// </summary>
+    private void ShowFlowNotes(bool offerResume) => FlowNotesTask = ShowFlowNotesAsync(offerResume);
+
+    private async Task ShowFlowNotesAsync(bool offerResume)
+    {
+        int version = ++_notesVersion;
+        FlowNotes.Children.Clear();
+        FlowNotes.Visibility = Visibility.Collapsed;
+        if (Resume is not { } r) return;
+        bool wantOffer = offerResume && State == FlowState.Ready;
+        (ScanCheckpoint? Cp, bool Restart) facts;
+        try { facts = await Task.Run(() => (wantOffer ? r.Pending(ScanResume.CombinedFlow) : null, r.RestartPending())); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { facts = (null, false); }
+        if (version != _notesVersion) return; // a newer refresh (or a scan) replaced this one
+        if (facts.Cp is { } cp && State == FlowState.Ready)
+            FlowNotes.Children.Add(ResumeNotes.ResumeOffer(cp, () => ResumeAsync().Forget(Shell, "Scan didn't finish"), () => StartOverAsync().Forget(Shell, "Scan didn't finish")));
+        // Scan everything is always a long scan: say so when Windows Update may restart the PC part way.
+        if (facts.Restart)
+            FlowNotes.Children.Add(ResumeNotes.RestartWarning(Shell is { } host ? () => ResumeNotes.OpenWindowsUpdateAsync(host).Forget(host, "Couldn't open Settings") : null));
+        FlowNotes.Visibility = FlowNotes.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>"Start over": the saved part-way scan is thrown away and everything is scanned from the start.</summary>
+    public async Task StartOverAsync()
+    {
+        if (Resume is { } r) await Task.Run(() => r.Discard(ScanResume.CombinedFlow));
+        await StartScanAsync();
+    }
+
+    /// <summary>
+    /// "Resume": the saved part-way scan's finished sections are reused (with its depth and preset) and only the rest
+    /// are scanned. If the staleness rules say it can't be used, everything is scanned again and the preview says why.
+    /// </summary>
+    public async Task ResumeAsync()
+    {
+        if (_scanning) return;
+        var cp = Resume is { } r ? await Task.Run(() => r.Pending(ScanResume.CombinedFlow)) : null;
+        if (_scanning) return;
+        if (cp is null) { await StartScanAsync(); return; }
+        DepthPicker.SelectedIndex = cp.Key.Depth == ScanDepth.Deep ? 1 : 0;
+        if (cp.Key.Preset is { } preset && OptimizePresets.All.Contains(preset)) Preset = preset;
+        await StartScanAsync(cp);
     }
 
     /// <summary>Below ~900 px the pickers would squeeze the title to "Optimize & O…": put them on their own line.</summary>
@@ -133,7 +208,10 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
     private void OnScan(object sender, RoutedEventArgs e) => StartScanAsync().Forget(Shell, "Scan didn't finish");
     private void OnCancel(object sender, RoutedEventArgs e) => _cts?.Cancel();
 
-    public async Task StartScanAsync()
+    /// <summary>A fresh scan of every section (a part-way scan saved earlier is replaced).</summary>
+    public Task StartScanAsync() => StartScanAsync(resumeFrom: null);
+
+    private async Task StartScanAsync(ScanCheckpoint? resumeFrom)
     {
         if (_scanning) return;
         var sections = _sections();
@@ -141,28 +219,34 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         _scanning = true;
         using var cts = new CancellationTokenSource();
         _cts = cts;
-        try { await ScanAsync(sections, cts.Token); }
+        try { await ScanAsync(sections, cts.Token, resumeFrom); }
         finally { _cts = null; _scanning = false; }
     }
 
-    private async Task ScanAsync(IReadOnlyList<OptimizeSection> sections, CancellationToken ct)
+    private async Task ScanAsync(IReadOnlyList<OptimizeSection> sections, CancellationToken ct, ScanCheckpoint? resumeFrom)
     {
         var depth = DepthPicker.SelectedIndex == 1 ? ScanDepth.Deep : ScanDepth.Quick;
         SetState(FlowState.Scanning);
+        ShowFlowNotes(offerResume: false);
         ScanLines.Children.Clear();
         var lines = sections.Select(AddScanLine).ToList();
         ScanBar.Value = 0;
         try
         {
             var ctx = ScanRunner.CreateContext(_services, depth, Preset);
-            var outcomes = await ScanRunner.RunAsync(sections.Select(s => s.Scanner).ToList(), ctx, (i, _, p) =>
+            var scanners = sections.Select(s => s.Scanner).ToList();
+            // Reading the saved results and looking at sampled files again happens off the UI thread (review M2/L2).
+            var service = Resume;
+            var resume = await Task.Run(() => ResumeFlow.Start(service, ScanResume.CombinedFlow, "Scan everything", "optimize", scanners, ctx, resumeFrom));
+            var found = resume.FoundTexts();
+            var outcomes = await ScanRunner.RunAsync(scanners, ctx, (i, _, p) =>
             {
-                lines[i].Status.Text = p.Fraction >= 1 ? "Done" : p.Message;
+                lines[i].Status.Text = p.Fraction >= 1 ? found.GetValueOrDefault(i, "Done") : p.Message;
                 lines[i].Ring.Visibility = p.Fraction >= 1 ? Visibility.Collapsed : Visibility.Visible;
                 lines[i].Check.Visibility = p.Fraction >= 1 ? Visibility.Visible : Visibility.Collapsed;
                 ScanBar.Value = (i + Math.Clamp(p.Fraction ?? 0, 0, 1)) / sections.Count * 100;
-            }, ct);
-            ShowPreview(sections, outcomes);
+            }, ct, resume.Session);
+            ShowPreview(sections, outcomes, resume);
         }
         catch (Exception ex)
         {
@@ -194,13 +278,16 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         return (status, ring, check);
     }
 
-    private void ShowPreview(IReadOnlyList<OptimizeSection> sections, IReadOnlyList<ScannerOutcome> outcomes)
+    private void ShowPreview(IReadOnlyList<OptimizeSection> sections, IReadOnlyList<ScannerOutcome> outcomes, ResumeStart? resume = null)
     {
         var models = new List<SectionModel>();
         foreach (var o in outcomes.Where(o => o.Result != null))
         {
             var sec = sections.First(s => s.Scanner == o.Scanner);
-            models.Add(new SectionModel(o.Scanner.FeatureId, sec.Title, sec.Icon, o.Result!));
+            var model = new SectionModel(o.Scanner.FeatureId, sec.Title, sec.Icon, o.Result!);
+            // A resumed section says when it was found.
+            if (o.FoundAtUtc is { } at) model.Note = ResumeText.FoundAt(at, resume?.StoppedByUser == true);
+            models.Add(model);
         }
         models = models.OrderBy(m => SafeOrder.Rank(m.FeatureId)).ToList();
         // Groups the user skipped the last few times start unticked; presets never tick them back on.
@@ -224,9 +311,15 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
                 NotesPanel.Children.Add(new InfoBar { Message = $"{o.Scanner.Title}: {note}", IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Warning, Margin = new Thickness(0, 0, 0, 8) });
         }
         if (outcomes.Any(o => o.Cancelled))
-            NotesPanel.Children.Add(new InfoBar { Message = "You stopped the scan, so some sections are missing from this list.", IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Informational, Margin = new Thickness(0, 0, 0, 8) });
+            NotesPanel.Children.Add(new InfoBar
+            {
+                Message = "You stopped the scan, so some sections are missing from this list." + (resume?.Session?.Current.Sections.Count > 0 ? " The finished sections were kept, so you can resume it later." : ""),
+                IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Informational, Margin = new Thickness(0, 0, 0, 8),
+            });
+        foreach (var bar in ResumeFlow.PreviewBars(outcomes, resume)) NotesPanel.Children.Add(bar);
 
-        Subtitle.Text = $"Scanned at {DateTime.Now:t} · you confirm once";
+        // A resumed section keeps its original scan time: the preview says the earliest one (review L4).
+        Subtitle.Text = $"{ResumeText.ScannedAt(outcomes.Where(o => o.Result != null).Select(o => o.FoundAtUtc))} · you confirm once";
         SetState(FlowState.Preview);
         UpdateTotals();
     }
@@ -324,6 +417,7 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
             }, CancellationToken.None);
             if (outcome.Kind == FlowOutcomeKind.Ran)
             {
+                Resume?.Discard(ScanResume.CombinedFlow); // what was found before this run is out of date now
                 _ranSections = outcome.Records.Count;
                 _done.Runs = outcome.Records;
                 if (outcome.BeforeAfter.Count > 0) _done.BeforeAfter = outcome.BeforeAfter;

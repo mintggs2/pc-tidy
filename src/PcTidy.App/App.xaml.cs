@@ -54,11 +54,14 @@ public partial class App : Application
         }
 
         var services = AppServices.Build(args);
+        ScanResumeSetup.Register(services); // resumable scans: checkpoints in PC Tidy's own data folder only
         TidyTheme.SolidBackdrop = screenshots;
         var window = new MainWindow(services, screenshots);
         MainWindow = window;
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         var settings = services.Get<AppSettings>();
+        // 3.1.1: the old custom "update address" is dropped (updates come only from PC Tidy's GitHub releases).
+        if (ShellPrefs.Migrate(settings)) window.SaveSettingsQuietly();
         window.ApplyTheme(TidyTheme.Parse(args.ForcedTheme ?? (screenshots ? "Dark" : settings.Theme)));
         if (screenshots && args.WindowSize is { } size) { window.Width = size.Width; window.Height = size.Height; }
 
@@ -81,6 +84,8 @@ public partial class App : Application
             {
                 var dataRoot = settings.DataRoot;
                 _ = Task.Run(() => RescueTool.RefreshSpare(dataRoot)); // never throws; failures go to the crash log
+                // The once-a-day update check (Settings › Updates; on by default): later, off the UI thread, never in practice mode.
+                window.Updates.StartAutomatic();
             }
             foreach (var hook in AppServices.Started)
             {

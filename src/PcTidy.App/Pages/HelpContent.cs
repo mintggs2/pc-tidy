@@ -10,7 +10,19 @@ public static class HelpContent
     /// <summary>The FAQ entry that also offers an "Open PC Tidy Rescue" button.</summary>
     public const string SomethingWentWrong = "Something went wrong?";
 
-    public const string Privacy ="Everything stays on this PC. No account, no telemetry, nothing is uploaded.";
+    public const string Privacy = "Everything stays on this PC. No account, no telemetry, nothing is uploaded. Only the daily update check goes online by itself, and it sends just PC Tidy's version number. Turn it off in Settings › Updates.";
+
+    /// <summary>The one-time notice for people who updated from 3.1.0, which had no automatic update check (3.1.1 review L8).</summary>
+    public const string UpdateCheckNotice = "PC Tidy now checks GitHub once a day for updates (only its version number is sent). Turn it off in Settings.";
+
+    /// <summary>What PC Tidy does online, honestly (About and the FAQ). Keep in step with PRIVACY.md.</summary>
+    public const string Online =
+        "The update check is the only thing PC Tidy does online by itself. Once a day it asks GitHub " +
+        "(api.github.com, PC Tidy's releases at mintggs2/pc-tidy) whether there's a newer version. The request carries only " +
+        "\"PC-Tidy/\" and the version number, and no cookies, account or anything about this PC or you. GitHub sees your IP address, " +
+        "as with any web page. An update is downloaded only when you press Update now. Switch the check off in Settings › Updates. " +
+        "Everything else that goes online happens only as part of something you start: winget (a PC care scan asks it about app updates, and it installs apps you pick), the DNS speed test, " +
+        "the Lag check (off until you choose a test server) and web pages you open.";
 
     public static string WhatWeDontClean { get; set; } =
         "Some things look like junk but aren't, so PC Tidy leaves them alone: Prefetch (Windows uses it to start apps faster), " +
@@ -41,7 +53,8 @@ public static class HelpContent
          "PC Tidy, and a spare copy can live in the Rescue folder of your data folder."),
         ("What does PC Tidy never do?",
          "It never deletes anything without showing you first, never runs a \"registry cleaner\" or \"RAM booster\", never turns off " +
-         "Windows Update, Defender or other security features, never installs anything else, and never sends anything off your PC."),
+         "Windows Update, Defender or other security features, never installs anything else, and never sends anything about you or your PC off it."),
+        ("Does PC Tidy go online?", Online),
     };
 
     public const string Licences =
@@ -55,7 +68,11 @@ public static class HelpContent
         "PC Tidy itself contains no ads, no trackers and no bundled software.";
 
     public const string Changelog =
-        "3.1.0 (beta)\n" +
+        "3.1.1 (beta)\n" +
+        "• Updates from inside PC Tidy: it checks GitHub at most once a day (or when you click Check for updates), shows what's new and asks first. Checked against the release's checksums. You can switch the check off in Settings.\n" +
+        "• Resume last scan: a scan keeps its progress after each section, so a restart or crash doesn't start it over.\n" +
+        "• A note before long scans when Windows Update is waiting to restart the PC. PC Tidy's own code is now MIT-licensed.\n" +
+        "\n3.1.0 (beta)\n" +
         "• New: Measure (compare frame-time recordings before and after a change), Lag check (off until a test server is chosen), Fixes, System info, an optional live \"Now\" card.\n" +
         "• Tweaks: search, categories, \"N of M on\", cards that show what's on now, presets that show what they'll change, and a \"Doesn't help (measured)\" shelf with the numbers.\n" +
         "• Games: a game list with details beside it, tips with measured numbers, GPU choice per game on laptops with two GPUs.\n" +

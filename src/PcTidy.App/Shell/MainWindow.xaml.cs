@@ -53,6 +53,7 @@ public partial class MainWindow : FluentWindow
         services.Add<IRunCheckLauncher>(Navigation);
         services.Add(RunGate.Shared);
         FlowHost.RunsChanged += () => RefreshBadgesAsync().Forget(FlowHost, "Couldn't update the rail");
+        Updates = new UpdateFlow(new WindowUpdateUi(this, services), practice: services.IsDemo || services.Args.SandboxRoot is not null);
 
         RegisterBuiltInPages();
         BuildRail();
@@ -83,6 +84,18 @@ public partial class MainWindow : FluentWindow
     }
 
     public bool ScreenshotMode { get; }
+
+    /// <summary>The updater: the once-a-day check, "Check for updates" and the update notice.</summary>
+    public UpdateFlow Updates { get; }
+
+    /// <summary>True while the run progress overlay is up (a run, an undo, a download).</summary>
+    public bool IsProgressShown => ProgressOverlay.Visibility == Visibility.Visible;
+
+    /// <summary>
+    /// True while a section or Optimize-everything is scanning. Scans only read, so they aren't on the one-task gate,
+    /// but the updater waits for them: Setup closes PC Tidy and would cut a scan off.
+    /// </summary>
+    public bool IsScanning => _pages.Created.Any(p => (p is ScrollViewer { Content: { } inner } ? inner : p) is StandardFlowPage { State: FlowState.Scanning } or CombinedFlowPage { State: FlowState.Scanning });
 
     public ShellNavigation Navigation { get; }
 
@@ -301,12 +314,24 @@ public partial class MainWindow : FluentWindow
         => _services.GetService(typeof(PcTidy.Features.Assistant.Engine.IScanResultsCache)) is PcTidy.Features.Assistant.Engine.ScanResultsCache cache ? cache.Track(s) : s;
 
     /// <summary>Feature pages with their own "go to another section" links get group-aware navigation.</summary>
-    private object? Hooked(object? page)
+    private object? Hooked(object? page, IFeatureModule m)
     {
         if (page is PcTidy.Features.Privacy.UI.PrivacyFlowPage privacy)
+        {
             privacy.NavigationRequested += r => Navigation.Open(r.ModuleId, null, r.GroupId);
+            privacy.Flow.FlowId = m.Id; // part-way scans are saved, and resumed from Home, under the section's id
+        }
+        else if (page is StandardFlowPage flow) flow.FlowId = m.Id;
         return page;
     }
+
+    /// <summary>The standard flow of a section (its own page or the one inside a Privacy-style page), or null.</summary>
+    public StandardFlowPage? FlowPageFor(string key) => PageObject(key) switch
+    {
+        StandardFlowPage flow => flow,
+        PcTidy.Features.Privacy.UI.PrivacyFlowPage privacy => privacy.Flow,
+        _ => null,
+    };
 
     /// <summary>The page object of a section (without the scroll wrapper the shell may have added).</summary>
     public object? PageObject(string key) => PageFor<object>(key) is ScrollViewer { Content: { } inner } ? inner : PageFor<object>(key);
@@ -574,8 +599,8 @@ public partial class MainWindow : FluentWindow
     {
         var key = NavKeys.For(m.Id);
         if (!_keys.ContainsKey(m.Id))
-            Key(m.Id, key, () => SafePage(m, () => ScrollIfNeeded(Hooked(m.CreatePage(_services))) ?? new StandardFlowPage(_services, m.Title, m.Summary, IconOf(m), m.Scanners.Select(Tracked).ToList(),
-                (m as IModuleRiskInfo)?.Risk, (m as IModuleFlowText)?.PreviewNote)));
+            Key(m.Id, key, () => SafePage(m, () => ScrollIfNeeded(Hooked(m.CreatePage(_services), m)) ?? new StandardFlowPage(_services, m.Title, m.Summary, IconOf(m), m.Scanners.Select(Tracked).ToList(),
+                (m as IModuleRiskInfo)?.Risk, (m as IModuleFlowText)?.PreviewNote) { FlowId = m.Id }));
         var item = Item(m.Title, IconOf(m), key);
         item.ToolTip = m.Summary;
         return item;

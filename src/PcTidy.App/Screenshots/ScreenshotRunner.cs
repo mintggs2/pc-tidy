@@ -9,6 +9,7 @@ using PcTidy.App.Pages;
 using PcTidy.App.Shell;
 using PcTidy.Core;
 using PcTidy.UI.Flow;
+using PcTidy.UI.Flow.Resume;
 using PcTidy.UI.Theming;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
@@ -56,8 +57,10 @@ public sealed class ScreenshotRunner
             if (_services.IsDemo) DemoScanner.DurationMs = 900;
             await Settle(900);
 
-            if (_services.Args.Raw.Any(a => a.Equals("--shell-shots", StringComparison.OrdinalIgnoreCase))) await ShellSetAsync();
+            if (_services.Args.Raw.Any(a => a.Equals("--update-shots", StringComparison.OrdinalIgnoreCase))) await UpdateSetAsync();
+            else if (_services.Args.Raw.Any(a => a.Equals("--shell-shots", StringComparison.OrdinalIgnoreCase))) await ShellSetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--v31-shots", StringComparison.OrdinalIgnoreCase))) await V31SetAsync();
+            else if (_services.Args.Raw.Any(a => a.Equals("--resume-shots", StringComparison.OrdinalIgnoreCase))) await ResumeSetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--demo-minimal", StringComparison.OrdinalIgnoreCase))) await MinimalSetAsync();
             else if (IsSandbox) await SandboxSetAsync();
             else await DemoSetAsync();
@@ -256,6 +259,48 @@ public sealed class ScreenshotRunner
         await V31PagesAsync();
     }
 
+    // ---------------- --resume-shots: a scan saved part way (demo only, checkpoints in memory) ----------------
+
+    /// <summary>
+    /// Resumable scans: Home's "Your last scan stopped after N of M sections" card, Scan everything's ready page with the
+    /// resume offer and the "Windows Update is waiting to restart" note, and the resumed preview ("Found at …").
+    /// Demo only: the part-way scan is made by running the first demo sections; the waiting restart is invented (the
+    /// simulated reader), nothing real is read.
+    /// </summary>
+    private async Task ResumeSetAsync()
+    {
+        if (!_services.IsDemo || ScanResume.From(_services) is not { } resume || resume.Windows is not SimulatedWindowsState windows) return;
+        var sections = _w.OptimizeSections();
+        if (sections.Count < 3) return;
+
+        // The first sections finish, then "the PC restarts": the checkpoint is left behind as after a real restart.
+        var scanners = sections.Select(s => s.Scanner).ToList();
+        var ctx = ScanRunner.CreateContext(_services, _services.Get<AppSettings>().DefaultDepth, OptimizePresets.All[1]);
+        var session = resume.StartFresh(resume.KeyFor(ScanResume.CombinedFlow, scanners, ctx.Depth, ctx.Preset, ctx.Roots, ctx.Locations), "Scan everything", "optimize");
+        int done = Math.Max(2, scanners.Count * 2 / 3);
+        for (int i = 0; i < done; i++)
+            await session.SectionFinishedAsync(i, scanners[i], await scanners[i].ScanAsync(ctx, null, CancellationToken.None));
+        windows.Pending = true;
+
+        var home = _w.PageFor<HomePage>("home")!;
+        _w.NavigateTo("home");
+        await home.RefreshAsync();
+        await Shot("60-home-resume-card.png");
+
+        var optimize = _w.PageFor<CombinedFlowPage>("optimize")!;
+        _w.NavigateTo("optimize");
+        await optimize.FlowNotesTask; // the offer and the note are read off the UI thread
+        await Shot("61-optimize-resume-and-restart-note.png");
+
+        // Resume: the finished sections come back with when they were found; only the rest are scanned.
+        windows.Pending = false;
+        await optimize.ResumeAsync();
+        await Shot("62-optimize-resumed-preview.png");
+        TidyTheme.Apply(Other);
+        await Shot($"63-optimize-resumed-preview-{Name(Other)}.png");
+        TidyTheme.Apply(_theme);
+    }
+
     // ---------------- v3.1 pages (demo, invented data only) ----------------
 
     /// <summary>
@@ -361,6 +406,26 @@ public sealed class ScreenshotRunner
         if (!vm.HasScanned) await vm.ScanAsync(onlyTweaks: false);
         await Settle(300);
         return vm;
+    }
+
+    // ---------------- --update-shots: Settings › Updates and the update notice (demo or practice PC: no network) ----------------
+
+    private async Task UpdateSetAsync()
+    {
+        var prefix = _services.IsDemo ? "demo" : "pc";
+        var theme = Name(_theme);
+        _w.NavigateTo("settings");
+        await Settle(400);
+        _w.OpenSettingsSection("updates");
+        await Shot($"{prefix}-{theme}-1-settings-updates.png");
+        // The practice "GitHub" answers from memory with an invented release one version up.
+        using var checker = PcTidy.App.Updates.UpdateChecker.Create(practice: true, UpdateFlow.CurrentVersion);
+        var check = await checker.CheckAsync(CancellationToken.None);
+        var notice = _w.Updates.OfferAsync(check);
+        await Settle(900);
+        Save($"{prefix}-{theme}-2-update-notice.png");
+        CloseOpenDialog();
+        await notice;
     }
 
     // ---------------- --shell-shots: the desktop-integration screens only (demo or practice PC) ----------------

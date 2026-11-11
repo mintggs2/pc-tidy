@@ -232,6 +232,8 @@ public sealed class OnboardingView : UserControl
         if (_depth != null) S.DefaultDepth = _depth.SelectedIndex == 1 ? ScanDepth.Deep : ScanDepth.Quick;
         if (_simulate != null) S.SuggestSimulationOnFirstUse = _simulate.IsChecked == true;
         S.OnboardingDone = true;
+        // The welcome card already said the daily update check is on, so Home doesn't repeat it (review L8).
+        ShellState.Update(S, s => s with { UpdateCheckNoticeSeen = true });
         try { _services.Get<ISettingsStore>().Save(S); }
         catch { /* not fatal: the welcome simply shows again next time */ }
         Finished?.Invoke();

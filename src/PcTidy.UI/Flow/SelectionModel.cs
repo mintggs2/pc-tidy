@@ -45,6 +45,8 @@ public sealed class SectionModel
     public SectionRow Header { get; }
     public IReadOnlyList<GroupRow> Groups { get; }
     public IEnumerable<ItemRow> CheckedItems => Groups.SelectMany(g => g.Items).Where(i => i.IsChecked);
+    /// <summary>A line under the section's title ("Found at 12:41, before PC Tidy closed"); not part of any plan or run title.</summary>
+    public string? Note { get => Header.Note; set => Header.Note = value; }
 }
 
 /// <summary>

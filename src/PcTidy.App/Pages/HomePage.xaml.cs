@@ -10,6 +10,7 @@ using PcTidy.Core;
 using PcTidy.Core.Model;
 using PcTidy.UI.Controls;
 using PcTidy.UI.Flow;
+using PcTidy.UI.Flow.Resume;
 using Wpf.Ui.Controls;
 using TextBlock = System.Windows.Controls.TextBlock;
 
@@ -243,6 +244,7 @@ public partial class HomePage : UserControl
         _drives = Drives();
         bool sandboxOrDemo = _services.IsDemo || (_services.GetService(typeof(IKnownLocations)) as IKnownLocations)?.IsSandbox != false;
         _protectionOff = await Task.Run(() => SystemProtectionNotice.ShouldShow(sandboxOrDemo));
+        _pendingScan = await PendingScanAsync();
         ShowBanners();
         ShowLastRun();
         ShowQuarantine(quarantineBytes);
@@ -277,6 +279,32 @@ public partial class HomePage : UserControl
             AutomationProperties.SetName(open, "Open Settings to check them first");
             open.Click += (_, _) => Host.NavigateTo("settings");
             Banners.Children.Add(InfoBars.WithActions(bar, ok, open));
+        }
+        if (UpdateCheckNoticeDue())
+        {
+            // Once, for people who used PC Tidy before the daily update check existed (3.1.1 review L8).
+            var bar = new InfoBar
+            {
+                Message = HelpContent.UpdateCheckNotice,
+                IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Informational, Margin = new Thickness(0, 0, 0, 12),
+            };
+            var open = new Wpf.Ui.Controls.Button { Content = "Open Settings" };
+            AutomationProperties.SetName(open, "Open Settings to turn the update check on or off");
+            open.Click += (_, _) => { Host.NavigateTo("settings"); Window?.OpenSettingsSection("updates"); };
+            var wrapper = InfoBars.WithActions(bar, open);
+            System.ComponentModel.DependencyPropertyDescriptor.FromProperty(InfoBar.IsOpenProperty, typeof(InfoBar)).AddValueChanged(bar, (_, _) =>
+            {
+                if (bar.IsOpen) return;
+                _updateNotice = false;
+                wrapper.Visibility = Visibility.Collapsed;
+            });
+            Banners.Children.Add(wrapper);
+        }
+        if (_pendingScan is { } cp)
+        {
+            // A scan cut short (a Windows Update restart, a crash, closing PC Tidy): carry on, or start again.
+            var card = ResumeNotes.ResumeOffer(cp, () => ResumeScan(cp), () => StartScanOver(cp));
+            Banners.Children.Add(card);
         }
         if (_unfinished.Count > 0)
         {
@@ -318,6 +346,76 @@ public partial class HomePage : UserControl
             Banners.Children.Add(wrapper);
         }
         Banners.Visibility = Banners.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // ---------------- the one-time update-check notice ----------------
+
+    private bool? _updateNotice;
+
+    /// <summary>True when Home shows "PC Tidy now checks GitHub once a day" (tests and screenshots).</summary>
+    public bool ShowsUpdateCheckNotice => _updateNotice == true;
+
+    /// <summary>
+    /// Decided once a session: shown to people who finished the welcome screen before 3.1.1 (it didn't mention the
+    /// check), on a real PC, with the check on. Marked seen as soon as it is shown, so it never comes back.
+    /// </summary>
+    private bool UpdateCheckNoticeDue()
+    {
+        if (_updateNotice is { } decided) return decided;
+        var s = Settings;
+        bool practice = _services.IsDemo || _services.Args.SandboxRoot is not null || (_services.GetService(typeof(IKnownLocations)) as IKnownLocations)?.IsSandbox == true;
+        bool show = PcTidy.App.Updates.UpdatePolicy.ShowUpdateCheckNotice(s.OnboardingDone, ShellState.Get(s).UpdateCheckNoticeSeen, ShellPrefs.Get(s).AutoUpdateCheck, practice);
+        if (show)
+        {
+            ShellState.Update(s, st => st with { UpdateCheckNoticeSeen = true });
+            Window?.SaveSettingsQuietly();
+        }
+        _updateNotice = show;
+        return show;
+    }
+
+    // ---------------- a scan saved part way ----------------
+
+    private ScanCheckpoint? _pendingScan;
+
+    /// <summary>The scan Home offers to resume (tests and screenshots).</summary>
+    public ScanCheckpoint? PendingScan => _pendingScan;
+
+    /// <summary>The newest scan that stopped part way and may still be resumed, for a section this window has.</summary>
+    private async Task<ScanCheckpoint?> PendingScanAsync()
+    {
+        if (ScanResume.From(_services) is not { } resume) return null;
+        try
+        {
+            var all = await Task.Run(resume.PendingAll);
+            return all.FirstOrDefault(cp => cp.NavigateTo == "optimize" || Window?.HasPage(cp.NavigateTo) != false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { return null; }
+    }
+
+    private void ResumeScan(ScanCheckpoint cp)
+    {
+        _pendingScan = null;
+        ShowBanners();
+        Host.NavigateTo(cp.NavigateTo);
+        if (cp.NavigateTo == "optimize")
+        {
+            if (Window?.PageFor<CombinedFlowPage>("optimize") is { } page) page.ResumeAsync().Forget(Host, "Scan didn't finish");
+        }
+        else if (Window?.FlowPageFor(cp.NavigateTo) is { } flow) flow.ResumeAsync().Forget(Host, "Scan didn't finish");
+    }
+
+    private void StartScanOver(ScanCheckpoint cp)
+    {
+        ScanResume.From(_services)?.Discard(cp.Key.Flow);
+        _pendingScan = null;
+        ShowBanners();
+        if (cp.NavigateTo == "optimize") StartOptimize(cp.Key.Preset is { } p && OptimizePresets.All.Contains(p) ? p : OptimizePresets.All[PresetPicker.SelectedIndex]);
+        else
+        {
+            Host.NavigateTo(cp.NavigateTo);
+            if (Window?.FlowPageFor(cp.NavigateTo) is { } flow) flow.StartOverAsync().Forget(Host, "Scan didn't finish");
+        }
     }
 
     private void AcknowledgeSettingsProblem()

@@ -12,6 +12,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -38,8 +39,11 @@
 
         <c:StepBar x:Name="Steps" Grid.Row="1" Margin="0,16,0,12" />
 
+        <!--  Resume a scan saved part way, and the "Windows Update is waiting to restart" note (built in code)  -->
+        <StackPanel x:Name="FlowNotes" Grid.Row="2" Visibility="Collapsed" />
+
         <!--  Ready  -->
-        <Border x:Name="ReadyState" Grid.Row="2" VerticalAlignment="Top" Style="{StaticResource HeroCard}">
+        <Border x:Name="ReadyState" Grid.Row="3" VerticalAlignment="Top" Style="{StaticResource HeroCard}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -74,7 +78,7 @@
         </Border>
 
         <!--  Scanning: one line per section  -->
-        <Border x:Name="ScanningState" Grid.Row="2" Padding="24,20" VerticalAlignment="Top" Style="{StaticResource TidyCard}" Visibility="Collapsed">
+        <Border x:Name="ScanningState" Grid.Row="3" Padding="24,20" VerticalAlignment="Top" Style="{StaticResource TidyCard}" Visibility="Collapsed">
             <StackPanel>
                 <DockPanel>
                     <ui:Button
@@ -93,7 +97,7 @@
         </Border>
 
         <!--  Preview  -->
-        <Grid x:Name="PreviewState" Grid.Row="2" Visibility="Collapsed">
+        <Grid x:Name="PreviewState" Grid.Row="3" Visibility="Collapsed">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -133,8 +137,8 @@
             </Border>
         </Grid>
 
-        <flow:SimulationReportView x:Name="SimulationState" Grid.Row="2" Visibility="Collapsed" />
+        <flow:SimulationReportView x:Name="SimulationState" Grid.Row="3" Visibility="Collapsed" />
 
-        <ContentControl x:Name="DoneState" Grid.Row="2" MaxWidth="900" HorizontalAlignment="Left" Focusable="False" Visibility="Collapsed" />
+        <ContentControl x:Name="DoneState" Grid.Row="3" MaxWidth="900" HorizontalAlignment="Left" Focusable="False" Visibility="Collapsed" />
     </Grid>
 </UserControl>

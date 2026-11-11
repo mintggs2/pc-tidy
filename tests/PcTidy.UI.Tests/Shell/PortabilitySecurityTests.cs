@@ -184,25 +184,26 @@ public class PortabilitySecurityTests
     }
 
     [Fact]
-    public void The_update_feed_address_is_its_own_unticked_row_showing_the_address()
+    public void An_imported_file_cant_point_the_updater_anywhere_else()
     {
         using var folder = new ShellTestFolder("exp2");
         var data = folder.Folder("Data");
         var mine = Settings(data);
+        // This PC still has the old custom address stored (from before 3.1.1), and the file brings another one.
+        mine.Features[ShellPrefs.Key] = System.Text.Json.JsonSerializer.SerializeToElement(new { UpdateFeedUrl = "https://old.example.test/feed.json" });
         var theirs = Settings(data);
-        ShellPrefs.Set(theirs, new ShellPrefs { UpdateFeedUrl = "https://updates.example.test/feed.json", LowDiskAlerts = false });
+        theirs.Features[ShellPrefs.Key] = System.Text.Json.JsonSerializer.SerializeToElement(new { UpdateFeedUrl = "https://updates.example.test/feed.json", LowDiskAlerts = false, AutoUpdateCheck = false });
 
         var changes = Compare(mine, theirs, folder.Root);
 
-        var feed = changes.Single(c => c.Name == "Update feed url");
-        Assert.True(feed.Loosens);
-        Assert.False(feed.Include);
-        Assert.Equal("https://updates.example.test/feed.json", feed.After);
-        Assert.Equal("Less protection", feed.Flag);
+        Assert.DoesNotContain(changes, c => c.Name.Contains("feed", StringComparison.OrdinalIgnoreCase) || c.After.Contains("example.test"));
         Assert.True(changes.Single(c => c.Name == "Low disk alerts").Include);
+        foreach (var c in changes) c.Include = c.CanInclude;
         ImportPreview.Apply(mine, changes);
-        Assert.Null(ShellPrefs.Get(mine).UpdateFeedUrl);
+        Assert.DoesNotContain("updates.example.test", mine.Features[ShellPrefs.Key].GetRawText());
         Assert.False(ShellPrefs.Get(mine).LowDiskAlerts);
+        Assert.False(ShellPrefs.Get(mine).AutoUpdateCheck); // switching the check off is fine; the address stays GitHub's
+        Assert.Equal("https://api.github.com/repos/mintggs2/pc-tidy/releases/latest", PcTidy.App.Updates.ReleaseSource.LatestApi.AbsoluteUri);
     }
 
     [Fact]

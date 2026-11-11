@@ -361,105 +361,40 @@ public sealed partial class SettingsPage
 
     // ---------------- Updates ----------------
 
+    private TextBlock? _updateStatus;
+
+    /// <summary>
+    /// Settings › Updates: the automatic check switch (on by default) and "Check for updates". The source is fixed in
+    /// code (PC Tidy's GitHub releases, <see cref="ReleaseSource"/>); there is no address to type any more. The check,
+    /// the notice and the install are in <see cref="UpdateFlow"/>.
+    /// </summary>
     private void BuildUpdates()
     {
         var updates = Group("Updates");
         _sections["updates"] = updates;
-        var feed = new TextBox { Text = ShellPrefs.Get(S).UpdateFeedUrl ?? "", PlaceholderText = "Paste the address from the PC Tidy download page", MinWidth = 320, ClearButtonEnabled = true };
-        AutomationProperties.SetName(feed, "Update address");
-        feed.LostFocus += (_, _) => UpdatePrefs(p => p with { UpdateFeedUrl = string.IsNullOrWhiteSpace(feed.Text) ? null : feed.Text.Trim() });
-        // Nothing to check until there's an address.
-        var check = new Button { Content = "Check now", Margin = new Thickness(6, 0, 0, 0), Icon = new SymbolIcon(SymbolRegular.ArrowSync24), IsEnabled = !string.IsNullOrWhiteSpace(feed.Text) };
-        feed.TextChanged += (_, _) => check.IsEnabled = !string.IsNullOrWhiteSpace(feed.Text);
-        AutomationProperties.SetName(check, "Check the update address for an update now");
-        check.Click += (_, _) =>
-        {
-            UpdatePrefs(p => p with { UpdateFeedUrl = string.IsNullOrWhiteSpace(feed.Text) ? null : feed.Text.Trim() });
-            CheckForUpdateAsync(feed.Text).Forget(Host, "Update check didn't finish");
-        };
-        Card(SymbolRegular.ArrowDownload24, "Update address",
-            "PC Tidy doesn't phone home. Leave this empty and it never checks for updates. If you add an address, \"Check now\" fetches only that small file (nothing about this PC is sent); an update is installed only if it is signed by the same publisher as this PC Tidy.",
-            Row(feed, check));
+        var practice = IsPractice ? " In demo and practice mode PC Tidy never goes online." : "";
+        Card(SymbolRegular.ArrowSync24, "Check for updates automatically",
+            "Once a day PC Tidy asks its releases on GitHub whether there's a newer version. It sends only \"PC-Tidy/\" and its version number, nothing about this PC or you. Nothing is installed without your OK." + practice,
+            Toggle(ShellPrefs.Get(S).AutoUpdateCheck, on => { ShellPrefs.Set(S, ShellPrefs.Get(S) with { AutoUpdateCheck = on }); Save(); }));
+        _updateStatus = Styled(new TextBlock { MaxWidth = 300, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), TextTrimming = TextTrimming.CharacterEllipsis }, "Secondary");
+        RefreshUpdateStatus();
+        _window.Updates.StateChanged += RefreshUpdateStatus;
+        var check = new Button { Content = "Check for updates", Icon = new SymbolIcon(SymbolRegular.ArrowDownload24) };
+        AutomationProperties.SetName(check, "Check for updates now");
+        check.Click += (_, _) => _window.Updates.CheckNowAsync().Forget(Host, "Update check didn't finish");
+        Card(SymbolRegular.ArrowDownload24, $"PC Tidy {ReleaseVersion.Show(UpdateFlow.CurrentVersion)}",
+            "Updates come only from PC Tidy's GitHub releases (mintggs2/pc-tidy). Each download is checked against the release's SHA-256 checksums before anything runs, and you confirm before it installs.",
+            Row(_updateStatus, check));
     }
 
-    private async Task CheckForUpdateAsync(string url)
+    private void RefreshUpdateStatus()
     {
-        if (UpdateChecker.FeedProblem(url) is { } bad) { Host.ShowMessage("Can't check for updates", bad); return; }
-        if (_services.IsDemo) { Host.ShowMessage("Not in demo mode", "Demo mode never goes online."); return; }
-        UpdateChecker.TryParseVersion(AppVersion, out var current);
-        using var handler = UpdateChecker.CreateHandler();
-        var checker = new UpdateChecker(handler, current);
-        _window.ShowProgress("Checking the release feed…", canStop: false);
-        UpdateCheck result;
-        try { result = await checker.CheckAsync(url, CancellationToken.None); }
-        finally { _window.HideProgress(); }
-        if (result.State != UpdateState.Available) { Host.ShowMessage(result.State == UpdateState.UpToDate ? "No update" : "Update check", result.Message, isError: result.State == UpdateState.Problem); return; }
-
-        // Who made an update is decided by its signature, not by the feed's checksum (the feed names both). An unsigned
-        // PC Tidy (this beta) can't tell, so it only offers the release page and never installs anything by itself.
-        var own = await Task.Run(Authenticode.Own);
-        var changelog = new ScrollViewer { MaxHeight = 280, Content = FlowHost.Body(result.Manifest!.Changelog!), Margin = new Thickness(0, 10, 0, 0), VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        var body = new StackPanel { Width = 520 };
-        body.Children.Add(FlowHost.Body(result.Message + " What's new:"));
-        body.Children.Add(changelog);
-        if (own.State != SignatureState.Valid)
-        {
-            var page = result.Manifest.ReleasePage();
-            body.Children.Add(Styled(new TextBlock { Text = UpdateTrust.UnsignedSelf + " Get it from the release page and run it yourself.", Margin = new Thickness(0, 10, 0, 0), TextWrapping = TextWrapping.Wrap }, "Caption"));
-            var manual = new ContentDialog(_window.DialogHost) { Title = "Update available", Content = body, PrimaryButtonText = page is null ? "" : "Open the release page", CloseButtonText = "Not now", DefaultButton = ContentDialogButton.Close };
-            if (await Host.ShowDialogAsync(manual) != ContentDialogResult.Primary || page is null) return;
-            if (IsPractice) { Host.ShowMessage("Practice mode", $"Here PC Tidy would open {page.AbsoluteUri} in your browser. In practice mode it doesn't."); return; }
-            try { OwnProcesses.OpenReleasePage(page); }
-            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { Host.ShowMessage("Couldn't open the release page", ex.Message, isError: true); }
-            return;
-        }
-        body.Children.Add(Styled(new TextBlock { Text = "Download only: nothing is installed until you confirm once more.", Margin = new Thickness(0, 10, 0, 0) }, "Caption"));
-        var ask = new ContentDialog(_window.DialogHost) { Title = "Update available", Content = body, PrimaryButtonText = "Download", CloseButtonText = "Not now", DefaultButton = ContentDialogButton.Close };
-        if (await Host.ShowDialogAsync(ask) != ContentDialogResult.Primary) return;
-
-        var store = new UpdateStore(S.DataRoot);
-        // Stop cancels the download (the overlay's token); a connection that goes quiet ends it by itself after 30 s.
-        var stop = _window.ShowProgress("Downloading the update…", canStop: true, stopText: "Stop the download");
-        string? problem;
-        try { problem = await checker.DownloadAsync(result, store, new Progress<double>(f => _window.ReportProgress(new RunProgress((int)(f * 99), 100, $"{f:P0}"))), stop); }
-        finally { _window.HideProgress(); }
-        if (problem == UpdateChecker.StoppedMessage) { Host.ShowMessage("Download stopped", problem); return; }
-        if (problem is not null) { Host.ShowMessage("Update not downloaded", problem, isError: true); return; }
-
-        // From here the installer is held open (no writes, renames or deletes) until Windows has started it.
-        var installer = store.FinalPath(result.NewVersion!);
-        VerifiedInstaller verified;
-        try { verified = await Task.Run(() => VerifiedInstaller.Open(installer, result.Manifest.Sha256!, own)); }
-        catch (InvalidOperationException ex)
-        {
-            store.Discard(installer);
-            Host.ShowMessage("Update refused", ex.Message + " The download was thrown away. Nothing was installed.", isError: true);
-            return;
-        }
-        using (verified)
-        {
-            var confirm = new ContentDialog(_window.DialogHost)
-            {
-                Title = $"Install PC Tidy {result.NewVersion!.ToString(3)}?",
-                Content = FlowHost.Body($"The download matches the release's checksum. {Authenticode.Describe(verified.Signature)}\n\nPC Tidy closes and the installer updates it. Windows asks for permission first, because PC Tidy is installed for everyone on this PC. Your settings, history and quarantine stay as they are."),
-                PrimaryButtonText = "Install and restart", CloseButtonText = "Later", DefaultButton = ContentDialogButton.Close,
-            };
-            if (await Host.ShowDialogAsync(confirm) != ContentDialogResult.Primary) return;
-            if (IsPractice)
-            {
-                Host.ShowMessage("Practice mode", $"Here PC Tidy would now start \"{Path.GetFileName(installer)}\" --silent and close. In practice mode it doesn't.");
-                return;
-            }
-            try
-            {
-                verified.Start();
-                _window.Quit();
-            }
-            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
-            {
-                Host.ShowMessage("Update not started", ex.Message, isError: true);
-            }
-        }
+        if (_updateStatus is null) return;
+        var state = ShellState.Get(S);
+        _updateStatus.Text = state.LastUpdateCheckUtc is { } when
+            ? $"Checked {when.ToLocalTime():g}. {state.LastUpdateNote}"
+            : "Not checked yet.";
+        _updateStatus.ToolTip = _updateStatus.Text;
     }
 
     // ---------------- Uninstall ----------------

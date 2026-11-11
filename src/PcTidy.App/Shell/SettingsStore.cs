@@ -173,8 +173,13 @@ public sealed record ShellPrefs
     public bool ScanReportAlerts { get; init; } = true;
 
     // ---- updates ----
-    /// <summary>The release feed (an https URL to a small JSON manifest) the user chose. Empty = updates off.</summary>
-    public string? UpdateFeedUrl { get; init; }
+    /// <summary>
+    /// "Check for updates automatically": at most once a day PC Tidy asks PC Tidy's GitHub releases whether there is a
+    /// newer version. On by default, for new and existing users. The address is fixed in code (Updates.ReleaseSource):
+    /// no setting, and no imported settings file, can point the updater anywhere else. (The old "update address"
+    /// setting, UpdateFeedUrl, is dropped by <see cref="Migrate"/>.)
+    /// </summary>
+    public bool AutoUpdateCheck { get; init; } = true;
 
     [System.Text.Json.Serialization.JsonIgnore]
     public Notifications.QuietHoursWindow Quiet => Notifications.QuietHoursWindow.Parse(QuietHoursOn, QuietFrom, QuietTo);
@@ -183,6 +188,22 @@ public sealed record ShellPrefs
 
     public static ShellPrefs Get(AppSettings s) => s.GetFeature<ShellPrefs>(Key) ?? new ShellPrefs();
     public static void Set(AppSettings s, ShellPrefs p) => s.SetFeature(Key, p);
+
+    /// <summary>The 3.1.0-and-older custom release feed address. It is never read any more; <see cref="Migrate"/> removes it.</summary>
+    public const string OldFeedSetting = "UpdateFeedUrl";
+
+    /// <summary>
+    /// Drops the old custom "update address" from stored settings (a custom feed could point the updater at anyone's
+    /// server; updates now come only from PC Tidy's GitHub releases). Returns true when something was removed, so the
+    /// caller saves. A settings section that can't be read is left alone.
+    /// </summary>
+    public static bool Migrate(AppSettings s)
+    {
+        if (!s.Features.TryGetValue(Key, out var raw) || raw.ValueKind != System.Text.Json.JsonValueKind.Object) return false;
+        if (!raw.TryGetProperty(OldFeedSetting, out _)) return false;
+        try { Set(s, Get(s)); return true; }
+        catch (System.Text.Json.JsonException) { return false; }
+    }
 
     /// <summary>
     /// <see cref="AppSettings.LoadProblem"/> without the parser's technical detail in brackets
@@ -211,6 +232,16 @@ public sealed record ShellState
     public string NowChart { get; init; } = "cpu";
     /// <summary>Colour tags on restore points (key = <see cref="Pages.RestorePointsModel.TagKey"/>, value = tag name).</summary>
     public Dictionary<string, string> RestorePointTags { get; init; } = new();
+
+    // ---- updates (this PC's state, so never in an export or an import) ----
+    /// <summary>When PC Tidy last asked GitHub for the newest release (automatic or "Check for updates"); null = never.</summary>
+    public DateTime? LastUpdateCheckUtc { get; init; }
+    /// <summary>What that check found, in one short line for Settings ("You have the newest version (3.1.1).").</summary>
+    public string? LastUpdateNote { get; init; }
+    /// <summary>"Skip this version": the X.Y.Z the automatic check doesn't offer again.</summary>
+    public string? SkippedUpdateVersion { get; init; }
+    /// <summary>The one-time "PC Tidy now checks GitHub once a day" notice was shown (people who updated from 3.1.0; new users read it on the welcome screen).</summary>
+    public bool UpdateCheckNoticeSeen { get; init; }
 
     public static ShellState Get(AppSettings s)
     {

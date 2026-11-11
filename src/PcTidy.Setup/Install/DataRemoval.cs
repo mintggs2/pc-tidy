@@ -91,10 +91,12 @@ public static class DataRemovalPlanner
         "settings.json", "settings.json.bak", "settings.json.tmp", "datafolder.txt", DataFolderMarker.IdFileName, DataFolderMarker.FileName, "learned.db",
         // shared folders (Core DataPaths and the shell)
         "runs", "Quarantine", "reports", "index", "logs", "backups", "learning", "Rescue", "updates", "exports", "staging", "temp",
+        // stopped scans' results (file paths from scans; 3.1.1)
+        "scan-checkpoints",
         // each section's own data (<DataRoot>\<feature id>)
         "aichats", "apps", "assistant", "boost", "cleanup", "desktoptidy", "developer", "drivemove", "drivers", "duplicates", "engine",
-        "games", "insights", "learned", "organize", "pccare", "photos", "privacy", "schedule", "search", "services", "shell", "spacemap",
-        "speed", "tweaks",
+        "games", "insights", "learned", "measure", "organize", "pccare", "photos", "privacy", "schedule", "search", "services", "shell",
+        "spacemap", "speed", "tweaks",
     };
 
     public static DataRemovalPlan Plan(InstallEnvironment env)
