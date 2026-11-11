@@ -7,6 +7,9 @@ PC Tidy is a **beta**. Every change it makes can be previewed, simulated and und
 
 ## [Unreleased]
 
+### Changed
+- PC Tidy's own code is now released under the MIT License (see LICENSE). Third-party components keep their own licences.
+
 ## [3.1.0] - 2026-11-11
 
 Built from PC Tidy's research into what "FPS boost" tweaks actually do (215 tweaks checked against published measurements). Only things with a measured, safe effect can be applied; tweaks that were measured to do nothing are shown with their numbers instead; harmful ones are found and put back.

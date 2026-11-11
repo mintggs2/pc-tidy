@@ -3,7 +3,7 @@
   Builds a PC Tidy release into .\publish\:
     PC-Tidy-Setup-<version>.exe      our own installer: per-machine, %ProgramFiles%\PC Tidy, one admin prompt
                                      (app payload appended, see below)
-    PC-Tidy-<version>-portable.zip   the app files + README + THIRD-PARTY-NOTICES + PRIVACY + CHANGELOG (runs from any folder,
+    PC-Tidy-<version>-portable.zip   the app files + README + LICENSE + THIRD-PARTY-NOTICES + PRIVACY + CHANGELOG (runs from any folder,
                                      but never runs admin steps: those need the Program Files install)
     PC-Tidy-Rescue-<version>.exe     the standalone Rescue download: one self-contained file (it runs on its own, never
                                      with admin rights; the installed Rescue does admin undo)
@@ -103,7 +103,7 @@ Invoke-Publish 'src\PcTidy.Setup\PcTidy.Setup.csproj' (Join-Path $work 'uninstal
 $appFiles = Get-Published (Join-Path $work 'app') 'PcTidy.exe'
 $rescueFiles = Get-Published (Join-Path $work 'rescue') 'PC Tidy Rescue.exe'
 $uninstallerFiles = Get-Published (Join-Path $work 'uninstaller') 'PC Tidy Setup.exe'
-$docs = 'README.md', 'THIRD-PARTY-NOTICES.txt', 'PRIVACY.md', 'CHANGELOG.md' | ForEach-Object { Join-Path $root $_ }
+$docs = 'README.md', 'LICENSE', 'THIRD-PARTY-NOTICES.txt', 'PRIVACY.md', 'CHANGELOG.md' | ForEach-Object { Join-Path $root $_ }
 foreach ($d in $docs) { if (-not (Test-Path -LiteralPath $d)) { throw "Missing $d." } }
 
 # ---- payload (what Setup installs in Program Files) ----

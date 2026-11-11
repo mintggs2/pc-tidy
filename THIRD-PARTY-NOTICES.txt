@@ -1,9 +1,9 @@
 PC Tidy
-Copyright (c) 2026 PC Tidy. All rights reserved.
+Copyright (c) 2026 PC Tidy contributors.
 
-PC Tidy itself is not released under an open-source licence (yet). You may download and use the
-published builds; no other rights are granted. The components below keep their own licences; none
-of those licences applies to PC Tidy's own code.
+PC Tidy's own code is released under the MIT License (see the LICENSE file). The components below
+keep their own licences; the MIT License doesn't change them, and none of those licences applies to
+PC Tidy's own code.
 
 =====================================================================================================
 Third-party components shipped with PC Tidy

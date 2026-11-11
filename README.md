@@ -206,4 +206,4 @@ dotnet run --project src\PcTidy.App -- --sandbox testbed\try           # run the
 - A developer build (`dotnet run`, `bin\`) is like a portable copy: admin steps are skipped. Test them from an installed build.
 - Tests never change the real PC: file tests run in `testbed\<area>\`, registry tests only under `HKCU\Software\PCTidyTest\<area>`.
 
-**Licence:** PC Tidy is not released under an open-source licence yet, so all rights are reserved: you're welcome to download and use the published builds and to read the code, but please don't redistribute it. Third-party components keep their own licences: see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+**Licence:** PC Tidy's own code is released under the [MIT License](LICENSE). Third-party components keep their own licences: see [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt). Changes are listed in [CHANGELOG.md](CHANGELOG.md).

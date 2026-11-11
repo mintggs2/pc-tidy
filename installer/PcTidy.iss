@@ -47,7 +47,7 @@ WizardStyle=modern
 SetupIconFile=..\src\PcTidy.App\Assets\PcTidy.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
 UninstallDisplayName={#MyAppName}
-; No licence page: PC Tidy isn't released under a licence yet. Third-party notices ship as THIRD-PARTY-NOTICES.txt.
+; No licence page: the MIT License needs no click-through. LICENSE and THIRD-PARTY-NOTICES.txt ship with the app.
 OutputBaseFilename=PC-Tidy-Setup-{#MyAppVersion}-InnoSetup
 Compression=lzma2/max
 SolidCompression=yes
