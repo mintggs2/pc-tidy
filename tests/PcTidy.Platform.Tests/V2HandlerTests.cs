@@ -30,6 +30,7 @@ public class V2HandlerTests
         new object[] { new QuickAccessPinHandler(), Item(ActionKind.QuickAccessPin, source: @"C:\Users\tester\Projects") },
         new object[] { new StartWithWindowsHandler(), Item(ActionKind.StartWithWindowsSet, enable: true) },
         new object[] { new ScheduledTaskDeleteHandler(), Item(ActionKind.ScheduledTaskDelete, new() { ["name"] = "Weekly report" }) },
+        new object[] { new DeviceSetEnabledHandler(), Item(ActionKind.DeviceSetEnabled, new() { ["instanceId"] = @"USB\VID_1234&PID_ABCD\5&2B3C4D5E&0&1" }, enable: true, admin: true) },
     };
 
     [Theory]
@@ -58,6 +59,7 @@ public class V2HandlerTests
             ActionKind.ShellExtensionSetEnabled, ActionKind.RestorePointDelete, ActionKind.WlanProfileDelete, ActionKind.UserProfileDelete,
             ActionKind.OptionalFeatureRemove, ActionKind.VolumeOptimize, ActionKind.CloseApp, ActionKind.StoreRepair,
             ActionKind.ScheduledTaskCreate, ActionKind.ScheduledTaskDelete, ActionKind.StartWithWindowsSet, ActionKind.LaunchApp, ActionKind.QuickAccessPin,
+            ActionKind.DeviceSetEnabled,
         };
         foreach (var kind in kinds) Assert.Single(handlers, h => h.CanHandle(new PlanItem { Kind = kind, FeatureId = "t", Description = "t" }));
     }
@@ -66,7 +68,7 @@ public class V2HandlerTests
     public void Admin_helper_kinds_include_the_machine_wide_v2_kinds_but_never_per_user_ones()
     {
         foreach (var k in new[] { ActionKind.VolumeOptimize, ActionKind.ShellExtensionSetEnabled, ActionKind.RestorePointDelete, ActionKind.UserProfileDelete,
-                     ActionKind.OptionalFeatureRemove, ActionKind.WlanProfileDelete, ActionKind.RunUninstaller })
+                     ActionKind.OptionalFeatureRemove, ActionKind.WlanProfileDelete, ActionKind.RunUninstaller, ActionKind.DeviceSetEnabled })
             Assert.Contains(k, ElevatedBatchExecutor.AdminCapableKinds);
         foreach (var k in new[] { ActionKind.LaunchApp, ActionKind.CloseApp, ActionKind.AppxRemoveForUser, ActionKind.KnownFolderRedirect, ActionKind.StoreRepair,
                      ActionKind.ScheduledTaskCreate, ActionKind.ScheduledTaskDelete, ActionKind.StartWithWindowsSet, ActionKind.QuickAccessPin, ActionKind.ShellVerbSetInstalled })

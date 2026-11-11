@@ -88,7 +88,20 @@ public interface ISystemProbe
     IReadOnlyList<DisabledDevice>? DisabledSystemDevices { get; }
     /// <summary>The active power plan and the plans on this PC; null = couldn't be read.</summary>
     PowerPlanInfo? PowerPlans { get; }
+
+    // ---- v3.1 ----
+    /// <summary>Each TCP setting template and its congestion provider by name ("CUBIC", "BBR2"...); null = couldn't be read.</summary>
+    IReadOnlyList<CongestionSetting>? CongestionProviders { get; }
+    /// <summary>The active power plan's "processor idle disable" (plugged in): 1 = idle states off, 0 = on; null = unknown.</summary>
+    int? ProcessorIdleDisableAc { get; }
+    /// <summary>The same on battery; null = unknown.</summary>
+    int? ProcessorIdleDisableDc { get; }
+    /// <summary>The WebView2 runtime is registered (Microsoft's documented "pv" check); null = couldn't tell.</summary>
+    bool? WebView2Installed { get; }
 }
+
+/// <summary>One TCP setting template (MSFT_NetTCPSetting) and its congestion provider's name; null name = not reported or unknown code.</summary>
+public sealed record CongestionSetting(string SettingName, string? Provider);
 
 /// <summary>Defender's state (MSFT_MpComputerStatus / MSFT_MpPreference, documented WMI classes). Null parts = not reported.</summary>
 /// <param name="AntivirusEnabled">Defender's antivirus is the one protecting the PC (false when another antivirus took over).</param>
@@ -109,7 +122,11 @@ public sealed record DefenderProtection(bool? AntivirusEnabled, bool? TamperProt
 }
 
 /// <summary>A device Device Manager shows as disabled (problem code 22). <paramref name="InstanceId"/> is the language-independent id.</summary>
-public sealed record DisabledDevice(string Name, string InstanceId);
+public sealed record DisabledDevice(string Name, string InstanceId)
+{
+    /// <summary>The device's setup class (devguid.h); null = unknown. Shown only: the finder never turns devices on (System class stays protected).</summary>
+    public Guid? ClassGuid { get; init; }
+}
 
 /// <summary>The power plans on this PC (power API, read-only). Names are only shown, never compared.</summary>
 public sealed record PowerPlanInfo(Guid Active, string? ActiveName, IReadOnlyList<Guid> Installed);
@@ -165,6 +182,10 @@ public sealed record FixedSystemProbe : ISystemProbe
     public IReadOnlyList<UnboundProtocol>? UnboundProtocols { get; init; }
     public IReadOnlyList<DisabledDevice>? DisabledSystemDevices { get; init; }
     public PowerPlanInfo? PowerPlans { get; init; }
+    public IReadOnlyList<CongestionSetting>? CongestionProviders { get; init; }
+    public int? ProcessorIdleDisableAc { get; init; }
+    public int? ProcessorIdleDisableDc { get; init; }
+    public bool? WebView2Installed { get; init; }
     public IReadOnlyDictionary<string, int> OptionalFeatures { get; init; } = new Dictionary<string, int>();
     public int? OptionalFeatureState(string featureName) => OptionalFeatures.TryGetValue(featureName, out var s) ? s : null;
 }

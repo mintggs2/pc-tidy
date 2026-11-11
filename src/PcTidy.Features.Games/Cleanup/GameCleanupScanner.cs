@@ -72,10 +72,15 @@ public sealed class GameCleanupScanner : IFeatureScanner
 
         var notes = new List<string>();
         if (groups.Count == 0) notes.Add("No game logs or caches worth clearing were found.");
+        if (caches.Count > 0 || steamShaders.Count > 0) notes.Add(ShaderCacheNote);
         notes.Add("Your graphics driver's own shader caches (NVIDIA, AMD, Intel, DirectX) are in Clean → GPU shader caches.");
         progress?.Report(new ScanProgress("Done", 1));
         return new ScanResult { FeatureId = GamesContext.FeatureId, Title = "Game cleanup", Groups = groups, Notes = notes };
     }
+
+    /// <summary>Card C9 as a note on the Cleanup tab: the warning plus its measured number and source.</summary>
+    public static readonly string ShaderCacheNote =
+        $"{GuidanceCards.ShaderCacheWarning.Title}: {GameCleanupTargets.ShaderRebuildWarning} {FpsMeasurements.ShaderRebuild.Line}.";
 
     internal static IEnumerable<string> Resolve(IKnownLocations k, GameCleanupTarget t) => t.Base switch
     {
@@ -89,7 +94,7 @@ public sealed class GameCleanupScanner : IFeatureScanner
     private static string LocalLow(IKnownLocations k) => Path.Combine(k.UserProfile, "AppData", "LocalLow");
 
     /// <summary>One row per target folder; its actions quarantine each entry inside (never the folder itself).</summary>
-    private static ScanItem? TargetItem(GamesContext g, GameCleanupTarget t, string folder, CancellationToken ct)
+    internal static ScanItem? TargetItem(GamesContext g, GameCleanupTarget t, string folder, CancellationToken ct)
     {
         var entries = FolderSize.Children(g.Scan.Walker, folder, ct).Where(e => !e.IsReparsePoint && !e.IsCloudPlaceholder).ToList();
         if (entries.Count == 0) return null;

@@ -163,6 +163,8 @@ public partial class InsightsView : UserControl, IFixedHeightPage
             body.Children.Add(facts);
         }
 
+        if (card.IsAvailable && card.Measured.Count > 0) body.Children.Add(BuildMeasured(card));
+
         if (card.IsAvailable) body.Children.Add(Text("What to do: " + card.WhatToDo, "Body", top: 10));
         if (card.Steps.Count > 0)
         {
@@ -182,6 +184,26 @@ public partial class InsightsView : UserControl, IFixedHeightPage
         return border;
     }
 
+    /// <summary>"Measured on other PCs": each number with its hardware, source and date on the line under it.</summary>
+    private static FrameworkElement BuildMeasured(InsightCard card)
+    {
+        var stack = new StackPanel();
+        var tile = new Border { Child = stack, Margin = new Thickness(0, 10, 0, 0) };
+        tile.SetResourceReference(StyleProperty, "InnerTile");
+        stack.Children.Add(Text("Measured on other PCs", "CaptionStrong"));
+        foreach (var m in card.Measured)
+        {
+            var number = Text(m.Number, "Caption", top: 6);
+            var where = Text(m.Where, "Caption");
+            where.FontStyle = FontStyles.Italic;
+            AutomationProperties.SetName(number, $"Measured: {m.Number}. {m.Where}");
+            stack.Children.Add(number);
+            stack.Children.Add(where);
+        }
+        AutomationProperties.SetName(tile, card.Title + ": measured numbers");
+        return tile;
+    }
+
     private FrameworkElement BuildRows(InsightCard card)
     {
         var rows = card.Items.Select(i => new InsightRow(i)).ToList();
@@ -198,6 +220,8 @@ public partial class InsightsView : UserControl, IFixedHeightPage
 
         var review = new Button { Content = "Review ticked items", Appearance = ControlAppearance.Primary, IsEnabled = false, Margin = new Thickness(0, 8, 0, 0), Icon = new SymbolIcon { Symbol = SymbolRegular.Checkmark24 } };
         AutomationProperties.SetName(review, "Review the ticked items in " + card.Title);
+        // One long task at a time (UI review M1): waits, with the reason, while another run holds the shared gate.
+        PcTidy.UI.Flow.RunGate.SetDisableWhileBusy(review, true);
         foreach (var r in rows)
             r.PropertyChanged += (_, _) =>
             {

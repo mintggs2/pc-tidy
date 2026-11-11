@@ -9,6 +9,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" />
+    <!-- service.restart / wu.resetcomponents: stop and start allow-listed services (never their start type). -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="PcTidy.Platform.Tests" />

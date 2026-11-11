@@ -128,7 +128,7 @@ public sealed class AdminQuarantineSection : UserControl
                 $"{entries.Count:N0} items ({Sizes.Format(entries.Sum(e => e.SizeBytes))}) quarantined with admin rights will be deleted permanently. Windows asks for admin rights first.", "Delete for good"))
             return;
         string? problem;
-        using (_host.Working())
+        using (_host.Working("the delete"))
         {
             window.ShowProgress("Deleting for good…", canStop: false);
             try { problem = await Task.Run(() => _elevation.PurgeAdminQuarantineAsync(runId, CancellationToken.None)); }

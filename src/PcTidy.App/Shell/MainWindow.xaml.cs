@@ -49,12 +49,17 @@ public partial class MainWindow : FluentWindow
         Navigation = new ShellNavigation(this, services);
         services.Add<INavigationService>(Navigation);
         services.Add<PcTidy.Features.Assistant.Engine.ISectionReviewHost>(Navigation);
+        services.Add<IParameterNavigation>(Navigation);
+        services.Add<IRunCheckLauncher>(Navigation);
+        services.Add(RunGate.Shared);
+        FlowHost.RunsChanged += () => RefreshBadgesAsync().Forget(FlowHost, "Couldn't update the rail");
 
         RegisterBuiltInPages();
         BuildRail();
         RootNavigation.SetPageProviderService(_pages);
         RootNavigation.Navigated += (_, args) =>
         {
+            OnPageShown(args.Page);
             LimitWidth(args.Page as FrameworkElement);
             Dispatcher.BeginInvoke(() => FixScrolling(args.Page as DependencyObject), DispatcherPriority.Loaded);
             // Opened from Home, a notification or another section: the rail shows where you are.
@@ -73,6 +78,7 @@ public partial class MainWindow : FluentWindow
             ApplyRailDensity();
             NavigateTo("home");
             if (!screenshotMode && !Settings.OnboardingDone) ShowOnboarding(true);
+            RefreshBadgesAsync().Forget(FlowHost, "Couldn't update the rail");
         };
     }
 
@@ -211,7 +217,7 @@ public partial class MainWindow : FluentWindow
         bool dense = ActualHeight > 0 && ActualHeight < DenseRailBelowHeight;
         if (_denseRail == dense) return;
         _denseRail = dense;
-        foreach (var list in new[] { RootNavigation.MenuItems, RootNavigation.FooterMenuItems })
+        foreach (var list in new[] { RootNavigation.MenuItems, RootNavigation.FooterMenuItems, (System.Collections.IList?)_moreItem?.MenuItems ?? Array.Empty<object>() })
             foreach (var o in list)
             {
                 if (o is NavigationViewItem item) item.Margin = dense ? new Thickness(0, -2, 0, -2) : new Thickness(0);
@@ -314,26 +320,255 @@ public partial class MainWindow : FluentWindow
         RootNavigation.FooterMenuItems.Clear();
         var modules = Modules;
 
+        _railItems.Clear();
+        _railHeaders.Clear();
+        _moreItem = null;
+        _moreHeader = null;
+
         RootNavigation.MenuItems.Add(Item("Home", SymbolRegular.Home24, typeof(HomePage)));
-        foreach (var (group, header) in NavGroups.Body)
+        // Layout spec §4.2: the groups, then "More" (rarely used sections) at the end, so the rail starts at about 16 rows.
+        foreach (var row in RailLayout.Build(modules))
         {
-            var inGroup = modules.Where(m => m.Group == group).ToList();
-            if (inGroup.Count == 0) continue;
-            if (header.Length > 0)
+            switch (row.Kind)
             {
-                var h = new NavigationViewItemHeader { Text = header };
-                AutomationProperties.SetName(h, "Group: " + System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(header.ToLowerInvariant()));
-                RootNavigation.MenuItems.Add(h);
+                case RailEntryKind.Header:
+                    var h = new NavigationViewItemHeader { Text = row.Text };
+                    AutomationProperties.SetName(h, "Group: " + System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(row.Text.ToLowerInvariant()));
+                    _railHeaders.Add(h);
+                    RootNavigation.MenuItems.Add(h);
+                    break;
+                case RailEntryKind.Module:
+                    RootNavigation.MenuItems.Add(TrackedItem(row.Module!));
+                    break;
+                case RailEntryKind.More:
+                    RootNavigation.MenuItems.Add(MoreItem(row.MoreChildren));
+                    break;
             }
-            foreach (var m in inGroup) RootNavigation.MenuItems.Add(ModuleItem(m));
         }
-        foreach (var m in modules.Where(m => m.Group == NavGroup.Footer)) RootNavigation.FooterMenuItems.Add(ModuleItem(m));
-        RootNavigation.FooterMenuItems.Add(Item("History", SymbolRegular.History24, typeof(HistoryPage)));
-        RootNavigation.FooterMenuItems.Add(Item("Quarantine", SymbolRegular.ArchiveArrowBack24, typeof(QuarantinePage)));
-        RootNavigation.FooterMenuItems.Add(Item("Settings", SymbolRegular.Settings24, typeof(SettingsPage)));
+        foreach (var m in modules.Where(m => m.Group == NavGroup.Footer)) RootNavigation.FooterMenuItems.Add(TrackedItem(m));
+        RootNavigation.FooterMenuItems.Add(_historyItem = Item("History", SymbolRegular.History24, typeof(HistoryPage)));
+        RootNavigation.FooterMenuItems.Add(_quarantineItem = Item("Quarantine", SymbolRegular.ArchiveArrowBack24, typeof(QuarantinePage)));
+        RootNavigation.FooterMenuItems.Add(_settingsItem = Item("Settings", SymbolRegular.Settings24, typeof(SettingsPage)));
         _denseRail = null; // new items: apply the density again
         ApplyRailDensity();
+        ShowBadges();
     }
+
+    // ---------------- rail: More, counters ----------------
+
+    private readonly Dictionary<string, NavigationViewItem> _railItems = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<NavigationViewItemHeader> _railHeaders = new();
+    private NavigationViewItem? _moreItem, _historyItem, _quarantineItem, _settingsItem;
+    private FrameworkElement? _moreHeader;
+    private bool _settingMore;
+    private IReadOnlyDictionary<string, string?> _badges = new Dictionary<string, string?>();
+    private int _historyUnseen;
+
+    private NavigationViewItem TrackedItem(IFeatureModule m)
+    {
+        var item = ModuleItem(m);
+        _railItems[m.Id] = item;
+        return item;
+    }
+
+    /// <summary>
+    /// "More" at the end of the rail: a NavigationViewItem with its own sections (WPF-UI opens and closes it with a click,
+    /// Enter or Space). Its open state is remembered, and it opens by itself when the open section is inside it.
+    /// </summary>
+    private NavigationViewItem MoreItem(IReadOnlyList<IFeatureModule> children)
+    {
+        // GOTCHA (WPF-UI 4.3): the rail style's fixed 28 px height would clip the open list, so "More" sizes itself; its
+        // header row is 40 px in the template, so its bottom is pulled in to line the first section up with the other rows.
+        var more = new NavigationViewItem { Content = RailLayout.MoreText, Icon = new SymbolIcon(SymbolRegular.MoreHorizontal24), Height = double.NaN, MinHeight = 28 };
+        more.Loaded += (_, _) =>
+        {
+            more.ApplyTemplate();
+            if (more.Template?.FindName("MainBorder", more) is FrameworkElement header)
+            {
+                header.Margin = new Thickness(0, 0, 0, -12);
+                _moreHeader = header;
+            }
+        };
+        foreach (var m in children)
+        {
+            var child = TrackedItem(m);
+            child.Height = 28;
+            child.MinHeight = 28;
+            more.MenuItems.Add(child);
+        }
+        var names = string.Join(", ", children.Select(c => c.Title));
+        AutomationProperties.SetName(more, $"More sections: {names}");
+        AutomationProperties.SetHelpText(more, "Press Enter or Space to open or close.");
+        more.ToolTip = "Sections you'll use now and then: " + names;
+        more.IsExpanded = ShellState.Get(Settings).RailMoreOpen;
+        System.ComponentModel.DependencyPropertyDescriptor.FromProperty(NavigationViewItem.IsExpandedProperty, typeof(NavigationViewItem))
+            .AddValueChanged(more, (_, _) =>
+            {
+                if (_settingMore) return;
+                ShellState.Update(Settings, s => s with { RailMoreOpen = more.IsExpanded });
+                SaveSettingsQuietly();
+            });
+        _moreItem = more;
+        return more;
+    }
+
+    /// <summary>Whether the rail's "More" is open right now.</summary>
+    public bool IsMoreOpen => _moreItem?.IsExpanded == true;
+
+    /// <summary>Opens "More" when the shown section is inside it (not remembered: that stays the user's own choice).</summary>
+    private void OpenMoreFor(string? moduleId)
+    {
+        if (_moreItem is null || _moreItem.IsExpanded || !RailLayout.ShouldOpenMore(false, moduleId)) return;
+        _settingMore = true;
+        try { _moreItem.IsExpanded = true; }
+        finally { _settingMore = false; }
+    }
+
+    /// <summary>Screenshots and the tour: open or close "More" as the user would (remembered).</summary>
+    public void SetMoreOpen(bool open)
+    {
+        if (_moreItem is not null) _moreItem.IsExpanded = open;
+    }
+
+    /// <summary>
+    /// Fetches the rail counters: every <see cref="INavBadgeSource"/> section (off the UI thread, 5 s limit, a failure
+    /// shows nothing) and History's undo-able runs since it was last opened. Called at start and after each run.
+    /// </summary>
+    public async Task RefreshBadgesAsync()
+    {
+        var modules = Modules;
+        IReadOnlyDictionary<string, string?> badges;
+        try { badges = await new NavBadgeFetcher().FetchAsync(modules, CancellationToken.None); }
+        catch (Exception) { badges = new Dictionary<string, string?>(); }
+        int unseen = 0;
+        try
+        {
+            var state = ShellState.Get(Settings);
+            if (state.HistoryViewedUtc is null)
+            {
+                // First start with counters: what is already in History counts as seen.
+                ShellState.Update(Settings, s => s with { HistoryViewedUtc = DateTime.UtcNow });
+            }
+            else if (_services.GetService(typeof(IRunJournal)) is IRunJournal journal)
+            {
+                var runs = await Task.Run(() => journal.ListAsync(CancellationToken.None));
+                unseen = HistoryBadge.Count(runs, state.HistoryViewedUtc);
+            }
+        }
+        catch (Exception) { unseen = 0; } // History unreadable: no counter
+        _badges = badges;
+        _historyUnseen = unseen;
+        ShowBadges();
+    }
+
+    private void ShowBadges()
+    {
+        foreach (var (id, item) in _railItems)
+        {
+            var m = Modules.FirstOrDefault(x => x.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (m is null) continue;
+            SetBadge(item, m.Title, _badges.TryGetValue(id, out var b) ? b : null, null);
+        }
+        if (_historyItem is not null)
+            SetBadge(_historyItem, "History", HistoryBadge.Text(_historyUnseen), _historyUnseen > 0 ? HistoryBadge.AccessibleText(_historyUnseen) : null);
+    }
+
+    /// <summary>The rail counter of a section ("7 of 31 on"), or null. For tests and screenshots.</summary>
+    public string? BadgeOf(string key) => key.Equals("history", StringComparison.OrdinalIgnoreCase) ? HistoryBadge.Text(_historyUnseen)
+        : _badges.TryGetValue(key, out var b) ? b : null;
+
+    /// <summary>A rail row's text with its counter on the right (or just the text). The accessible name says both.</summary>
+    private static void SetBadge(NavigationViewItem item, string title, string? badge, string? spoken)
+    {
+        if (badge is null)
+        {
+            if (item.Content is not string) item.Content = title;
+            AutomationProperties.SetName(item, title);
+            return;
+        }
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(new System.Windows.Controls.TextBlock { Text = title, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
+        var pill = new PcTidy.UI.Controls.BadgePill { Text = badge, Tone = PcTidy.UI.Controls.PillTone.Neutral, ShowDot = false, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(6, 0, 6, 1) };
+        Grid.SetColumn(pill, 1);
+        grid.Children.Add(pill);
+        item.Content = grid;
+        item.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        AutomationProperties.SetName(item, $"{title}, {spoken ?? badge}");
+    }
+
+    /// <summary>Called for every page the rail shows: "More" follows, History clears its counter, parameters reach the page.</summary>
+    private void OnPageShown(object? page)
+    {
+        var key = KeyOf(page);
+        _shownKey = key;
+        OpenMoreFor(key);
+        if (key == "history")
+        {
+            ShellState.Update(Settings, s => s with { HistoryViewedUtc = DateTime.UtcNow });
+            _historyUnseen = 0;
+            ShowBadges();
+        }
+        var inner = page is ScrollViewer { Content: { } c } ? c : page;
+        if (inner is INavigationTarget target)
+        {
+            var parameter = _pendingParameter is { } p && p.Key.Equals(key, StringComparison.OrdinalIgnoreCase) ? p.Value : null;
+            _pendingParameter = null;
+            try { target.OnNavigatedTo(parameter); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { CrashHandler.Write(ex, "Opening a section with a parameter", terminating: false); }
+        }
+    }
+
+    private KeyValuePair<string, object?>? _pendingParameter;
+
+    /// <summary>
+    /// Opens a section and hands its page <paramref name="parameter"/> (an <see cref="INavigationTarget"/> gets it in
+    /// OnNavigatedTo). A page that is already showing gets it straight away.
+    /// </summary>
+    public void NavigateWithParameter(string key, object? parameter)
+    {
+        _pendingParameter = new KeyValuePair<string, object?>(key, parameter);
+        NavigateTo(key);
+        if (_pendingParameter is null) return; // delivered by OnPageShown
+        // Already on that page (WPF-UI doesn't navigate again): deliver directly.
+        if (PageObject(key) is INavigationTarget target && _shownKey is { } shown && shown.Equals(key, StringComparison.OrdinalIgnoreCase))
+        {
+            _pendingParameter = null;
+            target.OnNavigatedTo(parameter);
+        }
+    }
+
+    private string? _shownKey;
+
+    /// <summary>The key of the page on screen ("home", a module id…).</summary>
+    public string? ShownKey => _shownKey;
+
+    /// <summary>The shell key ("home", "history", a module id…) of a page object, or null.</summary>
+    private string? KeyOf(object? page)
+    {
+        if (page is null) return null;
+        foreach (var (key, type) in _keys)
+            if (_pages.IsCreated(type, out var created) && (ReferenceEquals(created, page) || created is ScrollViewer { Content: var c } && ReferenceEquals(c, page)))
+                return key;
+        return null;
+    }
+
+    /// <summary>Rail elements the spotlight tour points at ("rail.groups", "rail.more", "rail.history"…), or null.</summary>
+    public FrameworkElement? RailTarget(string id) => id switch
+    {
+        "rail.history" => _historyItem,
+        "rail.quarantine" => _quarantineItem,
+        "rail.settings" => _settingsItem,
+        // The "More" row itself (not its open list, which can run off the bottom of a short window).
+        "rail.more" => _moreHeader is { IsLoaded: true } h ? h : _moreItem,
+        "rail.groups" => _railHeaders.FirstOrDefault(h => h.IsLoaded),
+        _ => null,
+    };
+
+    /// <summary>The rail's sections from the first group header to the last section (the tour's "groups" step).</summary>
+    public IReadOnlyList<FrameworkElement> RailGroupElements()
+        => RootNavigation.MenuItems.OfType<FrameworkElement>().Skip(1).Where(e => !ReferenceEquals(e, _moreItem) && e.IsLoaded).ToList();
 
     private NavigationViewItem ModuleItem(IFeatureModule m)
     {
@@ -463,6 +698,88 @@ public partial class MainWindow : FluentWindow
 
     public OnboardingView? Onboarding => _onboarding;
 
+    // ---------------- spotlight tour (Help and Settings) ----------------
+
+    private TourOverlay? _tour;
+
+    /// <summary>The tour on screen, or null.</summary>
+    public TourOverlay? Tour => _tour;
+
+    /// <summary>
+    /// Starts the replayable tour on Home: it dims everything except one part at a time (Scan everything, the groups,
+    /// More, History, Quarantine, Settings, Simulate first). Esc or Close ends it; it never presses anything.
+    /// </summary>
+    public void StartTour()
+    {
+        if (_onboarding is not null) ShowOnboarding(false);
+        EndTour();
+        NavigateTo("home");
+        var model = new TourModel();
+        model.Changed += () => PrepareTourTarget(model.Current.Target);
+        model.Closed += EndTour;
+        _tour = new TourOverlay(model, TourTargetBounds);
+        TourLayer.Children.Clear();
+        TourLayer.Children.Add(_tour);
+        TourLayer.Visibility = Visibility.Visible;
+        PrepareTourTarget(model.Current.Target);
+        Dispatcher.BeginInvoke(() => _tour?.Focus(), DispatcherPriority.Loaded);
+    }
+
+    private void EndTour()
+    {
+        if (_tour is null) return;
+        _tour = null;
+        TourLayer.Children.Clear();
+        TourLayer.Visibility = Visibility.Collapsed;
+        Dispatcher.BeginInvoke(() => RootNavigation.Focus(), DispatcherPriority.Input);
+    }
+
+    /// <summary>Scrolls the step's target into view first (the rail scrolls on short windows).</summary>
+    private void PrepareTourTarget(string? id)
+    {
+        if (id is null) return;
+        if (id == "home.scan" && ShownKey != "home") NavigateTo("home");
+        TourElement(id)?.BringIntoView();
+    }
+
+    private FrameworkElement? TourElement(string id) => id switch
+    {
+        "home.scan" => PageFor<HomePage>("home")?.OptimizeButton,
+        _ => RailTarget(id),
+    };
+
+    /// <summary>Where the step's target is on the overlay (the groups step covers every group header and section).</summary>
+    private Rect? TourTargetBounds(string id)
+    {
+        try
+        {
+            if (id == "rail.groups")
+            {
+                Rect? all = null;
+                foreach (var e in RailGroupElements())
+                    if (Bounds(e) is { } b) all = all is { } a ? Rect.Union(a, b) : b;
+                // Only the part of the rail that is on screen.
+                if (all is { } u && RootNavigation.IsLoaded && Bounds(RootNavigation) is { } nav) { u.Intersect(nav); return u.IsEmpty ? null : u; }
+                return all;
+            }
+            if (id == "rail.more" && TourElement(id) is { } moreRow && ReferenceEquals(moreRow, _moreHeader) && Bounds(moreRow) is { } row)
+            {
+                // The header's template row is 40 px with its bottom pulled in by 12 px: ring the 28 px row people see.
+                row.Height = Math.Min(row.Height, 28);
+                if (RootNavigation.IsLoaded && Bounds(RootNavigation) is { } nav) row.Intersect(nav);
+                return row.IsEmpty ? null : row;
+            }
+            return TourElement(id) is { } el ? Bounds(el) : null;
+        }
+        catch (InvalidOperationException) { return null; } // not in the same visual tree (yet)
+    }
+
+    private Rect? Bounds(FrameworkElement e)
+    {
+        if (!e.IsLoaded || !e.IsVisible || e.ActualWidth <= 0) return null;
+        return e.TransformToAncestor(RootGrid).TransformBounds(new Rect(0, 0, e.ActualWidth, e.ActualHeight));
+    }
+
     /// <summary>Shows the run progress overlay; returns a token that "Stop after this step" cancels.</summary>
     public CancellationToken ShowProgress(string title, bool canStop, string stopText = "Stop after this step")
     {
@@ -477,6 +794,7 @@ public partial class MainWindow : FluentWindow
         ProgressStop.IsEnabled = true;
         ProgressStop.Content = stopText;
         AutomationProperties.SetName(ProgressStop, stopText);
+        ShowProgressSections(null, savedLine: false);
         RoutedEventHandler? handler = null;
         handler = (_, _) => { cts.Cancel(); ProgressStop.IsEnabled = false; ProgressStop.Content = "Stopping…"; };
         ProgressStop.Click += handler;
@@ -499,6 +817,57 @@ public partial class MainWindow : FluentWindow
     }
 
     public void SetProgressTitle(string title) => ProgressTitle.Text = title;
+
+    private ProgressSections? _sections;
+
+    /// <summary>
+    /// Shows the run's sections with their states (null = no list, for single-section runs) and, for real runs, the line
+    /// "Everything done so far is already saved and can be undone." (layout spec §4.3).
+    /// </summary>
+    public void ShowProgressSections(ProgressSections? sections, bool savedLine)
+    {
+        if (_sections is not null) _sections.Changed -= DrawProgressSections;
+        _sections = sections;
+        if (sections is not null) sections.Changed += DrawProgressSections;
+        ProgressSaved.Text = ProgressSections.SavedLine;
+        ProgressSaved.Visibility = savedLine ? Visibility.Visible : Visibility.Collapsed;
+        DrawProgressSections();
+    }
+
+    /// <summary>The section list on the progress overlay right now (screenshots and tests).</summary>
+    public ProgressSections? ProgressSectionList => _sections;
+
+    private void DrawProgressSections()
+    {
+        if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(DrawProgressSections); return; }
+        ProgressSectionsPanel.Children.Clear();
+        ProgressSectionsScroll.Visibility = _sections is { Items.Count: > 0 } ? Visibility.Visible : Visibility.Collapsed;
+        if (_sections is null) return;
+        foreach (var s in _sections.Items)
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+            var label = ProgressSections.Label(s.State);
+            var pill = new PcTidy.UI.Controls.BadgePill
+            {
+                Text = label,
+                MinWidth = 104,
+                Tone = s.State switch
+                {
+                    SectionRunState.Done => PcTidy.UI.Controls.PillTone.Success,
+                    SectionRunState.Running => PcTidy.UI.Controls.PillTone.Accent,
+                    SectionRunState.NeedsRestart => PcTidy.UI.Controls.PillTone.Caution,
+                    _ => PcTidy.UI.Controls.PillTone.Neutral,
+                },
+            };
+            DockPanel.SetDock(pill, Dock.Right);
+            row.Children.Add(pill);
+            var text = new System.Windows.Controls.TextBlock { Text = s.Title, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
+            text.SetResourceReference(StyleProperty, s.State == SectionRunState.Running ? "BodyStrong" : "Body");
+            row.Children.Add(text);
+            AutomationProperties.SetName(row, $"{s.Title}: {label}");
+            ProgressSectionsPanel.Children.Add(row);
+        }
+    }
 
     public void HideProgress()
     {

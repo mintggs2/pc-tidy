@@ -131,6 +131,25 @@ public sealed class WindowsGamesEnvironment : IGamesEnvironment
         return list;
     }
 
+    /// <summary>Per-app GPU preferences of the current user (value name = exe path). Read-only handle only.</summary>
+    public IReadOnlyDictionary<string, string> GpuPreferences()
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var root = RegistryKey.OpenBaseKey(RegistryHive.CurrentUser, RegistryView.Registry64);
+            using var key = root.OpenSubKey(GpuPreferenceAllowances.Key, writable: false);
+            if (key is null) return map;
+            foreach (var name in key.GetValueNames())
+            {
+                if (map.Count >= MaxCompatibilitySettings) break;
+                if (name.Length > 0 && key.GetValue(name) is string data) map[name] = data;
+            }
+        }
+        catch (Exception) { /* unreadable: nothing known */ }
+        return map;
+    }
+
     // ---------------- registry helpers (read-only handles) ----------------
 
     private static IEnumerable<(string Name, RegistryKey Key)> SubKeys(RegistryHive hive, RegistryView view, string path)

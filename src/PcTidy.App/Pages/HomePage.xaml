@@ -55,6 +55,9 @@
             </Grid>
         </Border>
 
+        <!--  Optional live "Now" card (off by default: Settings > Appearance); built in code  -->
+        <ContentControl x:Name="NowHost" Margin="0,16,0,0" Focusable="False" Visibility="Collapsed" />
+
         <!--  Cards: 3 columns where they fit, 2 on narrower windows (never touching)  -->
         <c:ResponsiveGrid x:Name="TopCards" Margin="0,16,0,0" Gap="16" MaxColumns="3" MinItemWidth="290">
 
@@ -81,7 +84,22 @@
             <!--  Health score: never a number before a check; always its reasons; can be hidden in Settings  -->
             <Border x:Name="HealthCard" Style="{StaticResource TidyCard}">
                 <StackPanel>
-                    <TextBlock Style="{StaticResource CardTitle}" Text="PC health" />
+                    <DockPanel>
+                        <!--  Read-only System info window (Insights); hidden when this build has none  -->
+                        <ui:Button
+                            x:Name="SystemInfoButton"
+                            Padding="8,2"
+                            VerticalAlignment="Top"
+                            Appearance="Transparent"
+                            AutomationProperties.Name="System info: what's inside this PC, read-only"
+                            Click="OnSystemInfo"
+                            Content="System info"
+                            DockPanel.Dock="Right"
+                            FontSize="12"
+                            Icon="{ui:SymbolIcon Info24}"
+                            ToolTip="CPU, memory, graphics, storage and network. It only reads." />
+                        <TextBlock Style="{StaticResource CardTitle}" Text="PC health" />
+                    </DockPanel>
                     <StackPanel x:Name="HealthNotChecked" Margin="0,10,0,0">
                         <TextBlock Style="{StaticResource SectionTitle}" Text="Not checked yet" TextWrapping="Wrap" />
                         <TextBlock Margin="0,4,0,0" Style="{StaticResource Secondary}" Text="A quick, read-only look at free space and leftovers. You'll see every reason behind the result." />

@@ -11,6 +11,10 @@ public static class PcCareTabs
     public const string Updates = "updates";
     public const string Repair = "repair";
     public const string Network = "network";
+    /// <summary>The lag check (B2): its own panel, not scan rows. Read-only, runs only on request.</summary>
+    public const string LagCheck = "lag";
+    /// <summary>Fix-it recipes (B5): cards with a Run button, not scan rows.</summary>
+    public const string Fixes = "fixes";
     public const string Security = "security";
     public const string Browsers = "browsers";
     public const string Crashes = "crashes";
@@ -24,6 +28,8 @@ public static class PcCareTabs
         (Updates, "App updates"),
         (Repair, "Repair"),
         (Network, "Network"),
+        (LagCheck, "Lag check"),
+        (Fixes, "Fixes"),
         (Security, "Security"),
         (Browsers, "Browsers"),
         (Crashes, "Crashes"),
@@ -39,13 +45,16 @@ public static class PcCareTabs
     /// </summary>
     public static readonly IReadOnlyList<(string Title, IReadOnlyList<string> TabIds)> Groups = new (string, IReadOnlyList<string>)[]
     {
-        ("Fix", new[] { Updates, Repair, Network }),
+        ("Fix", new[] { Updates, Repair, Network, LagCheck, Fixes }),
         ("Security", new[] { Security, Browsers }),
         ("History", new[] { Crashes, Restore }),
         ("Tools", new[] { Leftovers, Shredder, Report }),
     };
 
     public static string TitleOf(string tabId) => All.First(t => t.Id == tabId).Title;
+
+    /// <summary>Tabs that show their own panel (no scan needed, no tick boxes): Lag check and Fixes.</summary>
+    public static bool IsPanel(string tabId) => tabId is LagCheck or Fixes;
 
     public static string GroupId(string tab, string name) => tab + "." + name;
 

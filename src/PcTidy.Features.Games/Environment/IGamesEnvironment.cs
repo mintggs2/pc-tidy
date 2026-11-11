@@ -27,6 +27,12 @@ public interface IGamesEnvironment
     /// all users. Read-only; used only to explain a "Run as administrator" tick on a game. Empty when unknown.
     /// </summary>
     IReadOnlyList<CompatibilitySetting> CompatibilitySettings() => Array.Empty<CompatibilitySetting>();
+
+    /// <summary>
+    /// The current user's per-app GPU preferences (HKCU\Software\Microsoft\DirectX\UserGpuPreferences): exe path →
+    /// stored text such as "GpuPreference=2;". Read-only. Empty when none or unknown (the sandbox never reads the real PC).
+    /// </summary>
+    IReadOnlyDictionary<string, string> GpuPreferences() => new Dictionary<string, string>();
 }
 
 /// <summary>One program's Compatibility-tab settings. <paramref name="Flags"/> is the stored text, e.g. "~ RUNASADMIN".</summary>

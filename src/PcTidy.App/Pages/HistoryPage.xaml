@@ -25,7 +25,7 @@
                     <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
                         <TextBlock FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
                         <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Detail}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock FontSize="11.5" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding When}" />
+                        <TextBlock FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding When}" />
                     </StackPanel>
                     <!--  BadgePill manages its own Visibility, so an unfinished row hides it through this wrapper  -->
                     <Border Grid.Column="2" Visibility="{Binding ShowsUndo, Converter={StaticResource BoolVis}}">
@@ -91,9 +91,28 @@
 
         <StackPanel x:Name="UnfinishedPanel" Grid.Row="1" Margin="0,14,0,0" />
 
-        <c:Segmented x:Name="Filter" Grid.Row="2" Margin="0,14,0,12" Label="Show runs from" />
+        <WrapPanel Grid.Row="2" Margin="0,14,0,12">
+            <c:Segmented x:Name="ViewPicker" Margin="0,0,16,4" Items="Runs|Restore points" Label="Show" SelectedIndex="0" />
+            <c:Segmented x:Name="Filter" Margin="0,0,0,4" Label="Show runs from" />
+        </WrapPanel>
 
-        <Grid Grid.Row="3">
+        <!--  Restore points: Windows' own, with Restore… (Windows' window) and Delete (normal confirm, never the newest)  -->
+        <Grid x:Name="RestorePointsView" Grid.Row="3" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="RestoreIntro" Margin="0,0,0,10" Style="{StaticResource Secondary}" Text="Windows makes these before big changes. Restore… opens Windows' own System Restore window: you pick and confirm there. The newest one is always kept." TextWrapping="Wrap" />
+            <ScrollViewer Grid.Row="1" Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <ui:InfoBar x:Name="RestoreProblem" Margin="0,0,0,10" IsClosable="False" IsOpen="False" Severity="Informational" />
+                    <c:ResponsiveGrid x:Name="RestoreCards" AutomationProperties.Name="Restore points" Gap="12" MaxColumns="2" MinItemWidth="340" />
+                    <c:EmptyState x:Name="RestoreEmpty" Icon="ShieldCheckmark24" Message="Windows hasn't made any restore points, or System Protection is off." Title="No restore points" Visibility="Collapsed" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <Grid x:Name="RunsView" Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition x:Name="DetailGap" Width="16" />

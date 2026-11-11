@@ -24,7 +24,7 @@ public static partial class TweakCatalog
         yield return new TweakDefinition
         {
             Id = "gaming.background-recording-off", Group = TweakGroup.Gaming, Title = "Turn off background recording",
-            Effect = "Stops Game Bar from constantly recording the last few minutes of play, which costs a few percent of FPS and video memory while it's on. Manual recording still works.",
+            Effect = "Stops Game Bar from constantly recording the last few minutes of play. While it records it cost 6.9% in one test (58.3 to 54.3 FPS in Metro Last Light, Windows 10). Manual recording still works.",
             Verdict = TweakVerdict.Proven, Flags = TweakFlags.RestartGame, Sources = Src(GameMode, WinUtilTweaks),
             Changes = Do(Cu(gameDvr, "HistoricalCaptureEnabled", 0, 0)),
             Preset = TweakPreset.SafeGaming, PresetDefault = true,
@@ -61,6 +61,8 @@ public static partial class TweakCatalog
             Id = "gaming.gamedvr-policy", Group = TweakGroup.Gaming, Title = "Block Game Bar capture by policy",
             Effect = "A hard block on Game Bar recording for every account on this PC.",
             Verdict = TweakVerdict.Situational, Risk = TweakRisk.Medium, Flags = TweakFlags.Admin | TweakFlags.ManagedPolicy, Sources = Src(WinUtilTweaks),
+            // Dual-CCD Ryzen X3D: the V-Cache driver relies on Game Bar to spot games, so a machine-wide Game Bar block is hidden there.
+            Applies = new TweakApplicability { HarmfulOn = CpuKind.DualCcdX3D },
             Caveat = "Unreliable on Windows 11 and makes Settings say it's managed. The normal switch above is usually enough.",
             Changes = Do(Lm(@"SOFTWARE\Policies\Microsoft\Windows\GameDVR", "AllowGameDVR", 0, null)),
         };
@@ -77,7 +79,7 @@ public static partial class TweakCatalog
         yield return new TweakDefinition
         {
             Id = "gaming.hags-on", Group = TweakGroup.Gaming, Title = "Hardware-accelerated GPU scheduling on",
-            Effect = "Needed for DLSS Frame Generation on newer NVIDIA cards; otherwise worth a few percent either way. Windows usually turns it on by itself.",
+            Effect = "Needed for DLSS Frame Generation on newer NVIDIA cards. Otherwise measured at about ±2% across 26 games, with Red Dead Redemption 2 up to +4%. Windows usually turns it on by itself.",
             Verdict = TweakVerdict.Situational, Risk = TweakRisk.Medium, Flags = TweakFlags.Admin | TweakFlags.Restart, Sources = Src(Hags),
             Caveat = "Leave it as it is unless you need frame generation. Turning it off is only a test for a specific stutter.",
             Applies = new TweakApplicability { MinBuild = 19041, GpuVendors = new[] { GpuVendor.Nvidia, GpuVendor.Amd, GpuVendor.Intel } },

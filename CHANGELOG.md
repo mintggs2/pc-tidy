@@ -7,6 +7,25 @@ PC Tidy is a **beta**. Every change it makes can be previewed, simulated and und
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-11-11
+
+Built from PC Tidy's research into what "FPS boost" tweaks actually do (215 tweaks checked against published measurements). Only things with a measured, safe effect can be applied; tweaks that were measured to do nothing are shown with their numbers instead; harmful ones are found and put back.
+
+### Added
+- **Measure**: import frame-time recordings you made with PresentMon, CapFrameX, OCAT or FrameView (3+ runs before, 3+ after) and see average FPS, 1% lows, P99 frame time and stutters, with a cautious verdict: Better, Worse, No measurable change, or Too noisy to say. Opens from "Check if this helped" after a run. PC Tidy doesn't record anything itself.
+- **PC care**: **Fixes** (Wi-Fi, Bluetooth, Windows Update, Store, Windows Installer errors 2502/2503, game launchers), **adapter power saving off** (per network adapter, with undo) and **Lag check** (idle latency vs latency under load). The lag check is switched off until a test server whose terms allow it is chosen.
+- **Tweaks**: search, category chips, "N of M on" from your PC's real settings, a card view, presets that show what they'll change before they tick anything, and a **"Doesn't help (measured)"** shelf: nearly 50 popular tweaks with the published measurement that found no gain.
+- **Bad-tweak finder**: Defender real-time protection off, Tamper Protection off (opens Windows Security), BBR2 on Windows 11 24H2, jumbo frames, apps stuck at Realtime priority, a leftover safe-boot flag (one click to start normally again), leftover BIOS-tool and low-level helper drivers, "PC optimizer" suites and registry cleaners, Edge WebView2 missing, and more. Every harmful tweak from the research is checked or explained.
+- **Games**: Optimize is now a game list with the details beside it (Tuned, Not tuned, Info only, Not installed), measured numbers on each setting, a **Tips** tab (cap your FPS, Reflex and Anti-Lag, why a game is slow, shader cache), and **GPU choice per game** on laptops with two GPUs.
+- **Insights**: cards with measured numbers (NVIDIA App filters, Memory Integrity cost, Windows version vs CPU, Ryzen X3D with two core groups, refresh rate, RAM, Resizable BAR, debloated Windows), **install missing runtimes** (Visual C++, DirectX, .NET Desktop) through winget, and a **System info** window (no serial numbers or network addresses shown).
+- **App**: a "More" group in the rail, factual counters on rail items (Tweaks "N of M on", Services "N changed from Windows default", new runs in History), an optional live **Now** card on Home (off by default), per-section progress, **restore points in History**, and a replayable tour from Help.
+
+### Changed
+- Release file names have no spaces (`PC-Tidy-Setup-3.1.0.exe`, `PC-Tidy-3.1.0-portable.zip`, `PC-Tidy-Rescue-3.1.0.exe`), so they match `SHA256SUMS.txt` after download. (GitHub renamed the 3.0.0 files with dots: `PC.Tidy.Setup.3.0.0.exe` and so on; their checksums are unchanged.)
+- While a task runs, other run buttons are disabled and say why.
+- Confirm dialogs list everything that will change, with Back before Confirm.
+- Services: a card explains why PC Tidy has no "service presets".
+
 ## [3.0.0] - 2026-11-10
 
 ### Added

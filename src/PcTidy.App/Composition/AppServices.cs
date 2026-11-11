@@ -71,6 +71,9 @@ public sealed class AppServices : IServiceProvider
         services.CurrentRelease = FeatureCatalog.CurrentRelease;
         PcTidy.App.Pages.HelpContent.WhatWeDontClean = PcTidy.Features.Cleanup.CleanupModule.WhatWeDontCleanText;
         AppEntry.ElevatedHandler = (args, _, _) => Task.FromResult(host.RunElevatedHelper(args.Raw.ToArray()));
+        // v3.1 rail counters: point them at the practice PC in a sandbox before the first badge fetch.
+        foreach (var tweaks in modules.OfType<PcTidy.Features.Tweaks.TweaksModule>()) tweaks.AttachServices(services);
+        foreach (var svc in modules.OfType<PcTidy.Features.Services.ServicesModule>()) svc.AttachServices(services);
         foreach (var organize in modules.OfType<PcTidy.Features.Organize.OrganizeModule>())
         {
             Started.Add(sp => organize.StartWatchIfEnabled(sp));

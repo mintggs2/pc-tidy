@@ -10,8 +10,12 @@ public static class GameRecipes
     private static string Wiki(string page) => "https://www.pcgamingwiki.com/wiki/" + page;
 
     private static GameRecommendation Info(string id, string title, string reason, TweakVerdict verdict, Evidence evidence, string source,
-        RecommendationKind kind = RecommendationKind.KnownFix)
-        => new() { Id = id, Kind = kind, Title = title, Reason = reason, Verdict = verdict, Evidence = evidence, SourceUrl = source };
+        RecommendationKind kind = RecommendationKind.KnownFix, Measurement? measured = null)
+        => new() { Id = id, Kind = kind, Title = title, Reason = reason, Verdict = verdict, Evidence = evidence, SourceUrl = source, Measured = measured };
+
+    /// <summary>A PLACEBO row: shown greyed on the "Doesn't help (measured)" shelf, never applied.</summary>
+    private static GameRecommendation Placebo(string id, string title, string reason, Evidence evidence, string source, Measurement? measured = null)
+        => Info(id, title, reason, TweakVerdict.Placebo, evidence, source, RecommendationKind.KnownFix, measured);
 
     public static readonly IReadOnlyList<GameRecipe> All = new GameRecipe[]
     {
@@ -24,13 +28,28 @@ public static class GameRecipes
                 new GameRecommendation
                 {
                     Id = "cs2.fps-max", Kind = RecommendationKind.LaunchOption, Title = "Lift the 400 FPS cap (+fps_max 0)",
-                    Reason = "CS2 caps gameplay at 400 FPS. Uncapping only helps on a high-refresh monitor with a fast PC; it makes the GPU run hotter. A cap a little below your refresh rate is the usual low-lag choice with G-Sync/FreeSync.",
+                    Reason = "CS2 caps gameplay at 400 FPS. Uncapping raised the average but made the 1% lows much worse in the one test found, and it makes the GPU run hotter. A cap a little below your refresh rate is the usual low-lag choice with G-Sync/FreeSync.",
                     Verdict = TweakVerdict.Situational, Evidence = Evidence.Verified, SourceUrl = Wiki("Counter-Strike_2"),
-                    AddLaunchOption = "+fps_max 0",
+                    AddLaunchOption = "+fps_max 0", Measured = FpsMeasurements.Cs2FpsMax,
                 },
                 Info("cs2.vulkan", "Vulkan (-vulkan) is a per-PC experiment",
                     "CS2 can run on Vulkan instead of DirectX 11. It's faster on some GPUs and slower on others, and can break overlays. Try it yourself; PC Tidy doesn't set it.",
-                    TweakVerdict.Situational, Evidence.Verified, Wiki("Counter-Strike_2")),
+                    TweakVerdict.Situational, Evidence.Verified, Wiki("Counter-Strike_2"), measured: FpsMeasurements.Cs2Vulkan),
+                Info("cs2.setting-cost", "The settings that cost the most FPS",
+                    "MSAA, shadows and particles cost the most; anisotropic filtering costs almost nothing. Lower the expensive ones in Settings → Video first.",
+                    TweakVerdict.Proven, Evidence.Verified, FpsMeasurements.NineErza, RecommendationKind.ConfigSetting, FpsMeasurements.Cs2SettingCost),
+                Info("cs2.resolution", "Lower resolution raises the average more than the lows",
+                    "A lower or stretched resolution gives a big jump in average FPS, but the 1% lows (the stutters you feel) barely move, because CS2 is usually limited by the CPU.",
+                    TweakVerdict.Situational, Evidence.Verified, FpsMeasurements.NineErza, RecommendationKind.ConfigSetting, FpsMeasurements.Cs2LowerResolution),
+                Placebo("cs2.high", "-high launch option",
+                    "Raises CS2's CPU priority. It made no measurable difference and can make voice chat and capture stutter.",
+                    Evidence.Verified, FpsMeasurements.NineErza, FpsMeasurements.Cs2High),
+                Placebo("cs2.threads", "-threads, -nojoy and thread or render cvars",
+                    "The engine already picks its own thread count. None of these changed FPS beyond normal run-to-run noise.",
+                    Evidence.Verified, FpsMeasurements.NineErza, FpsMeasurements.Cs2OtherOptions),
+                Placebo("cs2.latency-cvars", "\"Low latency\" console commands",
+                    "Latency cvars, the raw-input keyboard setting and removing Workshop maps made no measurable difference to input lag.",
+                    Evidence.Verified, FpsMeasurements.Cs2Kitchen, FpsMeasurements.Cs2LatencyCvars),
             },
         },
         new()
@@ -70,7 +89,13 @@ public static class GameRecipes
                 Info("apex.fpsmax", "Microstutter: unlimited FPS plus an external cap",
                     "+fps_max unlimited with a cap from your GPU driver is PCGamingWiki's microstutter fix. Apex uses Easy Anti-Cheat, so PC Tidy only shows this.",
                     TweakVerdict.Situational, Evidence.Verified, Wiki("Apex_Legends")),
-                // "-high" (false update prompt in Apex) is flagged by the launch-option audit when it's actually set.
+                Info("apex.dx12", "DirectX 12 runs better for most players",
+                    "Respawn's own numbers say most PCs run Apex better on DirectX 12, but a few GPUs run slower. If yours stutters on DirectX 12, try DirectX 11 and compare.",
+                    TweakVerdict.Situational, Evidence.Verified, FpsMeasurements.ApexDx12, RecommendationKind.FullscreenMode, FpsMeasurements.ApexDirectX12),
+                Placebo("apex.high", "-high and other speed-up launch options",
+                    "There is no Apex test of -high; in CS2 it measured no change. In Apex it can also trigger a false update prompt.",
+                    Evidence.Verified, Wiki("Apex_Legends"), FpsMeasurements.Cs2High),
+                // "-high" (false update prompt in Apex) is also flagged by the launch-option audit when it's actually set.
             },
         },
         new()
@@ -79,12 +104,18 @@ public static class GameRecipes
             Engine = GameEngine.Unreal, AntiCheat = AntiCheat.EasyAntiCheat, WikiUrl = Wiki("Fortnite"),
             Recommendations = new[]
             {
-                Info("fortnite.performance", "Weak GPU: use Performance rendering mode",
-                    "Settings → Video → Rendering Mode → Performance gives the biggest FPS gain on older hardware. DirectX 11 vs 12 depends on your PC: try both. Change it in the game.",
-                    TweakVerdict.Proven, Evidence.Verified, Wiki("Fortnite"), RecommendationKind.FullscreenMode),
-                Info("fortnite.reflex", "NVIDIA Reflex lowers input lag",
-                    "On an NVIDIA card, Settings → Video → NVIDIA Reflex Low Latency → On (or On + Boost) cuts input lag when the GPU is the bottleneck.",
-                    TweakVerdict.Situational, Evidence.Unverified, Wiki("Fortnite")),
+                Info("fortnite.performance", "Weak GPU: try Performance rendering mode",
+                    "Settings → Video → Rendering Mode → Performance gave a big average-FPS gain on a budget PC. On mid and high-end PCs DirectX 12 had the better 1% lows, so try both. Change it in the game.",
+                    TweakVerdict.Situational, Evidence.Verified, Wiki("Fortnite"), RecommendationKind.FullscreenMode, FpsMeasurements.FortnitePerformanceMode),
+                Info("fortnite.frame-limit", "Cap the frame rate in the game's own menu",
+                    "Settings → Video → Frame Rate Limit. The in-game cap adds less lag than a cap from RTSS or the GPU driver (measured in CS2; Fortnite not tested).",
+                    TweakVerdict.Proven, Evidence.Verified, Wiki("Fortnite"), RecommendationKind.ConfigSetting, FpsMeasurements.InGameVsExternalCap),
+                Info("fortnite.reflex", "NVIDIA Reflex lowers input lag when the GPU is busy",
+                    "On an NVIDIA card, Settings → Video → NVIDIA Reflex Low Latency → On cuts input lag when the GPU is the bottleneck. When it isn't, the gain is tiny, and On + Boost adds little (measured in CS2; Fortnite not tested).",
+                    TweakVerdict.Situational, Evidence.Unverified, Wiki("Fortnite"), measured: FpsMeasurements.ReflexGpuBound),
+                Placebo("fortnite.sg-ini", "\"Beyond low\" sg.* values in GameUserSettings.ini",
+                    "The sg.* lines are the same quality groups the menu already writes. No test of setting them to 0 was found, and making the file read-only stops Fortnite saving settings.",
+                    Evidence.Unverified, Wiki("Fortnite")),
             },
         },
         new()
@@ -96,9 +127,12 @@ public static class GameRecipes
                 Info("valorant.security", "Keep TPM 2.0, Secure Boot and Memory Integrity on",
                     "Riot Vanguard may refuse to start without TPM 2.0, Secure Boot, Memory Integrity or IOMMU. PC Tidy never turns these off.",
                     TweakVerdict.Proven, Evidence.Verified, "https://support-valorant.riotgames.com/"),
-                Info("valorant.ini", "Don't hand-edit VALORANT's settings files",
-                    "Riot publishes no rule on editing GameUserSettings.ini, and the \"lower than low\" tricks are unproven. Use the in-game settings.",
-                    TweakVerdict.Placebo, Evidence.Verified, Wiki("Valorant")),
+                Info("valorant.multithreaded", "Multithreaded Rendering: on for CPUs with 8+ threads",
+                    "Riot recommends Settings → Video → Graphics Quality → Multithreaded Rendering on CPUs with 8 or more threads. No measured numbers were found.",
+                    TweakVerdict.Situational, Evidence.Unverified, Wiki("Valorant"), RecommendationKind.ConfigSetting),
+                Placebo("valorant.ini", "Hand-edited sg.* and Engine.ini \"extra low\" values",
+                    "Riot publishes no rule on editing GameUserSettings.ini, and no source has numbers for the \"lower than low\" tricks. Use the in-game settings.",
+                    Evidence.Verified, Wiki("Valorant")),
             },
         },
         new()

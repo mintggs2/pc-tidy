@@ -276,7 +276,7 @@ public partial class QuarantinePage : UserControl, IFixedHeightPage
         var renamed = new List<string>();
         var failed = new List<string>();
         var store = Store;
-        using (Host.Working())
+        using (Host.Working("the restore"))
         {
             Window.ShowProgress("Putting files back…", canStop: false);
             try
@@ -342,7 +342,7 @@ public partial class QuarantinePage : UserControl, IFixedHeightPage
         if (!await Dialogs.ConfirmTypedAsync(Host, Window.DialogHost, title, message, "Delete for good")) return;
         var failures = new List<string>();
         var store = Store;
-        using (Host.Working())
+        using (Host.Working("the delete"))
         {
             Window.ShowProgress("Deleting for good…", canStop: false);
             try

@@ -131,6 +131,30 @@ public static class CustomProbeKind
     public const string DisabledSystemDevices = "disabled-system-devices";
     /// <summary>The active power plan isn't one of Windows' standard plans.</summary>
     public const string StrayPowerPlan = "stray-power-plan";
+
+    // ---- v3.1 ----
+    /// <summary>Defender is the antivirus in charge but real-time protection is off, with no policy behind it (information only).</summary>
+    public const string DefenderRealtimeOff = "defender-realtime-off";
+    /// <summary>Defender switched off in its own (non-policy) settings keys. Information only: PC Tidy never writes Defender's own values.</summary>
+    public const string DefenderSwitchedOffLocally = "defender-local-off";
+    /// <summary>A TCP template uses the BBR2 congestion provider on Windows 11 24H2 or later.</summary>
+    public const string Bbr2CongestionProvider = "bbr2-congestion";
+    /// <summary>A physical Ethernet adapter has jumbo packets switched on (*JumboPacket above 1514).</summary>
+    public const string JumboFrames = "jumbo-frames";
+    /// <summary>In-Windows BIOS tools (SCEWIN/AMISCE-style) and their helper drivers left behind. Names and folders only.</summary>
+    public const string BiosToolLeftovers = "bios-tool-leftovers";
+    /// <summary>"PC optimizer" suites installed (names list in <see cref="BadTweakLeftoverNames"/>).</summary>
+    public const string OptimizerSuites = "optimizer-suites";
+    /// <summary>Registry cleaners installed.</summary>
+    public const string RegistryCleaners = "registry-cleaners";
+    /// <summary>The active power plan has processor idle states switched off (IDLEDISABLE = 1).</summary>
+    public const string ProcessorIdleDisabled = "processor-idle-disabled";
+    /// <summary>The Xbox Game Bar is removed on a dual-CCD Ryzen X3D (AMD's core steering needs it).</summary>
+    public const string X3dGameBarMissing = "x3d-game-bar-missing";
+    /// <summary>The WebView2 runtime that Windows 11 ships with is gone (removed by a debloat script).</summary>
+    public const string WebView2Missing = "webview2-missing";
+    /// <summary>The AMD driver that shipped Anti-Lag+ (Adrenalin 23.10.1) is installed (information only).</summary>
+    public const string AntiLagPlusDriver = "antilag-plus-driver";
 }
 
 // ------------------------------------------------------------------ fixes
@@ -202,6 +226,24 @@ public sealed record HostsCommentOutFix : BadFix
 public sealed record PowerPlanSetFix(Guid SchemeGuid, string PlanName) : BadFix
 {
     public override string Describe() => $"Switch the power plan back to {PlanName}";
+}
+
+/// <summary>
+/// Remove one named boot value of the current entry when it is set (<see cref="ToolIds.BcdDeleteValue"/>). Used where one
+/// finding removes more than its probe's own value (Safe Mode: "safeboot" plus "safebootalternateshell" when present).
+/// </summary>
+public sealed record BootDeleteNamedFix(string Name, uint ElementType, string What) : BadFix
+{
+    public override string Describe() => What;
+}
+
+/// <summary>
+/// Set each registry value the custom probe listed to <paramref name="Data"/> (values that can't be named in advance,
+/// such as one network adapter's class subkey). Only patterned allowances in <see cref="BadTweakAllowances"/> allow it.
+/// </summary>
+public sealed record RegistrySetFoundFix(RegistryKind Kind, string Data) : BadFix
+{
+    public override string Describe() => $"Set each value listed back to {Data}";
 }
 
 /// <summary>Move a file to quarantine (restorable).</summary>

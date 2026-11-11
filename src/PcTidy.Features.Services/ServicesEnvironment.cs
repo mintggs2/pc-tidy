@@ -22,6 +22,9 @@ public sealed class ServicesEnvironment
         IsRealPc = true,
     });
 
+    /// <summary>The real PC's read-only sources (shared, created on first use).</summary>
+    public static ServicesEnvironment Real => RealPc.Value;
+
     /// <summary>The environment for a scan: the real PC, or the practice PC of a sandbox.</summary>
     public static ServicesEnvironment For(ScanContext ctx) => ctx.Locations.IsSandbox ? ForSandbox(ctx.Locations) : RealPc.Value;
 

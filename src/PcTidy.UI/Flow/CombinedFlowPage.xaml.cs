@@ -41,11 +41,30 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         _done = new DoneCard(settings?.QuarantineDays ?? 7);
         _done.UndoRequested += runs => UndoAsync(runs).Forget(Shell, "Undo didn't finish");
         _done.HistoryRequested += () => Shell?.NavigateTo("history");
+        _done.RunCheckLauncher = services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
         DoneState.Content = _done;
         SimulationState.BackRequested += () => SetState(FlowState.Preview);
         SimulationState.RunForRealRequested += () => ConfirmAsync().Forget(Shell);
-        Loaded += (_, _) => { if (State == FlowState.Ready) RefreshReady(); };
+        // One long task at a time: Confirm and Simulate wait (and say so) while another run is going.
+        Gate = services.GetService(typeof(RunGate)) as RunGate ?? RunGate.Shared;
+        Loaded += (_, _) =>
+        {
+            Gate.Changed -= OnGateChanged;
+            Gate.Changed += OnGateChanged;
+            if (State == FlowState.Ready) RefreshReady();
+            else if (State == FlowState.Preview) UpdateTotals();
+        };
+        Unloaded += (_, _) => Gate.Changed -= OnGateChanged;
         SetState(FlowState.Ready);
+    }
+
+    /// <summary>The one-long-task-at-a-time gate.</summary>
+    public RunGate Gate { get; }
+
+    private void OnGateChanged(object? sender, EventArgs e)
+    {
+        if (Dispatcher.CheckAccess()) UpdateTotals();
+        else Dispatcher.BeginInvoke(UpdateTotals);
     }
 
     private IShellFlowHost? Shell => _services.GetService(typeof(IShellFlowHost)) as IShellFlowHost ?? _services.GetService(typeof(IFlowHost)) as IShellFlowHost;
@@ -230,8 +249,14 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         int picked = _model.Sections.Count(s => s.CheckedItems.Any(i => i.IsSelectable));
         ConfirmButton.Content = picked <= 1 ? "Review and confirm"
             : picked == scanned ? $"Confirm all {picked} sections" : $"Confirm {picked} of {scanned} sections";
-        ConfirmButton.IsEnabled = c.HasWork;
-        SimulateButton.IsEnabled = c.HasWork;
+        // One long task at a time: the reason replaces the caption while another run is going.
+        bool busy = Gate?.IsBusy == true;
+        string busyReason = Gate?.Reason ?? RunGate.BusyReason; // "Available when Clean finishes"
+        if (busy && c.HasWork) TotalsCaption.Text = busyReason;
+        ConfirmButton.IsEnabled = c.HasWork && !busy;
+        SimulateButton.IsEnabled = c.HasWork && !busy;
+        AutomationProperties.SetHelpText(ConfirmButton, busy ? busyReason : "");
+        AutomationProperties.SetHelpText(SimulateButton, busy ? busyReason : "");
         AutomationProperties.SetName(ConfirmButton, (string)ConfirmButton.Content);
 
         // One tile per kind of change that is actually ticked, counted like the confirm dialog.
@@ -281,7 +306,7 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
 
     public async Task ConfirmAsync()
     {
-        if (Shell is not { } shell) return;
+        if (Shell is not { } shell || Gate.IsBusy) return; // one long task at a time
         var parent = ActionPlan.NewRunId();
         var plans = _model.BuildPlans(parent);
         if (plans.Count == 0) return;
@@ -322,7 +347,7 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
 
     public async Task SimulateAsync()
     {
-        if (Shell is not { } shell) return;
+        if (Shell is not { } shell || Gate.IsBusy) return; // one long task at a time
         var plans = _model.BuildPlans(ActionPlan.NewRunId());
         if (plans.Count == 0) return;
         var records = await shell.SimulateAsync(plans, new FlowOptions { Title = "Optimize & Organize everything", ShowResult = false }, CancellationToken.None);

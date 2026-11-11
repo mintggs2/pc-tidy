@@ -266,23 +266,18 @@ public static partial class TweakCatalog
             Changes = Do(new GuidanceChange("Control Panel → Power Options → Change plan settings → Advanced → USB settings → USB selective suspend: Disabled.")),
             Undo = "Set it back to Enabled in the same place.",
         };
-        yield return new TweakDefinition
-        {
-            Id = "power.pcie-aspm-off", Group = TweakGroup.Power, Title = "PCI Express link power saving off",
-            Effect = "A rare fix for latency spikes or wake problems with some cards.",
-            Verdict = TweakVerdict.Situational, Flags = TweakFlags.ExpertOnly | TweakFlags.Admin, Sources = Src(PcTuning),
-            Caveat = "More power use, rarely helps.",
-            Changes = Do(new GuidanceChange("Control Panel → Power Options → Advanced → PCI Express → Link State Power Management: Off.")),
-            Undo = "Set it back to Moderate power savings in the same place.",
-        };
+        // FPS research §4.5: PCIe ASPM off is PLACEBO (no test found). It used to be an Expert guidance row; it is now a shelf row.
+        yield return Placebo("power.pcie-aspm-off", TweakGroup.Power, "PCI Express link power saving off",
+            "No test found that turning link power saving off helps games, and it uses more power. Keep it only if a card has wake problems.",
+            Src(PcTuning), new GuidanceChange("Control Panel → Power Options → Advanced → PCI Express → Link State Power Management: Off."));
 
         yield return Placebo("power.ultimate-performance", TweakGroup.Power, "Ultimate Performance power plan",
-            "Uses more power for about zero FPS; independent testers found no difference in games.",
+            "Uses more power. In one test 3 of 4 games stayed within noise; Fortnite's +6.9% on unnamed hardware was not repeated.",
             Src(PcTuning), new PowerPlanChange(new Guid("e9a42b02-d5df-448d-aa00-03f14749eb61"), "Ultimate Performance"));
         yield return new TweakDefinition
         {
             Id = "power.core-parking-off", Group = TweakGroup.Power, Title = "Core parking off",
-            Effect = "No measured gain on most CPUs.", Caveat = "No measured gain on most CPUs, and on Ryzen X3D and Intel hybrid CPUs Windows needs core parking to put games on the right cores.",
+            Effect = "No measured gain on most CPUs.", Caveat = "The only gains were AMD's own 2017 numbers for first-generation Ryzen on Windows 10. On Ryzen X3D and Intel hybrid CPUs Windows needs core parking to put games on the right cores.",
             Verdict = TweakVerdict.Placebo, Sources = Src(PcTuning),
             Applies = new TweakApplicability { HarmfulOn = CpuKind.DualCcdX3D | CpuKind.Hybrid },
             Changes = Do(new CommandChange("powercfg -setacvalueindex scheme_current sub_processor CPMINCORES 100")),

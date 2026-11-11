@@ -80,7 +80,7 @@
         <Setter Property="FontFamily" Value="{StaticResource TidyText}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
     </Style>
     <Style x:Key="CaptionStrong" BasedOn="{StaticResource Caption}" TargetType="TextBlock">
         <Setter Property="FontWeight" Value="SemiBold" />

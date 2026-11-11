@@ -93,6 +93,20 @@ public static class OwnProcesses
     public static void OpenSystemProtectionSettings()
         => Process.Start(new ProcessStartInfo(SystemProtectionSettings) { UseShellExecute = true })?.Dispose();
 
+    /// <summary>Windows' own System Restore window (History › Restore points › "Restore…"): %windir%\System32\rstrui.exe.</summary>
+    public static string SystemRestorePath => Path.Combine(Environment.SystemDirectory, "rstrui.exe");
+
+    /// <summary>
+    /// Opens Windows' System Restore window, with no arguments. PC Tidy never restores by itself: the user picks the
+    /// point and confirms in Windows' own window (which asks for admin rights itself).
+    /// </summary>
+    public static void OpenSystemRestore()
+    {
+        var exe = SystemRestorePath;
+        if (!File.Exists(exe)) throw new InvalidOperationException("Windows' System Restore isn't on this PC.");
+        Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true })?.Dispose();
+    }
+
     /// <summary>Starts PC Tidy's own uninstaller window. The caller closes PC Tidy straight after.</summary>
     public static void StartUninstaller(UninstallEntry entry)
     {

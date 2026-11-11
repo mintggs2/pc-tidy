@@ -60,7 +60,7 @@ public static partial class BadTweakCatalog
                     "Open Windows Security → Virus & threat protection → Manage settings and turn on Cloud-delivered protection, Automatic sample submission and Tamper Protection. "
                     + "Behaviour monitoring, download scanning and script scanning have no switch there: in an admin PowerShell run "
                     + "Set-MpPreference -DisableBehaviorMonitoring $false -DisableIOAVProtection $false -DisableScriptScanning $false, then turn on Tamper Protection.",
-                    "ms-settings:windowsdefender")),
+                    DefenderThreatSettings)),
             },
         };
     }
@@ -102,11 +102,16 @@ public static partial class BadTweakCatalog
                      + "Until it's removed, every restart goes back to Safe Mode: no graphics driver, no sound and most apps don't start.",
             WindowsDefault = "Not set (normal start).",
             Flags = BadTweakFlags.Admin | BadTweakFlags.Restart, Sources = Src(BcdBootOptions, Bcdedit, BitLockerBcd),
-            Note = "BitLocker doesn't check this setting, so removing it won't ask for the recovery key. PC Tidy only explains this one: it isn't on the list of boot settings PC Tidy may remove.",
+            Note = "BitLocker doesn't check this setting, so removing it won't ask for the recovery key. Windows starts normally from the next restart. "
+                   + "If you're in Safe Mode on purpose (to fix a driver), finish that first.",
             Signals = new[]
             {
-                Sig(new BootValueProbe("safeboot", SafeBootElement, BootTest.Present), new GuidanceFix(
-                    "Press Win+R, type msconfig and press Enter. On the Boot tab untick Safe boot, choose OK and restart.\n"
+                // v3.1: "Start Windows normally again" removes the flag (and the Safe Mode command-prompt flag when it's there too).
+                Sig(new BootValueProbe("safeboot", SafeBootElement, BootTest.Present),
+                    new BootDeleteNamedFix("safeboot", SafeBootElement, "Start Windows normally again: remove the Safe Mode boot setting (safeboot). Takes effect at the next restart."),
+                    new BootDeleteNamedFix("safebootalternateshell", SafeBootAlternateShellElement, "Also remove the Safe Mode command-prompt setting (safebootalternateshell)."),
+                    new GuidanceFix(
+                    "Or yourself: press Win+R, type msconfig and press Enter. On the Boot tab untick Safe boot, choose OK and restart.\n"
                     + "Or, in an admin terminal: bcdedit /deletevalue {current} safeboot")),
             },
         };
@@ -122,11 +127,14 @@ public static partial class BadTweakCatalog
                      + "and Windows or a driver may need the device for sleep, USB, sound or virtual machines.",
             WindowsDefault = "Enabled.",
             Sources = Src(DeviceDisabled),
-            Note = "PC Tidy only lists them. If you disabled one on purpose to fix a problem, leave it.",
+            Note = "If you disabled one on purpose to fix a problem, leave it. PC Tidy never turns system devices on or off for you: Windows needs some of them to start, so this is a manual step.",
             Signals = new[]
             {
+                // Manual steps only (lead's v3.1 decision): System-class devices stay protected, so there is no
+                // DeviceSetEnabled step here. The reader only lists System-class devices.
                 Custom(CustomProbeKind.DisabledSystemDevices, new GuidanceFix(
-                    "Right-click Start and open Device Manager. Under System devices, right-click each device listed here and choose Enable device.")),
+                    "Only if you didn't turn it off on purpose: right-click Start and open Device Manager. Open System devices, "
+                    + "right-click the device listed here and choose Enable device. Restart the PC if Windows asks.")),
             },
         };
         yield return new BadTweakCheck

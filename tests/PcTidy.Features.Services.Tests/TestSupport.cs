@@ -5,6 +5,8 @@ using PcTidy.Features.Services.Sources;
 using PcTidy.Hosting;
 using PcTidy.Platform;
 using PcTidy.Safety;
+// The platform has a ServiceRunState of its own (v3.1); these fakes mean the scanner's.
+using ServiceRunState = PcTidy.Features.Services.Sources.ServiceRunState;
 
 namespace PcTidy.Features.Services.Tests;
 

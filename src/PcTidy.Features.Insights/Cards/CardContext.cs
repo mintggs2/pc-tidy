@@ -18,6 +18,24 @@ public sealed record CardContext(ScanContext Scan, IInsightsSource Source, DateT
     /// <summary>Read once per scan (it walks the Uninstall registry): used by the modified-Windows, backup and Dev Drive cards.</summary>
     public WindowsIdentity Identity => _identity ??= Source.ReadWindowsIdentity();
 
+    private bool _cpuRead;
+    private string? _cpu;
+    /// <summary>The processor brand string, read once per scan (null when unreadable).</summary>
+    public string? CpuName
+    {
+        get
+        {
+            if (!_cpuRead) { _cpu = Source.ReadCpuName(); _cpuRead = true; }
+            return _cpu;
+        }
+    }
+
+    /// <summary>Windows build from the registry read, falling back to the system facts.</summary>
+    public int Build => Identity.Build > 0 ? Identity.Build : WindowsBuild;
+
+    /// <summary>An app in the Uninstall list whose display name starts with <paramref name="name"/> (case-insensitive).</summary>
+    public bool HasApp(string name) => Identity.InstalledApps.Any(a => a.StartsWith(name, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>Plan items the safety rules allow right now, plus the first refusal (so a row can say why it's greyed).</summary>
     public (IReadOnlyList<PlanItem> Allowed, string? Refusal) Vet(params PlanItem[] items)
     {

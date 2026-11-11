@@ -245,6 +245,16 @@ public interface IFeatureModule
 }
 
 /// <summary>
+/// Optional on an <see cref="IFeatureModule"/> (v3.1): a small, factual counter for its rail row, e.g. Tweaks "7 of 31 on",
+/// Services "3 changed from Windows default". Read from the real system state (never from what PC Tidy remembers), read-only,
+/// cheap (the shell calls it after start-up and after each run, off the UI thread). Null = show nothing. No "NEW" badges.
+/// </summary>
+public interface INavBadgeSource
+{
+    Task<string?> GetNavBadgeAsync(CancellationToken ct);
+}
+
+/// <summary>
 /// Implemented by the App shell. Custom feature pages call this to show the standard
 /// confirm dialog, run (or simulate) the plan, and show the Done card with Undo.
 /// </summary>

@@ -53,6 +53,9 @@ public sealed class PageProvider : INavigationViewPageProvider
         return page;
     }
 
+    /// <summary>The page for a key if it was created already (never creates one).</summary>
+    public bool IsCreated(Type pageType, out object? page) => _pages.TryGetValue(pageType, out page);
+
     /// <summary>Gets (creating if needed) a page by key, for code that drives pages (Home actions, screenshots).</summary>
     public T? Get<T>(Type key) where T : class => GetPage(key) as T;
 }

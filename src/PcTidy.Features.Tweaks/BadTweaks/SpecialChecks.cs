@@ -4,7 +4,8 @@ namespace PcTidy.Features.Tweaks.BadTweaks;
 
 /// <summary>One registry value a custom check found (logical hive and key: the plan maps it through the redirect).</summary>
 /// <param name="What">What the value does, in plain words (shown in the fix line), when the check knows.</param>
-internal sealed record FoundValue(RegistryHive Hive, string KeyPath, string ValueName, RegistryKind Kind, string? What = null);
+/// <param name="OnlyIfData">When set, the step is built only if the value still holds exactly this data (read again at plan time).</param>
+internal sealed record FoundValue(RegistryHive Hive, string KeyPath, string ValueName, RegistryKind Kind, string? What = null, string? OnlyIfData = null);
 
 /// <summary>What a custom check found: plain-English evidence lines plus anything its fix needs (hosts lines, file paths, registry values).</summary>
 internal sealed record CustomFinding(IReadOnlyList<string> Evidence, IReadOnlyList<string> HostsLines, IReadOnlyList<FileInfo> Files)
@@ -22,7 +23,7 @@ internal sealed record CustomFinding(IReadOnlyList<string> Evidence, IReadOnlyLi
 /// The finder checks that need code rather than one registry value. All read-only: registry reads through the
 /// (possibly redirected) reader, file reads, and the system probe's WMI/power-API answers.
 /// </summary>
-internal sealed class SpecialChecks
+internal sealed partial class SpecialChecks
 {
     private const int MaxListed = 25;
     private const string MemoryManagementKey = @"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management";
@@ -68,6 +69,19 @@ internal sealed class SpecialChecks
         CustomProbeKind.DefenderOnlyRealtime => DefenderOnlyRealtime(),
         CustomProbeKind.DisabledSystemDevices => DisabledSystemDevices(),
         CustomProbeKind.StrayPowerPlan => StrayPowerPlan(),
+        CustomProbeKind.DefenderRealtimeOff => DefenderRealtimeOff(),
+        CustomProbeKind.DefenderSwitchedOffLocally => DefenderSwitchedOffLocally(),
+        CustomProbeKind.Bbr2CongestionProvider => Bbr2(),
+        CustomProbeKind.JumboFrames => JumboFrames(),
+        CustomProbeKind.BiosToolLeftovers => BiosToolLeftovers(),
+        CustomProbeKind.OptimizerSuites => Programs(ReportedProgramKind.OptimizerSuite),
+        CustomProbeKind.RegistryCleaners => Programs(ReportedProgramKind.RegistryCleaner),
+        CustomProbeKind.ProcessorIdleDisabled => ProcessorIdleDisabled(),
+        CustomProbeKind.X3dGameBarMissing => X3dGameBarMissing(),
+        CustomProbeKind.WebView2Missing => _env.WindowsBuild >= BadTweakCatalog.Windows11FirstBuild && _env.Probe.WebView2Installed == false
+            ? CustomFinding.Lines(new[] { "The WebView2 runtime isn't installed (Windows 11 ships with it)." })
+            : null,
+        CustomProbeKind.AntiLagPlusDriver => AntiLagPlusDriver(),
         _ => null,
     };
 
@@ -123,6 +137,9 @@ internal sealed class SpecialChecks
         if (_env.Probe.DisabledSystemDevices is not { Count: > 0 } devices) return null;
         var evidence = devices.Take(MaxListed).Select(d => $"{d.Name} is disabled ({d.InstanceId})").ToList();
         if (devices.Count > MaxListed) evidence.Add($"and {devices.Count - MaxListed} more");
+        // Listed with manual steps only (the lead's v3.1 decision, code review H1): the reader enumerates System-class
+        // devices, and System-class devices stay protected (the guard and the device handler refuse them too), so the
+        // finder never plans a DeviceSetEnabled step for them.
         return CustomFinding.Lines(evidence);
     }
 
@@ -256,19 +273,18 @@ internal sealed class SpecialChecks
             if (state is null || (state.Type & 0x3) == 0 || state.ImagePath is null) continue;
             var file = Path.GetFileName(state.ImagePath.Trim().Trim('"'));
             if (HardwareAccessDriverNames.TryGetValue(file, out var tool))
-                evidence.Add($"Driver '{name}' ({file}, from {tool}){(state.IsDisabled ? ", disabled" : "")}");
+            {
+                // PC care lists some of the same files for their published security holes: say so rather than list it twice.
+                var known = PcTidy.Catalog.PcCare.VulnerableDriverCatalog.Match(file) is { } vd ? $"; PC care also lists it for a known security hole ({vd.Advisory})" : "";
+                evidence.Add($"Driver '{name}' ({file}, from {tool}){(state.IsDisabled ? ", disabled" : "")}{known}");
+            }
             if (evidence.Count >= MaxListed) break;
         }
         return evidence.Count > 0 ? CustomFinding.Lines(evidence) : null;
     }
 
-    /// <summary>Driver files of tools that give programs raw hardware and memory access (Community tweaks §9.6).</summary>
-    internal static readonly IReadOnlyDictionary<string, string> HardwareAccessDriverNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["RwDrv.sys"] = "RWEverything, used by USB \"IMOD\" latency tweaks",
-        ["WinRing0x64.sys"] = "older fan-control, RGB and monitoring apps (WinRing0)",
-        ["WinRing0.sys"] = "older fan-control, RGB and monitoring apps (WinRing0)",
-    };
+    /// <summary>Driver files of tools that give programs raw hardware and memory access (the catalog's list).</summary>
+    internal static IReadOnlyDictionary<string, string> HardwareAccessDriverNames => BadTweakLeftoverNames.HardwareAccessDrivers;
 
     // ------------------------------------------------------------------ hosts
 
@@ -412,17 +428,25 @@ internal sealed class SpecialChecks
 
     private CustomFinding? RealtimePriority()
     {
-        const string ifeo = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options";
+        const string ifeo = BadTweakAllowances.IfeoKey;
         var evidence = new List<string>();
+        var values = new List<FoundValue>();
         foreach (var exe in _env.Registry.SubKeyNames(RegistryHive.LocalMachine, ifeo))
         {
-            // CpuPriorityClass 4 = Realtime (1 Idle, 2 Normal, 3 High, 5 Below normal, 6 Above normal).
-            if (_env.Registry.Read(RegistryHive.LocalMachine, $@"{ifeo}\{exe}\PerfOptions", "CpuPriorityClass") is { Kind: RegistryKind.DWord } v
-                && RegData.TryNumber(v.Data, out var cls) && cls == 4)
+            // verify: CpuPriorityClass 4 = Realtime (1 Idle, 2 Normal, 3 High, 5 Below normal, 6 Above normal); Microsoft doesn't document it.
+            var key = $@"{ifeo}\{exe}\PerfOptions";
+            if (_env.Registry.Read(RegistryHive.LocalMachine, key, BadTweakAllowances.PriorityValue) is { Kind: RegistryKind.DWord } v
+                && RegData.TryNumber(v.Data, out var cls) && cls.ToString(System.Globalization.CultureInfo.InvariantCulture) == BadTweakAllowances.PriorityRealtime)
+            {
                 evidence.Add($"{exe}: PerfOptions → CpuPriorityClass = 4 (Realtime)");
+                // Only names the patterned allowance accepts (no backslash, sane length) get a removal step.
+                if (exe.Length is > 0 and <= 260 && !exe.Contains('\\'))
+                    values.Add(new FoundValue(RegistryHive.LocalMachine, key, BadTweakAllowances.PriorityValue, RegistryKind.DWord, $"forces {exe} to Realtime priority",
+                        OnlyIfData: BadTweakAllowances.PriorityRealtime));
+            }
             if (evidence.Count >= MaxListed) break;
         }
-        return evidence.Count > 0 ? CustomFinding.Lines(evidence) : null;
+        return evidence.Count > 0 ? CustomFinding.Lines(evidence) with { Values = values } : null;
     }
 
     // ------------------------------------------------------------------ games

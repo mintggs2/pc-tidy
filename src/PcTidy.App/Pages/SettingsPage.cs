@@ -129,6 +129,13 @@ public sealed partial class SettingsPage : UserControl
         var prefs = ShellPrefs.Get(S);
         Card(SymbolRegular.HeartPulse24, "Show the health score on Home", "A simple score with every reason behind it, only after you press Check now. Turn it off if you'd rather not see it.",
             Toggle(prefs.ShowHealthScore, on => { ShellPrefs.Set(S, ShellPrefs.Get(S) with { ShowHealthScore = on }); Save(); }));
+        Card(SymbolRegular.DataUsage24, "Show a live 'Now' card on Home",
+            "CPU, GPU and memory load, the last minute and drive space. Live, not recorded: nothing is kept, and it only reads while Home is on screen.",
+            Toggle(prefs.ShowNowCard, on => { ShellPrefs.Set(S, ShellPrefs.Get(S) with { ShowNowCard = on }); Save(); }));
+        var tourCard = new Button { Content = "Take the tour", Icon = new SymbolIcon(SymbolRegular.Map24) };
+        AutomationProperties.SetName(tourCard, "Take the tour: a short guided look at PC Tidy");
+        tourCard.Click += (_, _) => _window.StartTour();
+        Card(SymbolRegular.Map24, "Tour", "A short guided look at Scan everything, the sections, History and Undo, Quarantine, Settings and Simulate. Esc closes it.", tourCard);
 
         // ---------------- Scanning ----------------
         Group("Scanning");
@@ -199,6 +206,10 @@ public sealed partial class SettingsPage : UserControl
         // ---------------- Help ----------------
         var help = Group("Help & FAQ", "Help");
         _sections["help"] = help;
+        var helpTour = new Button { Content = "Take the tour", Icon = new SymbolIcon(SymbolRegular.Map24), Appearance = ControlAppearance.Primary };
+        AutomationProperties.SetName(helpTour, "Take the tour: a short guided look at PC Tidy");
+        helpTour.Click += (_, _) => _window.StartTour();
+        Card(SymbolRegular.Map24, "New here, or want a refresher?", "A short tour points at the main parts of PC Tidy, one at a time. It changes nothing.", helpTour);
         foreach (var (q, a) in HelpContent.Faq)
         {
             var answer = string.IsNullOrEmpty(a) ? HelpContent.WhatWeDontClean : a;

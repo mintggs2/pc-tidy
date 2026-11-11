@@ -47,6 +47,8 @@ public static class DemoComposition
         services.Add<IRestorePointService>(restorePoints);
         services.Add<IExecutor>(new DemoExecutor(journal, quarantine, restorePoints));
         services.Add<IUndoEngine>(new DemoUndoEngine(journal, quarantine));
+        // System info shows an invented PC (never this one).
+        services.Add<PcTidy.UI.Flow.ISystemInfoOpener>(new DemoSystemInfoOpener());
 
         foreach (var m in DemoModules.All())
         {

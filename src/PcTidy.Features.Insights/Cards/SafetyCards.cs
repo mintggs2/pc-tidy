@@ -61,7 +61,7 @@ internal static partial class SafetyCards
             {
                 Id = InsightsIds.ModifiedWindows, Category = InsightCategory.Safety, Title = "Modified Windows", Icon = "WindowShield24",
                 Status = InsightStatus.Good, Headline = "No signs of a modified Windows", IsHeuristic = true, Facts = facts,
-                Explanation = "PC Tidy looked for the names Atlas, ReviOS, AME and Tiny11 leave behind and for core Windows parts that stripped builds remove. None were found. This is a best guess: these tools don't document their markers.",
+                Explanation = "PC Tidy looked for the names Atlas, ReviOS, AME, Tiny11 and Nano11 leave behind and for core Windows parts that stripped builds remove. None were found. This is a best guess: these tools don't document their markers.",
                 WhatToDo = "Nothing to do.",
             };
 
@@ -72,7 +72,9 @@ internal static partial class SafetyCards
             Id = InsightsIds.ModifiedWindows, Category = InsightCategory.Safety, Title = "Modified Windows", Icon = "WindowShield24",
             Status = InsightStatus.Attention, IsHeuristic = true, Facts = facts,
             Headline = named is not null ? $"This looks like {named}" : $"Parts of Windows are missing ({Words.Plural(missing.Count, "core service", "core services")})",
-            Explanation = implications + " This is a best guess from the signs listed: PC Tidy can't be certain.",
+            Explanation = implications + " Measured speed gains from these builds were large only on an old processor and none on modern ones (numbers below, from other PCs)."
+                          + " This is a best guess from the signs listed: PC Tidy can't be certain.",
+            Measured = new[] { MeasuredNumbers.AtlasOldCpu, MeasuredNumbers.AtlasNewCpu, MeasuredNumbers.Nano11 },
             WhatToDo = missing.Count > 0
                 ? "If updates or security keep failing, back up your files and do a clean Windows install from Microsoft's own media. PC Tidy won't try to rebuild missing parts."
                 : "Nothing to change. If something breaks after an update, the tool's own docs or a clean Windows install are the way back.",

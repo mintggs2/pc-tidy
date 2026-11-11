@@ -77,6 +77,8 @@ public static class SettingsPackage
         var node = JsonSerializer.SerializeToNode(settings, AppSettings.Json)!.AsObject();
         node.Remove(nameof(AppSettings.DataRoot));
         if (node[nameof(AppSettings.Features)]?["organize"] is System.Text.Json.Nodes.JsonObject organize) organize.Remove("Ledger");
+        // The shell's screen state (rail, History counter, restore point tags) describes this PC, not a preference.
+        (node[nameof(AppSettings.Features)] as System.Text.Json.Nodes.JsonObject)?.Remove(PcTidy.App.Shell.ShellState.Key);
         var profile = Path.TrimEndingDirectorySeparator(userProfile);
         int paths = 0;
         Rewrite(node, s =>

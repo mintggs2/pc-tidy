@@ -22,7 +22,7 @@ public sealed class UndoEngine : IUndoEngine
     public async Task<UndoReport> UndoRunAsync(string runId, IProgress<RunProgress>? progress, CancellationToken ct)
     {
         using var timings = EngineTimings.Attach(_executor.Timings);
-        using var work = _executor.BeginWork();
+        using var work = await _executor.BeginChangeAsync(ct).ConfigureAwait(false);
         var run = await LoadAsync(runId, ct).ConfigureAwait(false);
         if (run.Mode == ExecutionMode.Simulate)
             return new UndoReport(runId, 0, 0, 0, new[] { "Nothing to undo: it was only a simulation." });
@@ -35,7 +35,7 @@ public sealed class UndoEngine : IUndoEngine
     public async Task<RunRecord> ResumeAsync(string runId, IProgress<RunProgress>? progress, CancellationToken ct)
     {
         using var timings = EngineTimings.Attach(_executor.Timings);
-        using var work = _executor.BeginWork();
+        using var work = await _executor.BeginChangeAsync(ct).ConfigureAwait(false);
         var run = await LoadAsync(runId, ct).ConfigureAwait(false);
         if (run.Status != RunStatus.Interrupted || run.Mode != ExecutionMode.Real)
             throw new InvalidOperationException("Only an interrupted run can be resumed.");
@@ -63,7 +63,7 @@ public sealed class UndoEngine : IUndoEngine
     public async Task<UndoReport> RollbackAsync(string runId, IProgress<RunProgress>? progress, CancellationToken ct)
     {
         using var timings = EngineTimings.Attach(_executor.Timings);
-        using var work = _executor.BeginWork();
+        using var work = await _executor.BeginChangeAsync(ct).ConfigureAwait(false);
         var run = await LoadAsync(runId, ct).ConfigureAwait(false);
         if (run.Status == RunStatus.Running) throw new InvalidOperationException("This run is still going. Wait for it to finish first.");
         var session = new RunSession(Journal, run);

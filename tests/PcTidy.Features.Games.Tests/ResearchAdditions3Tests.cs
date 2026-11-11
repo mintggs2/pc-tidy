@@ -30,7 +30,7 @@ public class ResearchAdditions3Tests
         var shader = Assert.Single(group.Items);
         Assert.False(shader.DefaultSelected);
         Assert.Equal(Badge.Check, shader.Badge);
-        Assert.Contains("Games rebuild this on first launch; that can take up to about an hour", shader.Reason);
+        Assert.Contains("Games rebuild this on first launch; that can take 1 to 2 hours", shader.Reason);
         Assert.NotEmpty(shader.Actions); // still offered, just never ticked for you
     }
 

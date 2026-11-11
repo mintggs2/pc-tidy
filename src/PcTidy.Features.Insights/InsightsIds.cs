@@ -24,6 +24,12 @@ public static class InsightsIds
     public const string Runtimes = "insights.runtimes";
     public const string BitLocker = "insights.bitlocker";
     public const string SmartAppControl = "insights.smart-app-control";
+    // v3.1 measured info cards (build list C3-C6, thermal throttling).
+    public const string NvidiaApp = "insights.nvidia-app";
+    public const string MemoryIntegrity = "insights.memory-integrity";
+    public const string WindowsBuild = "insights.windows-build";
+    public const string DualCcdX3D = "insights.dual-ccd-x3d";
+    public const string Thermal = "insights.thermal";
 
     // Sections that own fixes the cards point to.
     public const string TweaksModule = "tweaks";

@@ -29,7 +29,8 @@ public sealed class InsightsScanner : IFeatureScanner
     public Release Release => Release.V3;
     public bool IncludedInOptimizeAll => false;
 
-    private static IInsightsSource DefaultSource(IKnownLocations locations)
+    /// <summary>The real PC, or Sim\insights.json in a sandbox (also used by the System info window).</summary>
+    internal static IInsightsSource DefaultSource(IKnownLocations locations)
         => locations.IsSandbox ? SandboxInsightsSource.For(locations) : new WindowsInsightsSource(locations);
 
     /// <summary>The card builders in page order. Each is independent: one failing never stops the others.</summary>
@@ -39,6 +40,7 @@ public sealed class InsightsScanner : IFeatureScanner
         (InsightsIds.ModifiedWindows, InsightCategory.Safety, "Modified Windows", "WindowShield24", SafetyCards.ModifiedWindows),
         (InsightsIds.Hosts, InsightCategory.Safety, "Hosts file", "Globe24", SafetyCards.Hosts),
         (InsightsIds.SmartAppControl, InsightCategory.Safety, "Smart App Control", "ShieldTask24", ProtectionCards.SmartAppControl),
+        (InsightsIds.MemoryIntegrity, InsightCategory.Safety, "Memory integrity and game speed", "ShieldLock24", MeasuredCards.MemoryIntegrity),
         (InsightsIds.BitLocker, InsightCategory.Safety, "BitLocker and its recovery key", "LockClosed24", ProtectionCards.BitLocker),
         (InsightsIds.Reliability, InsightCategory.Health, "Stability history", "Pulse24", HealthCards.Reliability),
         (InsightsIds.MemoryTest, InsightCategory.Health, "Memory test", "Ram20", HealthCards.MemoryTest),
@@ -53,7 +55,11 @@ public sealed class InsightsScanner : IFeatureScanner
         (InsightsIds.Timer, InsightCategory.Hardware, "System timer", "Timer24", HardwareCards.Timer),
         (InsightsIds.Vanguard, InsightCategory.Hardware, "Anti-cheat requirements", "ShieldCheckmark24", HardwareCards.Vanguard),
         (InsightsIds.Runtimes, InsightCategory.Hardware, "Game and app runtimes", "PuzzlePiece24", RuntimeCards.Runtimes),
+        (InsightsIds.WindowsBuild, InsightCategory.Hardware, "Windows build and your processor", "Window24", MeasuredCards.WindowsBuild),
+        (InsightsIds.DualCcdX3D, InsightCategory.Hardware, "Ryzen X3D with two core groups", "DeveloperBoard24", MeasuredCards.DualCcdX3D),
+        (InsightsIds.NvidiaApp, InsightCategory.Hardware, "NVIDIA App game filters", "Filter24", MeasuredCards.NvidiaApp),
         (InsightsIds.GpuReinstall, InsightCategory.Guides, "Clean graphics driver reinstall", "Wrench24", GuideCards.GpuReinstall),
+        (InsightsIds.Thermal, InsightCategory.Guides, "Heat slowing the PC down", "Temperature24", MeasuredCards.Thermal),
     };
 
     /// <summary>Reads everything and builds the cards (runs on a background thread).</summary>
@@ -127,7 +133,9 @@ public sealed class InsightsScanner : IFeatureScanner
             _ => "For information",
         },
         Badge = Badge.Safe,
-        Details = card.Facts.GroupBy(f => f.Label).ToDictionary(g => g.Key, g => string.Join("; ", g.Select(f => f.Value))),
+        Details = card.Facts.GroupBy(f => f.Label).ToDictionary(g => g.Key, g => string.Join("; ", g.Select(f => f.Value)))
+            .Concat(card.Measured.Select((m, i) => KeyValuePair.Create($"Measured {i + 1}", $"{m.Number} ({m.Where})")))
+            .GroupBy(kv => kv.Key).ToDictionary(g => g.Key, g => g.First().Value),
     };
 
     public static string CategoryTitle(InsightCategory c) => c switch

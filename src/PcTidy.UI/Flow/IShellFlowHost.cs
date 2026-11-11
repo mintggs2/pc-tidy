@@ -56,6 +56,12 @@ public interface IShellFlowHost : IFlowHost
     /// <summary>Navigates the shell: "home", "history", "quarantine", "settings", "optimize" or a module id.</summary>
     void NavigateTo(string pageKey);
 
+    /// <summary>
+    /// Navigates and hands the page a parameter (an <see cref="INavigationTarget"/> gets it), for example a
+    /// <see cref="HistoryOpenRequest"/> for "history". Hosts that can't pass one just navigate.
+    /// </summary>
+    void NavigateTo(string pageKey, object? parameter) => NavigateTo(pageKey);
+
     /// <summary>Days quarantined files stay restorable (from settings).</summary>
     int QuarantineDays { get; }
 }

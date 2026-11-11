@@ -45,5 +45,7 @@ public static class FeatureCatalog
         new PcTidy.Features.Insights.InsightsModule(),
         new PcTidy.Features.Search.SearchModule(),
         services,
+        // v3.1
+        new PcTidy.Features.Measure.MeasureModule(),
     };
 }

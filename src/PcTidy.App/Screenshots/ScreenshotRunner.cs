@@ -57,6 +57,7 @@ public sealed class ScreenshotRunner
             await Settle(900);
 
             if (_services.Args.Raw.Any(a => a.Equals("--shell-shots", StringComparison.OrdinalIgnoreCase))) await ShellSetAsync();
+            else if (_services.Args.Raw.Any(a => a.Equals("--v31-shots", StringComparison.OrdinalIgnoreCase))) await V31SetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--demo-minimal", StringComparison.OrdinalIgnoreCase))) await MinimalSetAsync();
             else if (IsSandbox) await SandboxSetAsync();
             else await DemoSetAsync();
@@ -150,18 +151,216 @@ public sealed class ScreenshotRunner
 
         await OnboardingAsync(19);
 
-        // A section with "not offered" rows (placebo tweaks) and one without file sizes.
-        if (_w.HasPage("tweaks") && _w.PageFor<StandardFlowPage>("tweaks") is { } tweaks)
+        // Tweaks (the v3.1 page on the demo's invented registry) and a section without file sizes.
+        if (_w.HasPage("tweaks") && await ScannedTweaksAsync() is { } tweaks)
         {
-            _w.NavigateTo("tweaks");
-            await tweaks.StartScanAsync();
-            if (tweaks.Selection.Sections.SelectMany(s => s.Groups).LastOrDefault(g => g.IsInfoOnly) is { } info) info.IsExpanded = true;
+            tweaks.ChooseView(0);
             await Shot("22-tweaks-preview.png");
         }
         var organize = _w.PageFor<StandardFlowPage>("organize")!;
         _w.NavigateTo("organize");
         await organize.StartScanAsync();
         await Shot("23-organize-preview.png");
+
+        await V31SetAsync();
+    }
+
+    // ---------------- v3.1 shell screens (also alone with --v31-shots) ----------------
+
+    /// <summary>
+    /// The v3.1 shell: rail with counters and "More" open, the Now card (invented numbers), the confirm dialog's list and
+    /// footer, per-section progress, the one-task-at-a-time reason, History's restore points, the spotlight tour.
+    /// Demo data only: nothing real is read or changed.
+    /// </summary>
+    private async Task V31SetAsync()
+    {
+        if (!_services.IsDemo) return;
+        var settings = _services.Get<AppSettings>();
+
+        // Rail: History's counter (runs since an invented "last opened") and the demo sections' counters; More open.
+        ShellState.Update(settings, s => s with { HistoryViewedUtc = DateTime.UtcNow.AddDays(-2) });
+        await _w.RefreshBadgesAsync();
+        _w.NavigateTo("home");
+        _w.SetMoreOpen(true);
+        await Shot("40-rail-more-open.png");
+        _w.SetMoreOpen(false);
+        await Shot("41-rail-more-closed.png");
+        // A section inside More opens it by itself (not remembered).
+        if (_w.HasPage("photos"))
+        {
+            _w.NavigateTo("photos");
+            await Shot("41b-rail-more-follows-page.png");
+            _w.NavigateTo("home");
+            _w.SetMoreOpen(false);
+        }
+
+        // Home with the Now card switched on (it is off by default).
+        var home = _w.PageFor<HomePage>("home")!;
+        ShellPrefs.Set(settings, ShellPrefs.Get(settings) with { ShowNowCard = true });
+        await home.RefreshAsync();
+        home.FillNowForScreenshot();
+        await Shot("42-home-now-card.png");
+        home.NowCard?.SetCollapsed(true, raise: true);
+        await Shot("43-home-now-folded.png");
+        home.NowCard?.SetCollapsed(false, raise: true);
+        ShellPrefs.Set(settings, ShellPrefs.Get(settings) with { ShowNowCard = false });
+        await home.RefreshAsync();
+
+        // Confirm dialog (scrollable list, Back before Confirm), then a several-section run's progress with states.
+        var optimize = _w.PageFor<CombinedFlowPage>("optimize")!;
+        _w.NavigateTo("optimize");
+        await optimize.StartScanAsync();
+        var confirm = optimize.ConfirmAsync();
+        await Settle(700);
+        Save("44-confirm-list-and-footer.png");
+        ConfirmDialog.Current?.Hide(ContentDialogResult.Primary); // demo only
+        await Task.Delay(500);
+        Save("45-progress-sections.png");
+        await confirm;
+        await Shot("46-optimize-done.png");
+
+        // One long task at a time: the sticky bar's reason while another task holds the gate (demo: nothing runs).
+        var clean = _w.PageFor<StandardFlowPage>("cleanup")!;
+        _w.NavigateTo("cleanup");
+        await clean.StartScanAsync();
+        using (RunGate.Shared.Begin("Clean")) // "Available when Clean finishes"
+            await Shot("47-busy-reason.png");
+        await Settle(200);
+
+        // History › Restore points (invented points).
+        var history = _w.PageFor<HistoryPage>("history")!;
+        _w.NavigateTo("history");
+        await history.RefreshAsync();
+        await history.ShowRestorePointsAsync();
+        if (history.RestorePointRows.Skip(1).FirstOrDefault() is { } tagged)
+        {
+            ShellState.Update(settings, s => s with { RestorePointTags = RestorePointsModel.WithTag(s.RestorePointTags, tagged.TagKey, "Blue") });
+            await history.ShowRestorePointsAsync();
+        }
+        await Shot("48-history-restore-points.png");
+
+        // The spotlight tour: first step, the groups, History.
+        _w.StartTour();
+        await Shot("49-tour-1-scan.png");
+        _w.Tour?.Model.GoTo(1);
+        await Shot("50-tour-2-groups.png");
+        _w.Tour?.Model.GoTo(2);
+        await Shot("50b-tour-3-more.png");
+        _w.Tour?.Model.GoTo(3);
+        await Shot("51-tour-4-history.png");
+        if (_w.Tour is { } tour) tour.Model.GoTo(tour.Model.Count - 1);
+        await Shot("52-tour-last.png");
+        _w.Tour?.Model.Close();
+        await Settle(200);
+
+        await V31PagesAsync();
+    }
+
+    // ---------------- v3.1 pages (demo, invented data only) ----------------
+
+    /// <summary>
+    /// The v3.1 pages: Tweaks (list, cards, the "Doesn't help" shelf, a preset's popover), Measure with an invented
+    /// comparison, Games › Optimize (master/detail), PC care's Lag check (off) and Fixes, and System info (an invented PC).
+    /// </summary>
+    private async Task V31PagesAsync()
+    {
+        if (await ScannedTweaksAsync() is { } tweaks)
+        {
+            tweaks.SelectChipCommandless(PcTidy.Features.Tweaks.UI.TweakChip.All);
+            tweaks.ChooseView(0);
+            await Shot("53-tweaks-list.png");
+            tweaks.ChooseView(1);
+            await Shot("54-tweaks-cards.png");
+            tweaks.ChooseView(0);
+            tweaks.SelectChipCommandless(PcTidy.Features.Tweaks.UI.TweakChip.DoesntHelp);
+            await Shot("55-tweaks-shelf.png");
+            tweaks.SelectChipCommandless(PcTidy.Features.Tweaks.UI.TweakChip.All);
+            if (tweaks.Presets.FirstOrDefault() is { } preset)
+            {
+                tweaks.PreviewPresetCommand.Execute(preset);
+                await Shot("56-tweaks-preset-popover.png");
+                tweaks.CancelPresetCommand.Execute(null);
+                await Settle(200);
+            }
+        }
+
+        if (_w.HasPage("measure"))
+        {
+            _w.NavigateTo("measure");
+            await Settle(300);
+            if (_w.PageObject("measure") is PcTidy.Features.Measure.UI.MeasurePage measure)
+            {
+                DemoV31.FillComparison(measure.ViewModel);
+                await Settle(200);
+                // Step 2 (the imported runs, each with its timing): the first run's card at the top.
+                if (measure.ViewModel.BeforeRuns.FirstOrDefault() is { } firstRun
+                    && Descendants<FrameworkElement>(measure).FirstOrDefault(e => ReferenceEquals(e.DataContext, firstRun)) is { } runCard)
+                    runCard.BringIntoView(new Rect(0, -180, 10, 520));
+                await Shot("57-measure-runs.png");
+                (measure.FindName("VerdictChip") as FrameworkElement)?.BringIntoView(new Rect(0, -40, 10, 520));
+                await Shot("58-measure-compare.png");
+            }
+        }
+
+        if (_w.HasPage("games"))
+        {
+            _w.NavigateTo("games");
+            await Settle(300);
+            if (_w.PageObject("games") is FrameworkElement games && games.FindName("Tabs") is PcTidy.UI.Controls.Segmented gameTabs)
+            {
+                gameTabs.SelectedIndex = 2; // Optimize
+                await Settle(400);
+                if (Descendants<PcTidy.Features.Games.UI.GameOptimizeView>(games).FirstOrDefault() is { } optimize)
+                {
+                    for (int i = 0; i < 40 && optimize.FindName("ScanningState") is UIElement { Visibility: Visibility.Visible }; i++) await Task.Delay(250);
+                    if (optimize.FindName("GameListBox") is System.Windows.Controls.ListBox list && list.Items.Count > 0) list.SelectedIndex = 0;
+                }
+                await Shot("59-games-optimize.png");
+            }
+        }
+
+        var care = PcTidy.Features.PcCare.Planning.PcCareActions.FeatureId;
+        if (_w.HasPage(care))
+        {
+            _w.NavigateTo(care);
+            await Settle(300);
+            if (_w.PageObject(care) is FrameworkElement carePage
+                && carePage.FindName("TabGroups") is PcTidy.UI.Controls.Segmented groups && carePage.FindName("Tabs") is PcTidy.UI.Controls.Segmented tabs)
+            {
+                var all = PcTidy.Features.PcCare.Scanning.PcCareTabs.Groups;
+                foreach (var (tab, shot) in new[] { (PcTidy.Features.PcCare.Scanning.PcCareTabs.LagCheck, "60-pccare-lag-check-off.png"), (PcTidy.Features.PcCare.Scanning.PcCareTabs.Fixes, "61-pccare-fixes.png") })
+                {
+                    int g = all.ToList().FindIndex(x => x.TabIds.Contains(tab));
+                    if (g < 0) continue;
+                    groups.SelectedIndex = g;
+                    await Settle(150);
+                    tabs.SelectedIndex = all[g].TabIds.ToList().IndexOf(tab);
+                    await Shot(shot);
+                }
+            }
+        }
+
+        // System info: the demo opener's modal with the invented PC (a separate window, captured on its own).
+        _ = _w.Dispatcher.BeginInvoke(() => new DemoSystemInfoOpener().Show(_w, _services));
+        await Settle(900);
+        if (DemoSystemInfoOpener.Current is { } info)
+        {
+            SaveWindow(info, "62-system-info.png");
+            info.Close();
+            await Settle(200);
+        }
+        _w.NavigateTo("home");
+    }
+
+    /// <summary>The demo's Tweaks page, scanned (on the invented registry), or null when the section isn't the v3.1 page.</summary>
+    private async Task<PcTidy.Features.Tweaks.UI.TweaksViewModel?> ScannedTweaksAsync()
+    {
+        _w.NavigateTo("tweaks");
+        await Settle(300);
+        if (_w.PageObject("tweaks") is not FrameworkElement { DataContext: PcTidy.Features.Tweaks.UI.TweaksViewModel vm }) return null;
+        if (!vm.HasScanned) await vm.ScanAsync(onlyTweaks: false);
+        await Settle(300);
+        return vm;
     }
 
     // ---------------- --shell-shots: the desktop-integration screens only (demo or practice PC) ----------------
@@ -370,6 +569,18 @@ public sealed class ScreenshotRunner
         {
             dc.DrawRectangle(bg, null, new Rect(0, 0, w, h));
             dc.DrawRectangle(new VisualBrush(root) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top }, null, new Rect(0, 0, w, h));
+            // Open popups (a preset's "what will change") live in their own window: draw them where they are on screen.
+            foreach (var popup in Descendants<System.Windows.Controls.Primitives.Popup>(root).Where(p => p.IsOpen && p.Child is FrameworkElement { IsVisible: true }))
+            {
+                var child = (FrameworkElement)popup.Child;
+                try
+                {
+                    var at = child.PointToScreen(new Point(0, 0)) - root.PointToScreen(new Point(0, 0));
+                    var rect = new Rect(at.X / dpi.DpiScaleX, at.Y / dpi.DpiScaleY, child.ActualWidth, child.ActualHeight);
+                    dc.DrawRectangle(new VisualBrush(child) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top }, null, rect);
+                }
+                catch (InvalidOperationException) { /* not on screen yet */ }
+            }
         }
         var rtb = new RenderTargetBitmap((int)(w * dpi.DpiScaleX), (int)(h * dpi.DpiScaleY), 96 * dpi.DpiScaleX, 96 * dpi.DpiScaleY, PixelFormats.Pbgra32);
         rtb.Render(dv);

@@ -9,24 +9,27 @@ using PcTidy.UI.Flow;
 namespace PcTidy.Features.PcCare;
 
 /// <summary>
-/// Left-rail entry for PC care (Plan §8 "16 · PC care" + the approved v2 extras): app updates, Windows repair, network,
+/// Left-rail entry for PC care (Plan §8 "16 · PC care" + the approved v2 extras, v3.1 lag check and fixes): app updates, Windows repair, network,
 /// security, browsers, crashes, restore points, leftovers, shredder and the health report, on one custom page with tabs.
 /// Every scan is read-only; every change goes through the standard confirm (IFlowHost) and is picked by hand.
 /// </summary>
 public sealed class PcCareModule : IFeatureModule, IModuleRiskInfo
 {
     private readonly PcCareScanner _scanner;
+    private readonly LagCheckSettings _lagCheck;
 
     /// <param name="sourceFor">Data source override (tests, demos); default: real PC, or the snapshot in a sandbox.</param>
     /// <param name="clock">Clock override for tests.</param>
+    /// <param name="lagCheck">The lag check's test server; default off until the owner picks one whose terms allow it.</param>
     /// <param name="reportSections">
     /// Extra headings for the health report from other sections (e.g. a Services summary). The shell passes them here, so the
     /// saved report already contains them and nothing needs to patch it before the confirm.
     /// </param>
     public PcCareModule(Func<IKnownLocations, IPcCareSource>? sourceFor = null, TimeProvider? clock = null,
-        IEnumerable<Report.IHealthReportSectionSource>? reportSections = null)
+        IEnumerable<Report.IHealthReportSectionSource>? reportSections = null, LagCheckSettings? lagCheck = null)
     {
         _scanner = new PcCareScanner(sourceFor, clock, reportSections);
+        _lagCheck = lagCheck ?? LagCheckSettings.Default;
         Scanners = new IFeatureScanner[] { _scanner };
     }
 
@@ -42,5 +45,5 @@ public sealed class PcCareModule : IFeatureModule, IModuleRiskInfo
     public IReadOnlyList<IFeatureScanner> Scanners { get; }
 
     /// <summary>Needs IKnownLocations, ISafetyGuard, AppSettings and IFlowHost; IRunJournal (optional) feeds the report's run list.</summary>
-    public object? CreatePage(IServiceProvider services) => new PcCareView(services, _scanner);
+    public object? CreatePage(IServiceProvider services) => new PcCareView(services, _scanner, _lagCheck);
 }

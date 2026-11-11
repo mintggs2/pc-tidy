@@ -46,6 +46,44 @@ public static class PcCareActions
     public static PlanItem WinsockReset()
         => Tool(ToolIds.WinsockReset, "Reset Winsock and TCP/IP to Windows' defaults", admin: true, systemChange: true, A(("needsRestart", "true")));
 
+    /// <summary>
+    /// PnPCapabilities = 24 on one physical adapter's class subkey (Catalog <see cref="Catalog.PcCare.AdapterPowerAllowances"/>).
+    /// HKLM, so admin and a restore point first. The registry handler records the exact prior value at run time; undo puts it
+    /// back, or deletes the value when it wasn't there. <paramref name="before"/> is what the scan saw ("absent" or the number),
+    /// kept in Args so History and the confirm show it.
+    /// </summary>
+    public static PlanItem AdapterPowerSavingOff(string subkey, string adapterName, string before) => new()
+    {
+        Kind = ActionKind.RegistrySetValue, FeatureId = FeatureId,
+        Description = $"Stop Windows turning off \"{adapterName}\" to save power (takes effect after a restart)",
+        NeedsAdmin = true, IsSystemChange = true, Reversible = true,
+        Registry = new RegistryValueSpec
+        {
+            Hive = RegistryHive.LocalMachine,
+            KeyPath = Catalog.PcCare.AdapterPowerAllowances.KeyFor(subkey),
+            ValueName = Catalog.PcCare.AdapterPowerAllowances.ValueName,
+            Kind = RegistryKind.DWord,
+            Data = Catalog.PcCare.AdapterPowerAllowances.PowerSavingOff,
+        },
+        Args = A(("before", before), ("needsRestart", "true")),
+    };
+
+    // ---- fix-it recipes (v3.1). Windows' own repairs: nothing to undo from History.
+
+    /// <summary>Stops and starts one service (its start type stays the same). The Platform handler keeps the allow-list.</summary>
+    public static PlanItem ServiceRestart(string serviceName, string description)
+        => Tool(ToolIds.ServiceRestart, description, admin: true, systemChange: false, A(("name", serviceName)));
+
+    /// <summary>Microsoft's documented Windows Update reset: the old SoftwareDistribution and catroot2 folders are renamed and kept.</summary>
+    public static PlanItem WindowsUpdateReset()
+        => Tool(ToolIds.WindowsUpdateReset,
+            "Reset Windows Update's components (the old SoftwareDistribution and catroot2 folders are renamed and kept)",
+            admin: true, systemChange: true);
+
+    /// <summary>msiexec /unregister then /regserver (Windows Installer errors 2502/2503 and similar).</summary>
+    public static PlanItem MsiReregister()
+        => Tool(ToolIds.MsiReregister, "Register Windows Installer again (msiexec /unregister, then /regserver)", admin: true, systemChange: false);
+
     // ---- security
 
     public static PlanItem DefenderQuickScan() => Tool(ToolIds.DefenderQuickScan, "Run a Microsoft Defender quick scan", admin: false, systemChange: false);
@@ -147,6 +185,8 @@ public static class PcCareLinks
     public const string Backup = "ms-settings:backup";
     public const string Network = "ms-settings:network-status";
     public const string StoreTerms = "https://aka.ms/microsoft-store-terms-of-transaction";
+    /// <summary>Steam Support, "Verify Integrity of Game Files" (page title checked 10 Nov 2026).</summary>
+    public const string SteamVerifyHelp = "https://help.steampowered.com/en/faqs/view/0C48-FCBD-DA71-93EB";
 
     /// <summary>The browser's own "reset settings" help page (browser-internal pages can't be opened from outside the browser).</summary>
     public static string ResetHelp(string browser) => browser switch

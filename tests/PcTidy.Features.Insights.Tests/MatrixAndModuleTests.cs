@@ -51,7 +51,7 @@ public class MatrixAndModuleTests
         Assert.False(report.Find(InsightsIds.GamesOnHdd)!.IsAvailable);
         Assert.False(report.Find(InsightsIds.OneDriveFreeUp)!.IsAvailable);
         // Every card is present, never an error.
-        Assert.Equal(19, report.Cards.Count);
+        Assert.Equal(24, report.Cards.Count);
         Assert.Empty(report.Notes);
     }
 
@@ -104,7 +104,7 @@ public class MatrixAndModuleTests
         var result = await new InsightsScanner(clock: new FixedClock()).ScanAsync(host.CreateScanContext(ScanDepth.Quick), null, CancellationToken.None);
 
         var items = result.AllItems.ToList();
-        Assert.Equal(19, items.Count(i => i.Id.StartsWith("insights.", StringComparison.Ordinal)));
+        Assert.Equal(24, items.Count(i => i.Id.StartsWith("insights.", StringComparison.Ordinal)));
         Assert.All(result.Groups, g => Assert.False(string.IsNullOrWhiteSpace(g.Description)));
         Assert.All(items, i => Assert.False(string.IsNullOrWhiteSpace(i.Reason)));
         Assert.All(items.Where(i => i.Badge is Badge.Check or Badge.Permanent), i => Assert.False(i.DefaultSelected));
@@ -115,7 +115,9 @@ public class MatrixAndModuleTests
     public void Every_icon_name_used_by_a_card_exists_in_WPF_UI()
     {
         foreach (var icon in new[] { "DocumentSearch24", "WindowShield24", "Globe24", "Pulse24", "Ram20", "History24", "CloudArrowDown24", "FolderZip24", "Code24",
-                     "Desktop24", "Games24", "DeveloperBoard24", "Timer24", "ShieldCheckmark24", "Wrench24", "DataUsage24", "Open24", "ArrowRight24" })
+                     "Desktop24", "Games24", "DeveloperBoard24", "Timer24", "ShieldCheckmark24", "Wrench24", "DataUsage24", "Open24", "ArrowRight24",
+                     // v3.1 measured cards and System info categories
+                     "Filter24", "ShieldLock24", "Window24", "Temperature24", "PuzzlePiece24", "Board24", "HardDrive20", "Wifi124" })
             Assert.True(Enum.TryParse<SymbolRegular>(icon, out _), icon);
     }
 

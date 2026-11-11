@@ -49,3 +49,40 @@ public interface IFolderTarget
 {
     Task OpenFolderAsync(string folder);
 }
+
+/// <summary>
+/// v3.1 navigation-parameter hook: a section page that takes a parameter when it is opened. The shell calls
+/// <see cref="OnNavigatedTo"/> every time the page is shown: with the parameter when it was opened through
+/// <see cref="INavigationServiceExtensions.OpenWith"/> (or <see cref="IParameterNavigation"/>), with null when it was
+/// opened from the rail or without one. Opening still never runs anything.
+/// <code>
+///   public sealed class MeasurePage : UserControl, INavigationTarget
+///   {
+///       public void OnNavigatedTo(object? parameter)
+///       {
+///           if (parameter is RunCheckRequest r) ShowRun(r.RunId);
+///       }
+///   }
+/// </code>
+/// </summary>
+public interface INavigationTarget
+{
+    void OnNavigatedTo(object? parameter);
+}
+
+/// <summary>Implemented by the shell next to <see cref="INavigationService"/>: open a section and hand its page a parameter.</summary>
+public interface IParameterNavigation
+{
+    /// <summary>Opens <paramref name="moduleId"/>; when its page is an <see cref="INavigationTarget"/> it gets <paramref name="parameter"/>.</summary>
+    void OpenWithParameter(string moduleId, object? parameter);
+}
+
+public static class INavigationServiceExtensions
+{
+    /// <summary>Opens a section with a parameter (falls back to a plain open when the shell can't pass one).</summary>
+    public static void OpenWith(this INavigationService nav, string moduleId, object? parameter)
+    {
+        if (nav is IParameterNavigation p) p.OpenWithParameter(moduleId, parameter);
+        else nav.Open(moduleId);
+    }
+}

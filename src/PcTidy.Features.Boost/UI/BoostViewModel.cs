@@ -54,6 +54,12 @@ public sealed partial class BoostViewModel : ObservableObject
     /// <summary>Why the power plan is left alone (on dual-CCD Ryzen X3D: keep Balanced, Game Mode, Game Bar and the chipset driver).</summary>
     public string PowerNote { get; }
 
+    /// <summary>
+    /// Text-only "Good to know" cards (C12 closing background apps first, then C1 cap your FPS and C7 Reflex / Anti-Lag),
+    /// each with measured numbers, hardware and source. They describe; Game boost's behaviour doesn't change.
+    /// </summary>
+    public IReadOnlyList<TipCard> Tips { get; } = TipCard.ForBoost();
+
     public ObservableCollection<GameRow> Games { get; } = new();
     public ObservableCollection<AppRow> Apps { get; } = new();
     public ObservableCollection<RunningAppOption> RunningApps { get; } = new();

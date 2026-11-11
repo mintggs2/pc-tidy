@@ -7,7 +7,14 @@ namespace PcTidy.Features.Games.Optimize;
 /// <summary>What a game folder's layout says about the game.</summary>
 /// <param name="ProcessNames">The game's own exe names without ".exe" (helpers like crash reporters left out).</param>
 /// <param name="UnrealProjects">Candidate Unreal project names (for %LOCALAPPDATA%\&lt;Project&gt;\Saved\Config).</param>
-public sealed record GameLayout(GameEngine Engine, string? EngineWhy, AntiCheat AntiCheat, IReadOnlyList<string> ProcessNames, IReadOnlyList<string> UnrealProjects);
+public sealed record GameLayout(GameEngine Engine, string? EngineWhy, AntiCheat AntiCheat, IReadOnlyList<string> ProcessNames, IReadOnlyList<string> UnrealProjects)
+{
+    /// <summary>
+    /// Full paths of the game's own exes (top level, Unreal "-Win64-Shipping" and Source 2 "game\bin\win64"), helpers
+    /// left out. Used only to name the per-app GPU preference; never opened or changed.
+    /// </summary>
+    public IReadOnlyList<string> ExePaths { get; init; } = Array.Empty<string>();
+}
 
 /// <summary>
 /// Reads a game's install folder listing (names only, 4 levels deep, never file contents, never through links) to
@@ -64,8 +71,20 @@ internal static class GameInspector
         }
         projects.Add(Path.GetFileName(installDir.TrimEnd('\\')));
 
-        return new GameLayout(engine, why, antiCheat, exes, projects.Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
+        var exePaths = relative.Where(r => r.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                                           && (!r.Contains('\\') || ShippingExe.IsMatch(r) || Source2Exe.IsMatch(r)))
+            .Where(r => !Helpers.Any(h => h.IsMatch(Path.GetFileName(r)) || h.IsMatch(Path.GetFileNameWithoutExtension(r))))
+            .Select(r => Path.Combine(installDir, r))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new GameLayout(engine, why, antiCheat, exes, projects.Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList())
+        {
+            ExePaths = exePaths,
+        };
     }
+
+    private static readonly Regex Source2Exe = new(@"^game\\bin\\win64\\[^\\]+\.exe$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>Relative paths of entries up to <see cref="MaxDepth"/> levels down.</summary>
     private static List<string> List(IFileWalker walker, string root, CancellationToken ct)

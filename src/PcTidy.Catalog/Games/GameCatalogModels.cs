@@ -76,9 +76,25 @@ public sealed record LaunchOptionFact(
     bool TakesValue,
     string Explanation,
     string SourceUrl,
-    Evidence Evidence)
+    Evidence Evidence,
+    Measurement? Measured = null)
 {
     public bool AppliesTo(GameEngine engine) => Engines.Count == 0 || Engines.Contains(engine);
+}
+
+/// <summary>
+/// One measured number from the FPS research (FPS boost tweaks §4, appendix F1..F8). Always shown with its hardware and
+/// its source with date; never turned into a general "+X% FPS" claim.
+/// </summary>
+/// <param name="Result">What was measured, e.g. "185 vs 135 FPS average, 1% lows 68 vs 41".</param>
+/// <param name="Hardware">The test PC, e.g. "i3-12100F + GTX 1660 Super", or "hardware not stated".</param>
+/// <param name="Source">Who measured it and when, e.g. "9Erza CS2 guide, April 2026".</param>
+/// <param name="Strength">Research evidence strength: A (repeated, published method) to D (no test found).</param>
+/// <param name="Caveat">Optional limit of the test ("one rig", "unverified blog").</param>
+public sealed record Measurement(string Result, string Hardware, string Source, string SourceUrl, char Strength, string? Caveat = null)
+{
+    /// <summary>"Measured: 185 vs 135 FPS … · i3-12100F + GTX 1660 Super · nexprotools blog, undated (unverified blog)".</summary>
+    public string Line => $"Measured: {Result} · {Hardware} · {Source}" + (Caveat is { Length: > 0 } c ? $" ({c})" : "");
 }
 
 /// <summary>
@@ -102,7 +118,11 @@ public sealed record GameRecommendation
     public IniSetting? Ini { get; init; }
     /// <summary>Steam app ids this recommendation must never be offered for (e.g. CS2 has no intro video).</summary>
     public IReadOnlyList<string> NotForAppIds { get; init; } = Array.Empty<string>();
-    public bool IsApplicable => AddLaunchOption is not null || Ini is not null;
+    /// <summary>The measured number behind this row, with hardware and source (FPS research §4.7). Null = no measurement found.</summary>
+    public Measurement? Measured { get; init; }
+    /// <summary>PLACEBO rows are never applied: they sit greyed on the "Doesn't help (measured)" shelf.</summary>
+    public bool IsPlacebo => Verdict == TweakVerdict.Placebo;
+    public bool IsApplicable => !IsPlacebo && (AddLaunchOption is not null || Ini is not null);
 }
 
 /// <summary>One documented key in a game's user config file (INI style).</summary>

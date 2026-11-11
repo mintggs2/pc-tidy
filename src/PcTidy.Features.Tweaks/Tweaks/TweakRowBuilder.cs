@@ -25,7 +25,8 @@ public static class TweakRowBuilder
     public static TweakRow Build(TweakDefinition t, TweakState state, TweakEnvironment env, bool expertAllowed)
     {
         var disabled = DisabledReason(t, state, expertAllowed);
-        var actions = disabled is null ? Actions(t, state, env.Registry.Redirect) : Array.Empty<PlanItem>();
+        // Only offered (proven / situational) rows ever get actions: shelf and harmful rows can never be planned.
+        var actions = disabled is null && t.IsOffered ? Actions(t, state, env.Registry.Redirect) : Array.Empty<PlanItem>();
         var badge = !t.Reversible ? Badge.Permanent
             : t.Verdict == TweakVerdict.Proven && t.Risk == TweakRisk.Low && !t.IsExpertOnly ? Badge.Safe
             : Badge.Check;
@@ -61,7 +62,8 @@ public static class TweakRowBuilder
 
     private static string? DisabledReason(TweakDefinition t, TweakState state, bool expertAllowed)
     {
-        if (t.Verdict == TweakVerdict.Placebo) return "Doesn't help: " + (t.Caveat ?? t.Effect);
+        // Shelf rows (C10): never ticked or planned. Strength D says "No evidence it helps", never "proven zero".
+        if (t.Verdict == TweakVerdict.Placebo) return ShelfPrefix(t) + ": " + (t.Caveat ?? t.Effect);
         if (!t.IsOffered) return "Never offered: it does more harm than good.";
         if (state.Status == TweakStatus.Blocked) return state.Problem;
         if (state.Status == TweakStatus.Applied) return "Already set on this PC.";
@@ -70,6 +72,9 @@ public static class TweakRowBuilder
         if (t.IsExpertOnly && !t.HasActions) return t.Caveat;
         return null;
     }
+
+    /// <summary>"Doesn't help" (some A-C evidence) or "No evidence it helps" (every note is strength D).</summary>
+    public static string ShelfPrefix(TweakDefinition t) => t.ShelfLabel == TweakDefinition.NoEvidenceLabel ? TweakDefinition.NoEvidenceLabel : "Doesn't help";
 
     private static IReadOnlyList<PlanItem> Actions(TweakDefinition t, TweakState state, RegistryRedirect redirect)
     {
@@ -123,8 +128,8 @@ public static class TweakRowBuilder
         TweakStatus.Blocked => "Left alone (unexpected type)",
         TweakStatus.NotPresent => "Not on this PC",
         TweakStatus.Unknown => "Couldn't be checked",
-        TweakStatus.Information => t.Verdict == TweakVerdict.Placebo ? "Doesn't help" : "Information",
-        _ => t.Verdict == TweakVerdict.Placebo ? "Doesn't help" : "Available",
+        TweakStatus.Information => t.Verdict == TweakVerdict.Placebo ? t.ShelfLabel : "Information",
+        _ => t.Verdict == TweakVerdict.Placebo ? t.ShelfLabel : "Available",
     };
 
     private static IReadOnlyDictionary<string, string> Details(TweakDefinition t, TweakState state, bool needsAdmin)
@@ -135,7 +140,8 @@ public static class TweakRowBuilder
             {
                 TweakVerdict.Proven => "Proven: helps measurably",
                 TweakVerdict.Situational => "Situational: only helps on some PCs",
-                TweakVerdict.Placebo => "Placebo: no measurable effect",
+                TweakVerdict.Placebo when t.ShelfLabel == TweakDefinition.NoEvidenceLabel => "No evidence it helps: no test found (that isn't the same as a measured zero)",
+                TweakVerdict.Placebo => "Doesn't help: measured with no real effect",
                 _ => "Harmful",
             },
             ["Risk"] = t.Risk.ToString(),
@@ -161,6 +167,9 @@ public static class TweakRowBuilder
                 _ => c.Change.Describe() + (c.Now.Length > 0 ? $"\nNow: {c.Now}" : ""),
             };
         }
+        var m = 0;
+        foreach (var note in t.Measured)
+            d[t.Measured.Count == 1 ? "Measured" : "Measured " + (++m).ToString(CultureInfo.InvariantCulture)] = note.Describe() + $" (research {note.StrengthGrade})";
         if (t.IsManagedPolicy) d["Managed"] = ManagedLabel;
         if (t.Caveat is { } caveat && t.IsOffered) d["Good to know"] = caveat;
         d["Undo"] = t.Undo;

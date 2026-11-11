@@ -54,10 +54,21 @@ public sealed record SystemToolPlan
     public string? InstanceId { get; init; }
     /// <summary>dev.cacheclean gradle: after "gradle --stop", quarantine caches of Gradle versions no longer used.</summary>
     public string? GradleCachesFolder { get; init; }
+    /// <summary>service.restart: the allow-listed service (its exact Windows name).</summary>
+    public string? ServiceName { get; init; }
+    /// <summary>wu.resetcomponents: the services stopped first, in order (fixed in code).</summary>
+    public IReadOnlyList<string>? Services { get; init; }
+    /// <summary>winget.install: the allow-listed runtime.</summary>
+    public WingetRuntime? Runtime { get; init; }
+    /// <summary>Extra preview text (what the user agrees to, why there's nothing to undo). Replaces the generic "can't be undone".</summary>
+    public string? Note { get; init; }
 
     /// <summary>How the step reads in a simulation.</summary>
     public string Display => Commands.Count > 0 ? string.Join(" then ", Commands) + (Api is { } a ? ", then " + a : "") : Api ?? Title;
 }
+
+/// <summary>One runtime <c>winget.install</c> may install: its exact winget-pkgs id and a readable name.</summary>
+public sealed record WingetRuntime(string Id, string Name);
 
 /// <summary>
 /// The hard whitelist of Windows tools PC Tidy may run. Tool ids map to exact executables (System32, or a program's own
@@ -89,6 +100,50 @@ public static partial class SystemToolCatalog
         ["testsigning"] = 0x16000049, ["nointegritychecks"] = 0x16000048, ["debug"] = 0x260000A0, ["bootdebug"] = 0x16000010,
         ["quietboot"] = 0x26000041, ["increaseuserva"] = 0x25000032, ["numproc"] = 0x25000061, ["onecpu"] = 0x26000060,
         ["removememory"] = 0x25000031, ["x2apicpolicy"] = null, ["uselegacyapicmode"] = null,
+        // A safe-mode flag left on (msconfig "Safe boot" or "bcdedit /set safeboot"): removing it starts Windows normally
+        // again. BcdOSLoaderInteger_SafeBoot / BcdOSLoaderBoolean_SafeBootAlternateShell (verify both element types
+        // against Microsoft's BcdOSLoaderElementTypes list).
+        ["safeboot"] = 0x25000080, ["safebootalternateshell"] = 0x26000081,
+    };
+
+    /// <summary>
+    /// service.restart: the only services PC Tidy restarts (stop, then start; the start type is never changed). Each one
+    /// fixes a common problem when restarted: Wi-Fi, Bluetooth, Windows Update, Windows Installer, sound.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> RestartableServices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["WlanSvc"] = "WLAN AutoConfig (Wi-Fi)", ["bthserv"] = "Bluetooth Support", ["BTAGService"] = "Bluetooth Audio Gateway",
+        ["wuauserv"] = "Windows Update", ["BITS"] = "Background Intelligent Transfer", ["CryptSvc"] = "Cryptographic Services",
+        ["msiserver"] = "Windows Installer", ["Audiosrv"] = "Windows Audio", ["AudioEndpointBuilder"] = "Windows Audio Endpoint Builder",
+    };
+
+    /// <summary>
+    /// wu.resetcomponents: the services stopped before the Windows Update folders are renamed, in this order. Only the
+    /// ones that were running are started again afterwards. Verify: Microsoft Learn ("Reset Windows Update components
+    /// manually", in "Additional resources for Windows Update") stops BITS, wuauserv and CryptSvc; msiserver is added here
+    /// because Windows Installer also works with these folders while updates install.
+    /// </summary>
+    public static readonly IReadOnlyList<string> WindowsUpdateResetServices = new[] { "BITS", "wuauserv", "CryptSvc", "msiserver" };
+
+    /// <summary>
+    /// wu.resetcomponents: the two folders renamed (never deleted), fixed in code and never taken from a plan. Verify:
+    /// Microsoft's page renames SoftwareDistribution\DataStore, SoftwareDistribution\Download and System32\catroot2 to
+    /// *.bak; PC Tidy renames the whole SoftwareDistribution folder (Windows makes a fresh one) and catroot2.
+    /// </summary>
+    internal static IReadOnlyList<string> WindowsUpdateResetFolders(ISystemToolBackend env)
+        => new[] { Path.Combine(env.WindowsDirectory, "SoftwareDistribution"), Path.Combine(env.SystemDirectory, "catroot2") };
+
+    /// <summary>
+    /// winget.install: Microsoft's own runtimes only, by their winget-pkgs ids (manifests/m/Microsoft/...): VC++ 2015+
+    /// (x64, x86), the DirectX End-User Runtime and the .NET Desktop Runtime 8 and 9.
+    /// </summary>
+    public static readonly IReadOnlyList<WingetRuntime> WingetRuntimes = new WingetRuntime[]
+    {
+        new("Microsoft.VCRedist.2015+.x64", "Microsoft Visual C++ 2015-2022 Redistributable (x64)"),
+        new("Microsoft.VCRedist.2015+.x86", "Microsoft Visual C++ 2015-2022 Redistributable (x86)"),
+        new("Microsoft.DirectX", "DirectX End-User Runtime"),
+        new("Microsoft.DotNet.DesktopRuntime.8", "Microsoft .NET Desktop Runtime 8"),
+        new("Microsoft.DotNet.DesktopRuntime.9", "Microsoft .NET Desktop Runtime 9"),
     };
 
     public static readonly IReadOnlyList<string> DockerTargets = new[] { "images", "builder", "containers" };
@@ -102,6 +157,7 @@ public static partial class SystemToolCatalog
         ToolIds.WindowsUpdateInstallDrivers, ToolIds.ShadowStorageResize, ToolIds.BcdDeleteValue, ToolIds.NetshAutotuningNormal,
         ToolIds.WslShutdown, ToolIds.WslSetSparse, ToolIds.DockerPrune, ToolIds.DevCacheClean, ToolIds.OneDriveShutdown, ToolIds.OneDriveStart,
         ToolIds.DriverRollback, ToolIds.RestorePointCreate, ToolIds.CipherWipeFreeSpace, ToolIds.CleanmgrStorageSense, CompactLzx,
+        ToolIds.ServiceRestart, ToolIds.WindowsUpdateReset, ToolIds.MsiReregister, ToolIds.WingetInstall,
     };
 
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9.\-_+]{0,127}$", RegexOptions.CultureInvariant)] private static partial Regex PackageIdPattern();
@@ -123,6 +179,13 @@ public static partial class SystemToolCatalog
     internal static string DismExe => Sys("Dism.exe");
     internal static string CleanmgrExe => Sys("cleanmgr.exe");
     internal static string PowercfgExe => Sys("powercfg.exe");
+    internal static string MsiexecExe => Sys("msiexec.exe");
+
+    /// <summary>winget return codes (winget-cli doc/windows/package-manager/winget/returnCodes.md).</summary>
+    internal const int WingetNoNewerVersion = unchecked((int)0x8A15002B);     // APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE
+    internal const int WingetAlreadyInstalled = unchecked((int)0x8A150061);   // APPINSTALLER_CLI_ERROR_PACKAGE_ALREADY_INSTALLED
+    internal const int WingetRestartToFinish = unchecked((int)0x8A150109);    // APPINSTALLER_CLI_ERROR_INSTALL_REBOOT_REQUIRED_TO_FINISH
+    internal const int WingetRestartFirst = unchecked((int)0x8A15010A);       // APPINSTALLER_CLI_ERROR_INSTALL_REBOOT_REQUIRED_FOR_INSTALL
 
     public static bool TryResolve(PlanItem item, out SystemToolPlan plan, out string problem)
         => TryResolve(item, WindowsSystemToolBackend.Instance, out plan, out problem);
@@ -296,7 +359,7 @@ public static partial class SystemToolCatalog
                 var bcd = BcdRemovable.Keys.FirstOrDefault(k => k.Equals(A("name"), StringComparison.OrdinalIgnoreCase));
                 if (bcd is null) return Fail(out problem, "PC Tidy only removes boot settings known to be left behind by old tweaks.");
                 plan = Simple($"Remove the boot setting '{bcd}'", Sys("bcdedit.exe"), true, "/deletevalue", "{current}", bcd)
-                    with { BcdName = bcd, BcdElementType = BcdRemovable[bcd], Reversible = BcdRemovable[bcd] is not null };
+                    with { BcdName = bcd, BcdElementType = BcdRemovable[bcd], Reversible = BcdRemovable[bcd] is not null, Note = SafeBootUndoWarning(bcd) };
                 return true;
 
             case ToolIds.NetshAutotuningNormal:
@@ -397,6 +460,74 @@ public static partial class SystemToolCatalog
                 };
                 return true;
 
+            case ToolIds.ServiceRestart:
+                if (!OnlyKeys(args, out problem, "name")) return false;
+                var service = RestartableServices.Keys.FirstOrDefault(k => k.Equals(A("name"), StringComparison.OrdinalIgnoreCase));
+                if (service is null)
+                    return Fail(out problem, "PC Tidy only restarts a few Windows services that fix common problems (Wi-Fi, Bluetooth, Windows Update, Windows Installer, sound).");
+                plan = new SystemToolPlan
+                {
+                    ToolId = toolId, Title = $"Restart the {RestartableServices[service]} service", Commands = Array.Empty<ToolCommand>(),
+                    Api = $"Service Control Manager: stop {service}, then start it (start type unchanged)", ServiceName = service,
+                    Timeout = TimeSpan.FromMinutes(2),
+                    Note = "Nothing to undo: restarting a service changes no settings.",
+                };
+                return true;
+
+            case ToolIds.WindowsUpdateReset:
+                // No settings at all: the services and the two folders are fixed in code.
+                if (args.Count > 0) return Fail(out problem, "This repair takes no settings, so PC Tidy won't run it with any.");
+                var resetFolders = WindowsUpdateResetFolders(env);
+                plan = new SystemToolPlan
+                {
+                    ToolId = toolId, Title = "Reset Windows Update components", Commands = Array.Empty<ToolCommand>(),
+                    Api = $"stop {string.Join(", ", WindowsUpdateResetServices)}; rename {string.Join(" and ", resetFolders)} to *.old-<date and time>; " +
+                          "start the services that were running",
+                    Services = WindowsUpdateResetServices, Timeout = TimeSpan.FromMinutes(3),
+                    Note = "The old folders are kept (renamed, never deleted), and Windows makes fresh ones. This isn't undone from History: " +
+                           "putting the old folders back would bring the old problem back.",
+                };
+                return true;
+
+            case ToolIds.MsiReregister:
+                if (!OnlyKeys(args, out problem)) return false;
+                // Verify: "msiexec /unregister" then "msiexec /regserver" (the long-standing way to register Windows
+                // Installer again; check both switches against Microsoft Learn's msiexec page).
+                plan = new SystemToolPlan
+                {
+                    ToolId = toolId, Title = "Register Windows Installer again",
+                    Commands = new[] { new ToolCommand(MsiexecExe, new[] { "/unregister" }), new ToolCommand(MsiexecExe, new[] { "/regserver" }) },
+                    Timeout = TimeSpan.FromMinutes(5),
+                    Note = "Nothing to undo: Windows Installer is registered again the way Windows sets it up.",
+                };
+                return true;
+
+            case ToolIds.WingetInstall:
+                if (!OnlyKeys(args, out problem, "id")) return false;
+                var runtime = WingetRuntimes.FirstOrDefault(r => r.Id.Equals(A("id"), StringComparison.OrdinalIgnoreCase));
+                if (runtime is null) return Fail(out problem, "PC Tidy only installs Microsoft's own runtimes this way (Visual C++, DirectX, .NET Desktop).");
+                var wingetExe = Path.Combine(env.LocalAppData, "Microsoft", "WindowsApps", "winget.exe");
+                // Same path as winget.upgrade: the user's own winget, never from the admin helper. Exact id, winget's own
+                // source only, silent. The agreements are accepted because the preview says so before the user agrees.
+                plan = new SystemToolPlan
+                {
+                    ToolId = toolId, Title = $"Install {runtime.Name} with winget",
+                    Commands = new[]
+                    {
+                        new ToolCommand(wingetExe, new[]
+                        {
+                            "install", "--id", runtime.Id, "--exact", "--source", "winget", "--silent", "--disable-interactivity",
+                            "--accept-source-agreements", "--accept-package-agreements",
+                        }),
+                    },
+                    NeedsAdmin = false, PerUser = true, Timeout = TimeSpan.FromHours(1), Runtime = runtime,
+                    MissingProgram = env.FileExists(wingetExe) ? null : "winget (App Installer) isn't installed on this PC.",
+                    RestartCodes = new[] { 3010, WingetRestartToFinish },
+                    Note = $"By going ahead you accept Microsoft's licence terms for {runtime.Name} (\"winget show --id {runtime.Id}\" shows where to read them). " +
+                           "This can't be undone from History. You can remove it later in Settings > Apps.",
+                };
+                return true;
+
             default:
                 problem = "This tool isn't on PC Tidy's list of allowed Windows tools.";
                 return false;
@@ -429,7 +560,23 @@ public static partial class SystemToolCatalog
         if (value.IsBoolean) return value.Value != 0 ? "Yes" : "No";
         if (name.Equals("tscsyncpolicy", StringComparison.OrdinalIgnoreCase))
             return value.Value switch { 0 => "Default", 1 => "Legacy", 2 => "Enhanced", _ => null };
+        // bcdedit's safeboot keywords: Minimal, Network, DsRepair (BcdOSLoaderSafeBoot 0, 1, 2; verify).
+        if (name.Equals("safeboot", StringComparison.OrdinalIgnoreCase))
+            return value.Value switch { 0 => "Minimal", 1 => "Network", 2 => "DsRepair", _ => null };
         return value.Value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// For the two safe-mode flags: what undoing their removal does at the next restart (shown in the preview and in the
+    /// undo result). Null for every other boot setting.
+    /// </summary>
+    internal static string? SafeBootUndoWarning(string name)
+    {
+        if (name.Equals("safeboot", StringComparison.OrdinalIgnoreCase))
+            return "Undo from History turns Safe Mode back on: the next time you restart, Windows starts in Safe Mode again.";
+        if (name.Equals("safebootalternateshell", StringComparison.OrdinalIgnoreCase))
+            return "Undo from History puts this back: when Windows next starts in Safe Mode, it may start with only a Command Prompt window instead of the desktop.";
+        return null;
     }
 
     internal static ToolCommand BcdSetCommand(string name, string value) => new(Sys("bcdedit.exe"), new[] { "/set", "{current}", name, value });

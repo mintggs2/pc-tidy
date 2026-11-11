@@ -62,18 +62,54 @@ public sealed class RunGroupRow : ListRow
 }
 
 /// <summary>History: every run with Undo, details and log; unfinished runs offer Resume / Roll back.</summary>
-public partial class HistoryPage : UserControl, IFixedHeightPage
+public partial class HistoryPage : UserControl, IFixedHeightPage, INavigationTarget
 {
     private readonly AppServices _services;
     private List<RunGroupRow> _all = new();
     private List<string> _filters = new();
     private bool _refreshing;
+    private string? _pendingRunId;
+
+    /// <summary>
+    /// A <see cref="HistoryOpenRequest"/> (Measure's "Open History") opens the Runs view with that run selected and its
+    /// details showing; the rail passes null and History opens as usual.
+    /// </summary>
+    public void OnNavigatedTo(object? parameter)
+    {
+        if (parameter is not HistoryOpenRequest { RunId: { Length: > 0 } id }) return;
+        _pendingRunId = id;
+        if (ShowingRestorePoints) ViewPicker.SelectedIndex = 0;
+        if (_all.Count > 0) SelectPendingRun();
+        if (IsLoaded) RefreshAsync().Forget(Host, "Couldn't read History"); // the run may be newer than the list
+    }
+
+    /// <summary>The run History was asked to show, if it is in the list: filters cleared, selected, scrolled to.</summary>
+    private void SelectPendingRun()
+    {
+        if (_pendingRunId is not { } id) return;
+        var row = _all.FirstOrDefault(r => r.Runs.Any(x => x.RunId == id || x.ParentRunId == id));
+        if (row is null) return;
+        _pendingRunId = null;
+        if (!RunList.Items.Contains(row))
+        {
+            SearchBox.Text = "";
+            Filter.SelectedIndex = 0;
+            ApplyFilter();
+        }
+        RunList.SelectedItem = row;
+        RunList.ScrollIntoView(row);
+        ShowDetail(row);
+    }
+
+    /// <summary>The run selected in the list (tests).</summary>
+    public RunGroupRow? SelectedRun => RunList.SelectedItem as RunGroupRow;
 
     public HistoryPage(AppServices services)
     {
         _services = services;
         InitializeComponent();
         Filter.SelectionChanged += (_, _) => ApplyFilter();
+        ViewPicker.SelectionChanged += (_, _) => ShowView();
         // Narrow windows: a slimmer details card leaves the run titles room next to their buttons.
         SizeChanged += (_, e) => DetailColumn.Width = new GridLength(e.NewSize.Width < 900 ? 256 : 300);
         Loaded += (_, _) => RefreshAsync().Forget(Host, "Couldn't read History");
@@ -81,6 +117,174 @@ public partial class HistoryPage : UserControl, IFixedHeightPage
 
     private FlowHost Host => (FlowHost)_services.Get<IShellFlowHost>();
     private MainWindow? Window => System.Windows.Window.GetWindow(this) as MainWindow;
+
+    // ---------------- Restore points view (layout spec §4.5) ----------------
+
+    /// <summary>Runs (0) or Restore points (1).</summary>
+    public bool ShowingRestorePoints => ViewPicker.SelectedIndex == 1;
+
+    /// <summary>Switches to the Restore points view (screenshots, the tour) and loads it.</summary>
+    public Task ShowRestorePointsAsync()
+    {
+        ViewPicker.SelectedIndex = 1;
+        return LoadRestorePointsAsync();
+    }
+
+    private void ShowView()
+    {
+        bool points = ShowingRestorePoints;
+        RestorePointsView.Visibility = points ? Visibility.Visible : Visibility.Collapsed;
+        RunsView.Visibility = points ? Visibility.Collapsed : Visibility.Visible;
+        UnfinishedPanel.Visibility = !points && UnfinishedPanel.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        Filter.Visibility = points || _all.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        SearchBox.Visibility = points || _all.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        if (points) LoadRestorePointsAsync().Forget(Host, "Couldn't read the restore points");
+    }
+
+    /// <summary>Demo: invented points. Practice PC: none (it isn't this PC). Otherwise Windows' list (read-only WMI).</summary>
+    private IRestorePointReader? Reader =>
+        _services.GetService(typeof(IRestorePointReader)) as IRestorePointReader
+        ?? (_services.IsDemo ? new DemoRestorePointReader() : _services.Args.SandboxRoot != null ? null : new WmiRestorePointReader());
+
+    private IReadOnlyList<RestorePointRow> _points = Array.Empty<RestorePointRow>();
+
+    /// <summary>The cards shown (tests and screenshots).</summary>
+    public IReadOnlyList<RestorePointRow> RestorePointRows => _points;
+
+    private int _pointsLoad;
+
+    private async Task LoadRestorePointsAsync()
+    {
+        RestoreCards.Children.Clear();
+        RestoreProblem.IsOpen = false;
+        RestoreEmpty.Visibility = Visibility.Collapsed;
+        if (Reader is not { } reader)
+        {
+            ShowRestoreProblem("Practice mode doesn't read this PC's restore points.");
+            return;
+        }
+        int load = ++_pointsLoad;
+        var list = await reader.ReadAsync(CancellationToken.None);
+        if (load != _pointsLoad) return; // a newer load is on its way
+        _points = RestorePointsModel.Build(list.Points, ShellState.Get(_services.Get<AppSettings>()).RestorePointTags);
+        if (list.Problem is { } problem) ShowRestoreProblem(problem);
+        RestoreEmpty.Visibility = _points.Count == 0 && list.Problem is null ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var row in _points) RestoreCards.Children.Add(RestoreCard(row));
+    }
+
+    private void ShowRestoreProblem(string message)
+    {
+        RestoreProblem.Message = message;
+        RestoreProblem.IsOpen = true;
+        // Without a list, Windows' own window still works.
+        RestoreCards.Children.Clear();
+        var open = new Wpf.Ui.Controls.Button { Content = "Open System Restore…", Icon = new SymbolIcon(SymbolRegular.History24), Margin = new Thickness(0, 0, 0, 8) };
+        AutomationProperties.SetName(open, "Open Windows' System Restore window");
+        open.Click += (_, _) => OpenSystemRestore();
+        RestoreCards.Children.Add(open);
+    }
+
+    private FrameworkElement RestoreCard(RestorePointRow row)
+    {
+        var card = new Border();
+        card.SetResourceReference(StyleProperty, "TidyCard");
+        AutomationProperties.SetName(card, row.AutomationName);
+        var stack = new StackPanel();
+        var head = new DockPanel();
+        var tag = new BadgePill { Text = row.Tag ?? "", Tone = RestorePointsModel.ToneOf(row.Tag), Margin = new Thickness(8, 0, 0, 0) };
+        DockPanel.SetDock(tag, Dock.Right);
+        head.Children.Add(tag);
+        if (row.IsNewest)
+        {
+            var newest = new BadgePill { Text = "Newest · always kept", Tone = PillTone.Accent, ShowDot = false, Margin = new Thickness(8, 0, 0, 0) };
+            DockPanel.SetDock(newest, Dock.Right);
+            head.Children.Add(newest);
+        }
+        var name = Text(row.Name, "CardTitle");
+        name.TextTrimming = TextTrimming.CharacterEllipsis;
+        head.Children.Add(name);
+        stack.Children.Add(head);
+        stack.Children.Add(Wrap(Text(row.Description, "Secondary")));
+        stack.Children.Add(Text(row.When, "Caption"));
+
+        var actions = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
+        var restore = new Wpf.Ui.Controls.Button { Content = "Restore…", Icon = new SymbolIcon(SymbolRegular.History24), Margin = new Thickness(0, 0, 8, 4) };
+        AutomationProperties.SetName(restore, $"Restore: opens Windows' System Restore window ({row.Name})");
+        restore.ToolTip = "Opens Windows' own System Restore window. You pick the point and confirm there.";
+        restore.Click += (_, _) => OpenSystemRestore();
+        actions.Children.Add(restore);
+        if (row.CanDelete)
+        {
+            var delete = new Wpf.Ui.Controls.Button { Content = "Delete", Icon = new SymbolIcon(SymbolRegular.Delete24), Margin = new Thickness(0, 0, 8, 4) };
+            AutomationProperties.SetName(delete, $"Delete the restore point {row.Name}, {row.When}");
+            RunGate.SetDisableWhileBusy(delete, true);
+            delete.Click += (_, _) => DeleteAsync(row).Forget(Host, "Couldn't delete that restore point");
+            actions.Children.Add(delete);
+        }
+        stack.Children.Add(actions);
+
+        // The tag picker sits on its own row on every card (the same place whether or not the card has Delete).
+        var tagRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+        var tagLabel = Text("Tag", "Secondary");
+        tagLabel.VerticalAlignment = VerticalAlignment.Center;
+        tagLabel.Margin = new Thickness(0, 0, 8, 0);
+        tagRow.Children.Add(tagLabel);
+        var picker = new ComboBox { MinWidth = 120, ItemsSource = new[] { NoTag }.Concat(RestorePointsModel.Tags).ToList() };
+        picker.SelectedItem = row.Tag ?? NoTag;
+        AutomationProperties.SetName(picker, $"Colour tag for {row.Name}");
+        picker.ToolTip = "A colour tag to find this point again. Kept on this PC only.";
+        // Picking a tag updates this card in place: no reload, so keyboard focus stays on the picker.
+        picker.SelectionChanged += (_, _) =>
+        {
+            var chosen = SetTag(row, picker.SelectedItem as string);
+            tag.Text = chosen ?? "";
+            tag.Tone = RestorePointsModel.ToneOf(chosen);
+            AutomationProperties.SetName(card, $"{row.Name}, {row.When}, {row.Description}" + (chosen is null ? "" : $", tagged {chosen}")
+                                               + (row.IsNewest ? ", newest, always kept" : ""));
+        };
+        tagRow.Children.Add(picker);
+        stack.Children.Add(tagRow);
+        card.Child = stack;
+        return card;
+    }
+
+    private const string NoTag = "No tag";
+
+    private static TextBlock Wrap(TextBlock t)
+    {
+        t.TextWrapping = TextWrapping.Wrap;
+        return t;
+    }
+
+    /// <summary>Remembers the card's tag (this PC only) and returns it (null = no tag). The cards aren't rebuilt.</summary>
+    private string? SetTag(RestorePointRow row, string? tag)
+    {
+        var chosen = tag is null || tag == NoTag || !RestorePointsModel.Tags.Contains(tag) ? null : tag;
+        var settings = _services.Get<AppSettings>();
+        ShellState.Update(settings, s => s with { RestorePointTags = RestorePointsModel.WithTag(s.RestorePointTags, row.TagKey, chosen) });
+        Window?.SaveSettingsQuietly();
+        return chosen;
+    }
+
+    /// <summary>"Restore…": Windows' own System Restore window. PC Tidy never restores by itself.</summary>
+    private void OpenSystemRestore()
+    {
+        if (_services.IsDemo || _services.Args.SandboxRoot != null)
+        {
+            Host.ShowMessage("Not in this mode", "System Restore works on this real PC, so it isn't opened from demo or practice mode.");
+            return;
+        }
+        try { PcTidy.App.Updates.OwnProcesses.OpenSystemRestore(); }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception) { Host.ShowMessage("Couldn't open System Restore", ex.Message, isError: true); }
+    }
+
+    /// <summary>"Delete": the normal confirm flow with PC care's RestorePointDelete item (never the newest point).</summary>
+    private async Task DeleteAsync(RestorePointRow row)
+    {
+        if (RestorePointsModel.DeletePlan(row) is not { } plan) return;
+        var outcome = await Host.ReviewAndRunAsync(new[] { plan }, new FlowOptions { Title = "Delete this restore point?", ShowResult = true }, CancellationToken.None);
+        if (outcome.Kind == FlowOutcomeKind.Ran) await LoadRestorePointsAsync();
+    }
 
     public async Task RefreshAsync()
     {
@@ -124,13 +328,14 @@ public partial class HistoryPage : UserControl, IFixedHeightPage
         Filter.Items = string.Join("|", _filters);
         Filter.SelectedIndex = Math.Max(0, _filters.IndexOf(keep));
         ApplyFilter();
+        SelectPendingRun();
     }
 
     /// <summary>One banner per unfinished run, with Resume / Roll back right under it (InfoBar can't host buttons).</summary>
     private void ShowUnfinished(IReadOnlyList<RunRecord> unfinished)
     {
         UnfinishedPanel.Children.Clear();
-        UnfinishedPanel.Visibility = unfinished.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UnfinishedPanel.Visibility = unfinished.Count > 0 && !ShowingRestorePoints ? Visibility.Visible : Visibility.Collapsed;
         foreach (var run in unfinished)
         {
             int done = run.Steps.Count(s => s.Status == StepStatus.Done);
@@ -184,8 +389,8 @@ public partial class HistoryPage : UserControl, IFixedHeightPage
         RunList.ItemsSource = rows;
         bool noRuns = _all.Count == 0;
         // No history at all: one calm empty state across the whole page, no filter or search to fiddle with.
-        Filter.Visibility = noRuns ? Visibility.Collapsed : Visibility.Visible;
-        SearchBox.Visibility = noRuns ? Visibility.Collapsed : Visibility.Visible;
+        Filter.Visibility = noRuns || ShowingRestorePoints ? Visibility.Collapsed : Visibility.Visible;
+        SearchBox.Visibility = noRuns || ShowingRestorePoints ? Visibility.Collapsed : Visibility.Visible;
         Empty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (noRuns) { Empty.Title = "No runs yet"; Empty.Message = "Every clean, sort and change shows up here with its own Undo."; }
         else if (rows.Count == 0) { Empty.Title = "No matching runs"; Empty.Message = "Try another word or filter."; }

@@ -75,6 +75,7 @@ public sealed partial class SafetyGuard
                 ActionKind.LaunchApp => CheckLaunch(item),
                 ActionKind.OneDriveFreeUpSpace => CheckFreeUpSpace(item),
                 ActionKind.QuickAccessPin => CheckQuickAccessPin(item),
+                ActionKind.DeviceSetEnabled => CheckDeviceSetEnabled(item),
                 _ => SafetyVerdict.Block(Reasons.UnknownAction),
             };
         }
@@ -212,6 +213,8 @@ public sealed partial class SafetyGuard
         var deletesKey = item.Kind == ActionKind.RegistryDeleteKey;
         if (!deletesKey && spec.ValueName is null) return SafetyVerdict.Block(Reasons.Incomplete);
         var valueName = deletesKey ? null : spec.ValueName;
+        // No line break, NUL or other control character in a value name (no Windows setting PC Tidy changes has one).
+        if (valueName is not null && valueName.Any(char.IsControl)) return SafetyVerdict.Block(Reasons.RegistryMalformed);
         if (Policy.Registry.Any(r => r.Allows(spec.Hive, key, valueName, deletesKey))) return SafetyVerdict.Ok;
         return CatalogAllows(item, spec, key, valueName) ? SafetyVerdict.Ok : SafetyVerdict.Block(Reasons.RegistryNotAllowed);
     }
@@ -223,20 +226,31 @@ public sealed partial class SafetyGuard
     /// </summary>
     private static bool CatalogAllows(PlanItem item, RegistryValueSpec spec, string key, string? valueName)
     {
+        // Patterned entries (KeyPathPattern / ValueNamePattern, v3.1) are found only after exact ones, and only for an
+        // already normalized key (no "..", no hive prefix: see NormalizeKeyPath).
         var allowance = PcTidy.Catalog.RegistryCatalog.Find(spec.Hive, key, valueName);
         if (allowance is null) return false;
         if (spec.Hive == RegistryHive.LocalMachine && (!item.NeedsAdmin || !item.IsSystemChange)) return false;
+        // A pattern names values, never whole keys: a patterned entry can't be used to delete a key.
+        var patterned = allowance.KeyPathPattern is not null || allowance.ValueNamePattern is not null;
+        if (patterned && item.Kind == ActionKind.RegistryDeleteKey) return false;
         return item.Kind switch
         {
             ActionKind.RegistryDeleteValue or ActionKind.RegistryDeleteKey => allowance.AllowDelete,
             // No listed data = delete-only (e.g. bad-tweak repairs that remove a value). Never "any data".
             ActionKind.RegistrySetValue => allowance.Kind == spec.Kind && (allowance.AllowedData.Count > 0
                 ? allowance.AllowedData.Any(d => SameData(spec.Kind, d, spec.Data))
-                : allowance.DataPattern is { } pattern && spec.Data is { } data
-                  && System.Text.RegularExpressions.Regex.IsMatch(data, pattern, System.Text.RegularExpressions.RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100))),
+                : allowance.DataPattern is { } pattern && spec.Data is { } data && DataMatches(pattern, data)),
             _ => false,
         };
     }
+
+    /// <summary>
+    /// The whole data must match an anchored (^…$) pattern, case-sensitive, with a timeout. Strict: data with a control
+    /// character (a trailing line break, NUL…) never matches, the end is the very end (\z), and \d is ASCII 0-9 only.
+    /// </summary>
+    internal static bool DataMatches(string pattern, string data)
+        => PcTidy.Catalog.RegistryCatalog.StrictFullMatch(pattern, data, ignoreCase: false);
 
     private static bool SameData(RegistryKind kind, string allowed, string? actual)
     {

@@ -61,6 +61,54 @@ internal sealed class TestbedFolder : IDisposable
     }
 }
 
+/// <summary>
+/// One STA thread with a dispatcher for every WPF test in this project, so the shared Application and its theme
+/// resources always live on the thread that uses them.
+/// </summary>
+internal static class UiThread
+{
+    private static readonly Lazy<System.Windows.Threading.Dispatcher> Ui = new(() =>
+    {
+        System.Windows.Threading.Dispatcher? dispatcher = null;
+        using var ready = new ManualResetEventSlim();
+        var thread = new Thread(() =>
+        {
+            dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+            ready.Set();
+            System.Windows.Threading.Dispatcher.Run();
+        }) { IsBackground = true, Name = "insights-ui-tests" };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        ready.Wait();
+        return dispatcher!;
+    });
+
+    public static void Run(Action body)
+    {
+        Exception? failure = null;
+        Ui.Value.Invoke(() =>
+        {
+            try
+            {
+                EnsureAppResources();
+                body();
+            }
+            catch (Exception ex) { failure = ex; }
+        });
+        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
+    }
+
+    private static void EnsureAppResources()
+    {
+        var app = System.Windows.Application.Current ?? new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
+        if (app.Resources.Contains("TidyCard")) return;
+        app.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ThemesDictionary { Theme = Wpf.Ui.Appearance.ApplicationTheme.Dark });
+        app.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ControlsDictionary());
+        app.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("pack://application:,,,/PcTidy.UI;component/Themes/TidyDark.xaml") });
+        app.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("pack://application:,,,/PcTidy.UI;component/Themes/Tidy.xaml") });
+    }
+}
+
 /// <summary>Injectable facts for the card tests (no WMI, no registry).</summary>
 internal sealed class FakeSource : IInsightsSource
 {
@@ -74,7 +122,13 @@ internal sealed class FakeSource : IInsightsSource
     public TimerFacts Timer { get; set; } = new(10_000_000, true);
     public SecurityFacts Security { get; set; } = new();
     public RuntimeFacts Runtimes { get; set; } = new();
+    public string? Cpu { get; set; }
+    public string? PowerPlan { get; set; }
+    public InventoryFacts Inventory { get; set; } = new();
 
+    public string? ReadCpuName() => Cpu;
+    public string? ReadActivePowerPlan() => PowerPlan;
+    public InventoryFacts ReadInventory() => Inventory;
     public WindowsIdentity ReadWindowsIdentity() => Identity;
     public ReadOutcome<IReadOnlyList<StabilitySample>> ReadStability(DateTime sinceUtc) => Stability;
     public ReadOutcome<IReadOnlyList<MemoryTestResult>> ReadMemoryTests() => MemoryTests;

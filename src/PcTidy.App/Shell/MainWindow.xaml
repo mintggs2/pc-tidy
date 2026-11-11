@@ -38,7 +38,7 @@
                     Background="{DynamicResource TidyAccentSoftBrush}"
                     CornerRadius="10"
                     Visibility="Collapsed">
-                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TidyAccentBrush}" Text="Demo · sample data" />
+                    <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TidyAccentTextBrush}" Text="Demo · sample data" />
                 </Border>
             </ui:TitleBar.TrailingContent>
         </ui:TitleBar>
@@ -63,7 +63,7 @@
                     <Setter Property="Margin" Value="14,6,0,1" />
                     <Setter Property="FontSize" Value="11" />
                     <Setter Property="FontWeight" Value="SemiBold" />
-                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                 </Style>
             </ui:NavigationView.Resources>
         </ui:NavigationView>
@@ -83,6 +83,11 @@
                         </StackPanel>
                     </DockPanel>
                     <ProgressBar x:Name="ProgressBar" Height="4" Margin="0,18,0,0" Maximum="100" />
+                    <!--  Per-section states (Waiting · Running · Done · Skipped · Needs restart) when a run has several sections  -->
+                    <ScrollViewer x:Name="ProgressSectionsScroll" MaxHeight="220" Margin="0,14,0,0" Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                        <StackPanel x:Name="ProgressSectionsPanel" AutomationProperties.Name="Sections of this run" />
+                    </ScrollViewer>
+                    <TextBlock x:Name="ProgressSaved" Margin="0,12,0,0" AutomationProperties.LiveSetting="Polite" Style="{StaticResource Secondary}" TextWrapping="Wrap" Visibility="Collapsed" />
                     <DockPanel Margin="0,14,0,0">
                         <ui:Button
                             x:Name="ProgressStop"
@@ -95,6 +100,9 @@
                 </StackPanel>
             </Border>
         </Grid>
+
+        <!--  Replayable spotlight tour (Help and Settings): dims everything but the step's target  -->
+        <Grid x:Name="TourLayer" Grid.Row="0" Grid.RowSpan="2" Visibility="Collapsed" />
 
         <ui:ContentDialogHost x:Name="RootDialogHost" Grid.Row="0" Grid.RowSpan="2" />
     </Grid>

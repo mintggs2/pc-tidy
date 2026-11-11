@@ -21,6 +21,12 @@ public enum DevicePresence { Present, NotPresent, Missing, Unknown }
 public sealed record ShadowStorageFacts(long VolumeBytes, long UsedBytes, long MaxBytes, int Snapshots);
 
 /// <summary>
+/// A Windows service as the Service Control Manager reports it right now.
+/// <paramref name="RunningDependents"/> = services that depend on it and are running (stopping it stops them too).
+/// </summary>
+public sealed record ServiceRunState(bool Running, bool Disabled, IReadOnlyList<string> RunningDependents);
+
+/// <summary>
 /// Everything <see cref="SystemToolHandler"/> needs from Windows, behind one interface: finding programs, running them,
 /// and the few documented APIs it calls directly. Real: <see cref="WindowsSystemToolBackend"/>. Tests: a fake with
 /// <see cref="TouchesRealSystem"/> = false that records what would run.
@@ -63,6 +69,23 @@ public interface ISystemToolBackend
     DevicePresence DeviceState(string instanceId);
     /// <summary>Restore point space on the drive (no shadow storage yet = 0 used, 0 snapshots), or null if it couldn't be read.</summary>
     ShadowStorageFacts? ReadShadowStorage(char driveLetter);
+
+    // ---- services and the Windows Update reset (v3.1)
+    /// <summary>%windir% and %windir%\System32 (the reset's two folders are built from these in code).</summary>
+    string WindowsDirectory { get; }
+    string SystemDirectory { get; }
+    /// <summary>Local time, for the *.old-yyyyMMdd-HHmmss names.</summary>
+    DateTime LocalNow { get; }
+    /// <summary>The service now, or null when it isn't installed.</summary>
+    ServiceRunState? QueryService(string serviceName);
+    /// <summary>Stops the service (and its running dependents) and waits. False when it didn't stop in time.</summary>
+    Task<bool> StopServiceAsync(string serviceName, TimeSpan timeout, CancellationToken ct);
+    /// <summary>Starts the service and waits. False when it didn't start in time. Never changes the start type.</summary>
+    Task<bool> StartServiceAsync(string serviceName, TimeSpan timeout, CancellationToken ct);
+    /// <summary>True when the path is a real folder: not a file, and not a link or junction (reparse point) to somewhere else.</summary>
+    bool IsPlainDirectory(string path);
+    /// <summary>Renames a folder in place (same parent, never a delete). Throws IOException / UnauthorizedAccessException when it can't.</summary>
+    void RenameFolder(string path, string newPath);
 
     // ---- documented APIs
     bool FlushDnsCache();
@@ -264,6 +287,78 @@ public sealed class WindowsSystemToolBackend : ISystemToolBackend
         var start = text.IndexOf("Volume{", StringComparison.OrdinalIgnoreCase);
         var end = start < 0 ? -1 : text.IndexOf('}', start);
         return end > start ? text[start..(end + 1)] : null;
+    }
+
+    public string WindowsDirectory => Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+    public string SystemDirectory => Environment.SystemDirectory;
+    public DateTime LocalNow => DateTime.Now;
+
+    public ServiceRunState? QueryService(string serviceName)
+    {
+        try
+        {
+            using var sc = new System.ServiceProcess.ServiceController(serviceName);
+            var running = sc.Status is System.ServiceProcess.ServiceControllerStatus.Running or System.ServiceProcess.ServiceControllerStatus.StartPending;
+            var disabled = sc.StartType == System.ServiceProcess.ServiceStartMode.Disabled;
+            var dependents = new List<string>();
+            foreach (var d in sc.DependentServices)
+                using (d)
+                    if (d.Status == System.ServiceProcess.ServiceControllerStatus.Running) dependents.Add(d.ServiceName);
+            return new ServiceRunState(running, disabled, dependents);
+        }
+        catch (InvalidOperationException) { return null; } // not installed (or the SCM couldn't be asked)
+    }
+
+    public Task<bool> StopServiceAsync(string serviceName, TimeSpan timeout, CancellationToken ct) => Task.Run(() =>
+    {
+        using var sc = new System.ServiceProcess.ServiceController(serviceName);
+        if (sc.Status == System.ServiceProcess.ServiceControllerStatus.Stopped) return true;
+        try
+        {
+            // Stop() stops running dependents first, and throws TimeoutException itself when one of them won't stop in
+            // 30 s; both that and the wait below mean "didn't stop", so callers can report it accurately.
+            if (sc.Status != System.ServiceProcess.ServiceControllerStatus.StopPending) sc.Stop();
+            sc.WaitForStatus(System.ServiceProcess.ServiceControllerStatus.Stopped, timeout);
+            return true;
+        }
+        catch (System.ServiceProcess.TimeoutException) { return false; }
+    }, ct);
+
+    public Task<bool> StartServiceAsync(string serviceName, TimeSpan timeout, CancellationToken ct) => Task.Run(() =>
+    {
+        using var sc = new System.ServiceProcess.ServiceController(serviceName);
+        if (sc.Status == System.ServiceProcess.ServiceControllerStatus.Running) return true;
+        try
+        {
+            // A stop that timed out may still finish: wait for it, then start the service again.
+            if (sc.Status == System.ServiceProcess.ServiceControllerStatus.StopPending)
+            {
+                sc.WaitForStatus(System.ServiceProcess.ServiceControllerStatus.Stopped, timeout);
+                sc.Refresh();
+            }
+            if (sc.Status != System.ServiceProcess.ServiceControllerStatus.StartPending) sc.Start();
+            sc.WaitForStatus(System.ServiceProcess.ServiceControllerStatus.Running, timeout);
+            return true;
+        }
+        catch (System.ServiceProcess.TimeoutException) { return false; }
+    }, ct);
+
+    public bool IsPlainDirectory(string path)
+    {
+        try
+        {
+            var attributes = File.GetAttributes(path);
+            return attributes.HasFlag(FileAttributes.Directory) && !attributes.HasFlag(FileAttributes.ReparsePoint);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { return false; }
+    }
+
+    public void RenameFolder(string path, string newPath)
+    {
+        if (!string.Equals(Path.GetDirectoryName(path), Path.GetDirectoryName(newPath), StringComparison.OrdinalIgnoreCase))
+            throw new IOException("A folder is only renamed in place.");
+        if (Directory.Exists(newPath) || File.Exists(newPath)) throw new IOException($"{newPath} is already there.");
+        Directory.Move(path, newPath);
     }
 
     public bool FlushDnsCache() => DnsFlushResolverCache() != 0;

@@ -40,7 +40,7 @@
     <Style x:Key="OrgCaption" TargetType="TextBlock">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
     </Style>
     <Style x:Key="OrgSecondary" TargetType="TextBlock">
         <Setter Property="FontSize" Value="12" />
@@ -97,7 +97,7 @@
             </Grid.ColumnDefinitions>
             <ui:SymbolIcon x:Name="Icon" Margin="0,0,8,0" FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="{Binding Icon, Converter={StaticResource OrgSymbol}}" />
             <TextBlock x:Name="Name" Grid.Column="1" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
-            <TextBlock x:Name="Count" Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding CountText}" />
+            <TextBlock x:Name="Count" Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding CountText}" />
         </Grid>
         <DataTemplate.Triggers>
             <DataTrigger Binding="{Binding IsFolder}" Value="True">

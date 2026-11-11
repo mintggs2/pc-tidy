@@ -14,7 +14,7 @@ public static partial class BadTweakCatalog
     private static readonly Lazy<IReadOnlyList<BadTweakCheck>> _all = new(() =>
         Security().Concat(MoreSecurity()).Concat(WindowsUpdate()).Concat(UpdatePauses()).Concat(Boot()).Concat(SafeBoot())
             .Concat(Scheduler()).Concat(Network()).Concat(Services()).Concat(Storage()).Concat(CpuAndGraphics())
-            .Concat(GamesAndWindows()).Concat(DevicesAndPower()).Concat(Policies()).ToList());
+            .Concat(GamesAndWindows()).Concat(DevicesAndPower()).Concat(V31()).Concat(Policies()).ToList());
 
     public static IReadOnlyList<BadTweakCheck> All => _all.Value;
 
@@ -43,6 +43,15 @@ public static partial class BadTweakCatalog
     internal const string MemoryManagement = @"SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management";
     internal const string Tcpip = @"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters";
     internal const string DisplayClass = @"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}";
+
+    /// <summary>
+    /// What to do when Defender is switched off in its own settings or drivers (v3.1). Only Windows Security (or Windows' own
+    /// repair) may switch these back, so PC Tidy explains and opens the page; it never writes them itself.
+    /// </summary>
+    internal static readonly GuidanceFix DefenderOwnSettingsGuidance = new(
+        "Open Windows Security → Virus & threat protection → Manage settings and turn on Real-time protection and Tamper Protection, then restart. "
+        + "If Defender still won't start, Settings → System → Recovery → \"Fix problems using Windows Update\" puts Windows' own files and settings back.",
+        "windowsdefender://threat-settings");
 
     // ------------------------------------------------------------------ helpers
 
@@ -96,6 +105,12 @@ public static partial class BadTweakCatalog
                 Sig(Lm(Defender + @"\Spynet", "SubmitSamplesConsent", ValueTest.AnyOf, 2), Remove),
                 SvcOff("WinDefend", ServiceStart.Automatic),
                 SvcOff("WdNisSvc", ServiceStart.Manual),
+                // v3.1: Defender's own (non-policy) switches and its drivers. Information only: PC Tidy never writes a Defender value
+                // other than removing a switch-off policy, and Tamper Protection guards these anyway.
+                Custom(CustomProbeKind.DefenderSwitchedOffLocally, DefenderOwnSettingsGuidance),
+                Sig(new ServiceDisabledProbe("WdFilter"), DefenderOwnSettingsGuidance),
+                Sig(new ServiceDisabledProbe("WdBoot"), DefenderOwnSettingsGuidance),
+                Sig(new ServiceDisabledProbe("WdNisDrv"), DefenderOwnSettingsGuidance),
             },
         };
         yield return new BadTweakCheck
@@ -127,7 +142,7 @@ public static partial class BadTweakCatalog
             {
                 Custom(CustomProbeKind.DefenderProtectionReduced, new GuidanceFix(
                     "Open Windows Security → Virus & threat protection → Manage settings, then turn on Cloud-delivered protection and Tamper Protection.",
-                    "ms-settings:windowsdefender")),
+                    DefenderThreatSettings)),
             },
         };
         yield return new BadTweakCheck

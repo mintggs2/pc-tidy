@@ -68,6 +68,13 @@ public static class DefenderPolicyEffects
         bool KeyUnder(string k) => KeyIs(k) || key.StartsWith(k + "\\", StringComparison.OrdinalIgnoreCase);
         var number = Number(data);
 
+        // v3.1 gap: NIS is a protective key, but its "turn off protocol recognition" switch (WindowsDefender.admx,
+        // NIS\Consumers\IPS!DisableProtocolRecognition = 1) switches network inspection off. verify on a clean VM.
+        if (KeyIs(@"NIS\Consumers\IPS") && valueName.Equals("DisableProtocolRecognition", StringComparison.OrdinalIgnoreCase))
+            return number == 1
+                ? (DefenderPolicyEffect.Weakens, "turns network protocol inspection off")
+                : (DefenderPolicyEffect.Protects, "keeps this protection on");
+
         if (ProtectiveKeys.Any(KeyUnder))
             return (DefenderPolicyEffect.Protects, KeyUnder("Windows Defender Exploit Guard")
                 ? "attack surface reduction, Controlled Folder Access or network protection"

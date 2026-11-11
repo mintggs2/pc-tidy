@@ -5,7 +5,7 @@ using PcTidy.UI.Flow;
 namespace PcTidy.App.Composition.Demo;
 
 /// <summary>A demo section in the rail. Uses the standard flow page when it has scanners, else a placeholder.</summary>
-public sealed class DemoModule : IFeatureModule, IModuleRiskInfo
+public sealed class DemoModule : IFeatureModule, IModuleRiskInfo, INavBadgeSource
 {
     public required string Id { get; init; }
     public required string Title { get; init; }
@@ -17,8 +17,19 @@ public sealed class DemoModule : IFeatureModule, IModuleRiskInfo
     public ModuleRisk Risk { get; init; } = ModuleRisk.Safe;
     public IReadOnlyList<IFeatureScanner> Scanners { get; init; } = Array.Empty<IFeatureScanner>();
 
+    /// <summary>The rail counter this demo section shows (invented), or null for none.</summary>
+    public string? NavBadge { get; init; }
+
+    /// <summary>A live rail counter (the real section's, on invented data) instead of <see cref="NavBadge"/>.</summary>
+    public Func<CancellationToken, Task<string?>>? BadgeSource { get; init; }
+
+    /// <summary>The real v3.1 page for this section, fed with invented data (Tweaks, Measure, Games, PC care); null = none.</summary>
+    public Func<IServiceProvider, object?>? PageFactory { get; init; }
+
+    public Task<string?> GetNavBadgeAsync(CancellationToken ct) => BadgeSource?.Invoke(ct) ?? Task.FromResult(NavBadge);
+
     public object? CreatePage(IServiceProvider services)
-        => Scanners.Count > 0 ? null : new DemoPlaceholderPage(Title, Summary, Icon);
+        => PageFactory?.Invoke(services) ?? (Scanners.Count > 0 ? null : new DemoPlaceholderPage(Title, Summary, Icon));
 }
 
 /// <summary>Read-only demo scanner: returns sample groups after a short, believable delay with progress.</summary>
@@ -66,8 +77,9 @@ public sealed class DemoScanner : IFeatureScanner
 /// <summary>
 /// The demo rail: exactly the real app's sections (ids, titles, groups, order, icons, release and risk come from
 /// <see cref="FeatureCatalog"/>), so the demo never drifts from the real rail. A few sections get sample scanners;
-/// the rest show a short "no sample data" page. The real modules are only read for their names here: none of their
-/// scanners or pages run in the demo.
+/// the rest show a short "no sample data" page. The catalog's modules are only read for their names here: none of their
+/// scanners or pages run in the demo. The v3.1 pages (Tweaks, Measure, Games, PC care) come from fresh modules wired to
+/// invented data instead (<see cref="RealPages"/>).
 /// </summary>
 public static class DemoModules
 {
@@ -86,17 +98,50 @@ public static class DemoModules
         ["notifications"] = new DemoScanner("notifications", "Notifications", Release.V3, false, DemoData.NotificationGroups, "Reading notification settings…", "Reading tips and suggestions…"),
     };
 
+    /// <summary>Invented rail counters for the demo (the real ones come from each section's INavBadgeSource).</summary>
+    private static readonly IReadOnlyDictionary<string, string> SampleBadges = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        // Tweaks' counter is the real section's, counted on the demo's invented registry (it matches its page).
+        ["services"] = "2 changed",
+    };
+
     public static IEnumerable<IFeatureModule> All() => From(FeatureCatalog.All());
+
+    /// <summary>
+    /// The v3.1 sections that show their real page in the demo, on invented data (<see cref="DemoV31"/>): Tweaks on a made-up
+    /// registry, Measure with generated runs, Games (Optimize lists the catalog's games; the demo PC has no launchers) and
+    /// PC care (Lag check off, Fixes; the practice PC's empty snapshot behind the other tabs). Their sample scanners still
+    /// take part in Optimize everything.
+    /// </summary>
+    private static IReadOnlyDictionary<string, (Func<IServiceProvider, object?> Page, Func<CancellationToken, Task<string?>>? Badge)> RealPages()
+    {
+        var tweaks = DemoV31.TweaksModule();
+        var measure = DemoV31.MeasureModule();
+        var games = new PcTidy.Features.Games.GamesModule();
+        var pcCare = new PcTidy.Features.PcCare.PcCareModule();
+        return new Dictionary<string, (Func<IServiceProvider, object?>, Func<CancellationToken, Task<string?>>?)>(StringComparer.OrdinalIgnoreCase)
+        {
+            [tweaks.Id] = (tweaks.CreatePage, tweaks.GetNavBadgeAsync),
+            [measure.Id] = (measure.CreatePage, null),
+            [games.Id] = (games.CreatePage, null),
+            [pcCare.Id] = (pcCare.CreatePage, null),
+        };
+    }
 
     /// <summary>Demo stand-ins for the given real modules (same rail metadata, sample data or a "no sample data" page).</summary>
     public static IEnumerable<IFeatureModule> From(IEnumerable<IFeatureModule> real)
     {
         var samples = SampleScanners();
+        var pages = RealPages();
         foreach (var m in real)
         {
+            var page = pages.TryGetValue(m.Id, out var p) ? p : default;
             yield return new DemoModule
             {
                 Id = m.Id, Title = m.Title, Summary = m.Summary, Group = m.Group, Icon = m.Icon, Order = m.Order, Release = m.Release,
+                NavBadge = SampleBadges.TryGetValue(m.Id, out var badge) ? badge : null,
+                BadgeSource = page.Badge,
+                PageFactory = page.Page,
                 Risk = (m as IModuleRiskInfo)?.Risk ?? ModuleRisk.Safe,
                 Scanners = samples.TryGetValue(m.Id, out var s) ? new[] { s } : Array.Empty<IFeatureScanner>(),
             };

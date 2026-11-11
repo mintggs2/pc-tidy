@@ -23,6 +23,7 @@ public static partial class PcCareResultBuilder
         AddUpdates(s, groups, notes);
         AddRepair(s, groups, notes);
         AddNetwork(s, groups, notes);
+        AddAdapterPower(s, groups);
         var verdict = AddSecurity(s, groups, notes);
         AddBrowsers(s, groups, notes);
         AddCrashes(s, c, groups, notes, fixAreas);

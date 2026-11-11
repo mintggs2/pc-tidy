@@ -352,10 +352,10 @@
                                                                 <ColumnDefinition Width="Auto" />
                                                                 <ColumnDefinition Width="*" />
                                                             </Grid.ColumnDefinitions>
-                                                            <ui:SymbolIcon Margin="0,0,8,0" FontSize="15" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Symbol="{Binding Icon, Converter={StaticResource OrgSymbol}}" />
+                                                            <ui:SymbolIcon Margin="0,0,8,0" FontSize="15" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="{Binding Icon, Converter={StaticResource OrgSymbol}}" />
                                                             <TextBlock Grid.Column="1" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Reason}">
                                                                 <Run Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Name, Mode=OneWay}" />
-                                                                <Run Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding Reason, Mode=OneWay, StringFormat=' - {0}'}" />
+                                                                <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Reason, Mode=OneWay, StringFormat=' - {0}'}" />
                                                             </TextBlock>
                                                         </Grid>
                                                     </DataTemplate>
@@ -380,7 +380,7 @@
                             <ui:SymbolIcon Margin="0,0,14,0" VerticalAlignment="Center" FontSize="22" Filled="True" Foreground="{DynamicResource TidyAccentBrush}" Symbol="FolderArrowRight24" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Style="{StaticResource OrgSecondary}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding SummaryDetail}" ToolTip="{Binding SummaryDetail}" />
+                                <TextBlock Style="{StaticResource OrgSecondary}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SummaryDetail}" ToolTip="{Binding SummaryDetail}" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Margin="12,0,0,0" Orientation="Horizontal">
                                 <ui:Button
@@ -474,7 +474,7 @@
                             <ui:Button Height="40" MinWidth="160" Appearance="Primary" AutomationProperties.Name="Rename files" Command="{Binding RenameCommand}" Content="{Binding RenameButtonText}" DockPanel.Dock="Right" FontWeight="SemiBold" Icon="{ui:SymbolIcon Rename24}" />
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="Renames happen in place" />
-                                <TextBlock Style="{StaticResource OrgSecondary}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="Swaps and case-only changes go through a temporary name · every rename can be put back from History" />
+                                <TextBlock Style="{StaticResource OrgSecondary}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Swaps and case-only changes go through a temporary name · every rename can be put back from History" />
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -652,7 +652,7 @@
                                                 <DataTemplate DataType="{x:Type local:SkipRow}">
                                                     <TextBlock Margin="0,2" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Reason}">
                                                         <Run Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Name, Mode=OneWay}" />
-                                                        <Run Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding Reason, Mode=OneWay, StringFormat=' - {0}'}" />
+                                                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Reason, Mode=OneWay, StringFormat=' - {0}'}" />
                                                     </TextBlock>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -674,7 +674,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Style="{StaticResource OrgSecondary}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="{Binding SummaryDetail}" ToolTip="{Binding SummaryDetail}" />
+                                <TextBlock Style="{StaticResource OrgSecondary}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SummaryDetail}" ToolTip="{Binding SummaryDetail}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="12,0,0,0" Orientation="Horizontal">
                                 <ui:Button Height="40" Margin="0,0,8,0" Appearance="Secondary" AutomationProperties.Name="Simulate: see what would happen, change nothing" Command="{Binding SimulateCommand}" Content="Simulate" Icon="{ui:SymbolIcon Beaker24}" />

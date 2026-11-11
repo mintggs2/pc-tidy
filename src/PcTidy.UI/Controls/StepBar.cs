@@ -80,7 +80,7 @@ public class StepBar : ContentControl
             var label = new TextBlock { Text = Labels[i], FontSize = 14, VerticalAlignment = VerticalAlignment.Center };
             label.SetResourceReference(TextBlock.FontFamilyProperty, "TidyText");
             label.FontWeight = current || (step == 4 && Current >= 4) ? FontWeights.SemiBold : FontWeights.Normal;
-            label.SetResourceReference(TextBlock.ForegroundProperty, step <= Current ? "TextFillColorPrimaryBrush" : "TextFillColorTertiaryBrush");
+            label.SetResourceReference(TextBlock.ForegroundProperty, step <= Current ? "TextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush");
 
             var textStack = new StackPanel { Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             textStack.Children.Add(label);
@@ -90,7 +90,7 @@ public class StepBar : ContentControl
             {
                 var c = new TextBlock { Text = cap, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 220 };
                 c.SetResourceReference(TextBlock.FontFamilyProperty, "TidyText");
-                c.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorTertiaryBrush");
+                c.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
                 textStack.Children.Add(c);
             }
 

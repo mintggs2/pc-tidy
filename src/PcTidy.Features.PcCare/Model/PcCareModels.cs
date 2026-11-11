@@ -167,6 +167,36 @@ public sealed record DnsServerResult(string Server, string Label, bool IsCurrent
 
 public sealed record NetworkFacts(IReadOnlyList<string> CurrentDnsServers, IReadOnlyList<DnsServerResult>? DnsTest, bool HasVpnAdapter);
 
+// ------------------------------------------------------------------ network adapter power saving
+
+/// <summary>What kind of link an adapter is.</summary>
+public enum NetAdapterMedium { Other, Ethernet, WiFi }
+
+/// <summary>One subkey of the network adapter class key (HKLM\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-…}\NNNN), read only.</summary>
+/// <param name="Subkey">The subkey name ("0007").</param>
+/// <param name="NetCfgInstanceId">The adapter GUID this subkey belongs to ("{…}").</param>
+/// <param name="Characteristics">NCF_* flags: 0x1 virtual, 0x4 physical, 0x8 hidden.</param>
+/// <param name="IfType">*IfType: 6 Ethernet, 71 Wi-Fi (IEEE 802.11).</param>
+/// <param name="PhysicalMediaType">*PhysicalMediaType: 14 Ethernet (802.3), 9 Native 802.11.</param>
+/// <param name="PnPCapabilities">The DWORD value; null = not there (Windows' default).</param>
+/// <param name="PnPCapabilitiesOtherType">The value exists but isn't a DWORD (PC Tidy leaves it alone).</param>
+public sealed record NetClassEntry(
+    string Subkey,
+    string? NetCfgInstanceId,
+    string? DriverDesc,
+    string? ComponentId,
+    int? Characteristics,
+    int? IfType,
+    int? PhysicalMediaType,
+    int? PnPCapabilities,
+    bool PnPCapabilitiesOtherType = false);
+
+/// <summary>A network adapter Windows lists (NetworkInterface; WMI Win32_NetworkAdapter.PhysicalAdapter when it could be read).</summary>
+/// <param name="Id">The adapter GUID ("{…}").</param>
+public sealed record NetAdapter(string Id, string Name, string Description, NetAdapterMedium Medium, bool? WmiPhysical = null);
+
+public sealed record AdapterPowerFacts(IReadOnlyList<NetClassEntry> ClassEntries, IReadOnlyList<NetAdapter> Adapters);
+
 // ------------------------------------------------------------------ health report
 
 public sealed record DiskHealth(string Name, string Media, string Health, long SizeBytes);
@@ -207,5 +237,6 @@ public sealed record PcCareSnapshot
     public ProfileFacts? Profiles { get; init; }
     public FeatureFacts? Features { get; init; }
     public NetworkFacts? Network { get; init; }
+    public AdapterPowerFacts? AdapterPower { get; init; }
     public HealthFacts? Health { get; init; }
 }

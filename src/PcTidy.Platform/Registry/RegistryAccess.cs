@@ -8,6 +8,9 @@ namespace PcTidy.Platform;
 /// <summary>Thrown when an existing value has a type PC Tidy couldn't put back exactly; such values are left alone.</summary>
 public sealed class UnsupportedRegistryValueException(string message) : Exception(message);
 
+/// <summary>Thrown when a value may only be written into a key that already exists, and the key isn't there.</summary>
+public sealed class MissingRegistryKeyException() : Exception("This setting's registry key isn't on this PC, so PC Tidy didn't create it.");
+
 /// <summary>
 /// Exact-state registry reads and writes shared by the registry and startup handlers.
 /// Every change is captured first as a <see cref="RegistryPriorState"/> (key existed? value existed? kind, data),
@@ -69,12 +72,17 @@ internal static class RegistryAccess
         return null;
     }
 
-    public static void SetValue(CoreHive hive, bool view64, string keyPath, string valueName, RegistryKind kind, string? data)
+    /// <summary>
+    /// Writes one value. <paramref name="mayCreateKey"/> false: only into a key that is already there (a missing key
+    /// throws <see cref="MissingRegistryKeyException"/> and nothing is created).
+    /// </summary>
+    public static void SetValue(CoreHive hive, bool view64, string keyPath, string valueName, RegistryKind kind, string? data, bool mayCreateKey = true)
     {
         var value = RegistryValueCodec.Parse(kind, data);
         using var root = OpenBase(hive, view64);
-        using var key = root.CreateSubKey(keyPath, writable: true)
-            ?? throw new UnauthorizedAccessException("Windows wouldn't open this setting for writing.");
+        using var key = mayCreateKey
+            ? root.CreateSubKey(keyPath, writable: true) ?? throw new UnauthorizedAccessException("Windows wouldn't open this setting for writing.")
+            : root.OpenSubKey(keyPath, writable: true) ?? throw new MissingRegistryKeyException();
         key.SetValue(valueName, value, RegistryValueCodec.ToWin32(kind));
     }
 
@@ -86,10 +94,10 @@ internal static class RegistryAccess
     }
 
     /// <summary>Puts a value back to its captured state: the old data, or absent. Then removes keys PC Tidy created, if empty.</summary>
-    public static void Restore(CoreHive hive, bool view64, string keyPath, string valueName, RegistryPriorState prior, string? createdKey)
+    public static void Restore(CoreHive hive, bool view64, string keyPath, string valueName, RegistryPriorState prior, string? createdKey, bool mayCreateKey = true)
     {
         if (prior.ValueExisted && prior.Kind is { } kind)
-            SetValue(hive, view64, keyPath, valueName, kind, prior.Data);
+            SetValue(hive, view64, keyPath, valueName, kind, prior.Data, mayCreateKey);
         else
             DeleteValue(hive, view64, keyPath, valueName);
 

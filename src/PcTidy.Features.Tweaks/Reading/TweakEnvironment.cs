@@ -24,6 +24,16 @@ public sealed class TweakEnvironment
     public GpuVendor Gpu { get; init; } = GpuVendor.Unknown;
     /// <summary>True on the real PC (some notes, like "run as admin for boot settings", only make sense there).</summary>
     public bool IsRealPc { get; init; }
+    /// <summary>
+    /// Folders the finder looks through (two levels deep, names only, never file contents) for in-Windows BIOS tools left
+    /// behind: Desktop, Downloads, Documents and the Windows drive's root. Empty in the sandbox and in tests unless set.
+    /// </summary>
+    public IReadOnlyList<string> LeftoverFolders { get; init; } = Array.Empty<string>();
+
+    /// <summary>The folders <see cref="LeftoverFolders"/> uses on the real PC (missing ones are skipped).</summary>
+    public static IReadOnlyList<string> LeftoverFoldersIn(IKnownLocations l)
+        => new[] { l.Desktop, l.Downloads, l.Documents, l.SystemDrive }
+            .Where(f => !string.IsNullOrWhiteSpace(f)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
     /// <summary>Real readers on the real PC; fixed readers + redirected registry in a sandbox.</summary>
     public static TweakEnvironment ForContext(ScanContext ctx)
@@ -46,6 +56,7 @@ public sealed class TweakEnvironment
             IsLaptop = system?.IsLaptop ?? false,
             Gpu = system?.PrimaryGpu ?? GpuVendor.Unknown,
             IsRealPc = true,
+            LeftoverFolders = LeftoverFoldersIn(locations),
         };
     }
 

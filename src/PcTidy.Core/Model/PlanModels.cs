@@ -119,6 +119,12 @@ public static class ToolIds
     public const string CipherWipeFreeSpace = "cipher.wipefreespace";      // Args["drive"] e.g. "D:\" (HDD only; permanent; slow)
     public const string CleanmgrStorageSense = "storagesense.open";        // opens Settings > Storage (harmless)
     public const string CompactLzx = "compact.lzx";                        // Args["folder"]: NTFS LZX compression (undo: compact /u)
+
+    // ---- v3.1 (fix-it recipes, runtimes) ----
+    public const string ServiceRestart = "service.restart";                // Args["name"]: stop + start one allow-listed service (start type unchanged)
+    public const string WindowsUpdateReset = "wu.resetcomponents";         // Microsoft's documented reset: stop services, rename SoftwareDistribution/catroot2 to *.old-<stamp>, start
+    public const string MsiReregister = "msi.reregister";                  // msiexec /unregister + /regserver (Windows Installer errors 2502/2503 and friends)
+    public const string WingetInstall = "winget.install";                  // Args["id"]: only allow-listed Microsoft runtimes (VC++, DirectX, .NET Desktop)
 }
 
 /// <summary>A frozen list of changes the user confirmed (or wants simulated).</summary>

@@ -1,6 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--  PC Tidy theme-specific brushes: DARK. Swapped by TidyTheme.Apply.  -->
     <SolidColorBrush x:Key="TidyAccentBrush" Color="#3CCB86" />
+    <!--  Accent for small TEXT: the accent itself passes in dark (about 8:1 on the dark card)  -->
+    <SolidColorBrush x:Key="TidyAccentTextBrush" Color="#3CCB86" />
     <SolidColorBrush x:Key="TidyAccentSoftBrush" Color="#1F2BB673" />
     <SolidColorBrush x:Key="TidyAccentStrokeBrush" Color="#662BB673" />
     <SolidColorBrush x:Key="TidyRingTrackBrush" Color="#33FFFFFF" />

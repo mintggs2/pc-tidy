@@ -39,7 +39,7 @@ internal static class DeviceReader
                     var id = InstanceId(set, ref data);
                     if (id is null) continue;
                     var name = Property(set, ref data, SpdrpFriendlyName) ?? Property(set, ref data, SpdrpDeviceDesc) ?? id;
-                    list.Add(new DisabledDevice(name, id));
+                    list.Add(new DisabledDevice(name, id) { ClassGuid = data.ClassGuid == Guid.Empty ? null : data.ClassGuid });
                 }
                 return list;
             }

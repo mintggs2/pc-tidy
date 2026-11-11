@@ -56,7 +56,7 @@ public sealed class BadTweakScanner : IFeatureScanner
                 }
             }
             if (fired.Count == 0) continue;
-            findings.Add((check, BuildItem(check, fired, env)));
+            findings.Add((check, BuildItem(check, fired, env, boot)));
         }
 
         if (boot is null)
@@ -146,13 +146,13 @@ public sealed class BadTweakScanner : IFeatureScanner
 
     // ------------------------------------------------------------------ the row
 
-    private static ScanItem BuildItem(BadTweakCheck check, IReadOnlyList<FiredSignal> fired, TweakEnvironment env)
+    private static ScanItem BuildItem(BadTweakCheck check, IReadOnlyList<FiredSignal> fired, TweakEnvironment env, BootConfigSnapshot? boot)
     {
         var actions = new List<PlanItem>();
         var guidance = new List<string>();
         foreach (var f in fired)
             foreach (var fix in f.Signal.Fixes)
-                AddFix(f, fix, env, actions, guidance);
+                AddFix(f, fix, env, boot, actions, guidance);
 
         var admin = check.Flags.HasFlag(BadTweakFlags.Admin) || actions.Any(a => a.NeedsAdmin);
         var details = new Dictionary<string, string>
@@ -191,7 +191,16 @@ public sealed class BadTweakScanner : IFeatureScanner
         };
     }
 
-    private static void AddFix(FiredSignal fired, BadFix fix, TweakEnvironment env, List<PlanItem> actions, List<string> guidance)
+    /// <summary>The value is still there, with the expected kind and exactly <paramref name="data"/> (numbers compared as numbers).</summary>
+    internal static bool StillHolds(TweakEnvironment env, FoundValue v, string data)
+    {
+        if (env.Registry.Read(v.Hive, v.KeyPath, v.ValueName) is not { } now || now.Kind != v.Kind) return false;
+        return v.Kind is RegistryKind.DWord or RegistryKind.QWord
+            ? RegData.TryNumber(now.Data, out var a) && RegData.TryNumber(data, out var b) && a == b
+            : string.Equals(now.Data, data, StringComparison.Ordinal);
+    }
+
+    private static void AddFix(FiredSignal fired, BadFix fix, TweakEnvironment env, BootConfigSnapshot? boot, List<PlanItem> actions, List<string> guidance)
     {
         const string feature = TweakPlanItems.FinderFeature;
         var redirect = env.Registry.Redirect;
@@ -219,10 +228,15 @@ public sealed class BadTweakScanner : IFeatureScanner
                 break;
             case RegistryDeleteFoundFix when fired.Custom is { Values.Count: > 0 } found:
                 foreach (var v in found.Values)
+                {
+                    // A value the check needs to hold one exact data (IFEO CpuPriorityClass: only 4, Realtime) is read again here,
+                    // so a removal is never planned for any other data (safety review L2).
+                    if (v.OnlyIfData is { } must && !StillHolds(env, v, must)) continue;
                     actions.Add(TweakPlanItems.RegistryRemove(feature, redirect, v.Hive, v.KeyPath, v.ValueName, v.Kind,
                         v.What is { } what
                             ? $@"Remove {RegistryNames.Short(v.Hive)}\{v.KeyPath} → {v.ValueName} (it {what}; removing it puts Windows' default back)"
                             : $@"Remove {RegistryNames.Short(v.Hive)}\{v.KeyPath} → {v.ValueName} (back to Windows' default)"));
+                }
                 break;
             case ServiceStartFix svc when probe is ServiceDisabledProbe s:
                 actions.Add(TweakPlanItems.ServiceStart(feature, s.ServiceName, svc.Start,
@@ -248,6 +262,17 @@ public sealed class BadTweakScanner : IFeatureScanner
                 break;
             case PowerPlanSetFix plan when fired.Custom is { PowerPlanAvailable: true }:
                 actions.Add(TweakPlanItems.PowerPlan(feature, plan.SchemeGuid, $"Switch the power plan back to {plan.PlanName}"));
+                break;
+            case BootDeleteNamedFix named when boot?.Get(named.ElementType) is not null:
+                // Only a value that is really set on the current boot entry (e.g. safebootalternateshell only when present).
+                actions.Add(TweakPlanItems.DeleteBootValue(feature, named.Name, named.What));
+                break;
+            case RegistrySetFoundFix setFound when fired.Custom is { Values.Count: > 0 } found:
+                foreach (var v in found.Values)
+                    actions.Add(TweakPlanItems.RegistrySet(feature, redirect, v.Hive, v.KeyPath, v.ValueName, setFound.Kind, setFound.Data,
+                        v.ValueName == BadTweakAllowances.JumboValue
+                            ? $"Set Jumbo Packet on '{v.What ?? "the network adapter"}' back to Disabled ({setFound.Data}). The adapter needs to restart (or the PC) before it takes effect."
+                            : $@"Set {RegistryNames.Short(v.Hive)}\{v.KeyPath} → {v.ValueName} back to {RegData.Show(setFound.Kind, setFound.Data)}"));
                 break;
             case GuidanceFix g:
                 guidance.Add(g.Steps);

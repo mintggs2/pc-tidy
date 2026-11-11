@@ -193,16 +193,18 @@ public class ResearchAdditions3Tests
     // ------------------------------------------------------------------ Safe Mode left on
 
     [Fact]
-    public async Task A_safeboot_flag_is_explained_but_not_removed_because_the_platform_does_not_list_it()
+    public async Task A_safeboot_flag_is_removed_to_start_windows_normally_with_the_manual_way_shown_too()
     {
+        // v3.1: "Start Windows normally again" (bcdedit.deletevalue safeboot); the full check is in FinderV31Tests.
         using var reg = new TestRegistry("ra3");
         using var folder = new TestFolder("safeboot", Area);
         var boot = new BootConfigSnapshot(new[] { new BootElement(BadTweakCatalog.SafeBootElement, null, 0) });
         var item = Item(await Find(reg, folder, boot: boot), "boot.safeboot-left-on");
-        Assert.Empty(item.Actions);
+        var step = Assert.Single(item.Actions);
+        Assert.Equal(ToolIds.BcdDeleteValue, step.ToolId);
+        Assert.Equal("safeboot", step.Args!["name"]);
         Assert.Contains("bcdedit /deletevalue {current} safeboot", item.Details!["How to fix"]);
         Assert.Contains("msconfig", item.Details["How to fix"]);
-        Assert.False(PcTidy.Platform.SystemToolCatalog.BcdRemovable.ContainsKey("safeboot"));
         Assert.False(BadTweakCatalog.Find("boot.safeboot-left-on")!.Flags.HasFlag(BadTweakFlags.BitLocker));
         Assert.False(Has(await Find(reg, folder, boot: BootConfigSnapshot.Empty), "boot.safeboot-left-on"));
     }
@@ -210,8 +212,9 @@ public class ResearchAdditions3Tests
     // ------------------------------------------------------------------ realtime priority (undocumented value: guidance)
 
     [Fact]
-    public async Task Realtime_priority_is_guidance_only_because_the_value_is_undocumented()
+    public async Task Realtime_priority_is_offered_for_removal_through_the_patterned_allowance_only()
     {
+        // v3.1: the value is still undocumented ("verify"), so it has no exact allowance; a delete-only pattern covers it.
         using var reg = new TestRegistry("ra3");
         using var folder = new TestFolder("ifeo", Area);
         reg.Lm(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\game.exe\PerfOptions", "CpuPriorityClass", 4);
@@ -219,7 +222,9 @@ public class ResearchAdditions3Tests
         var item = Item(await Find(reg, folder), "scheduler.realtime-priority");
         Assert.Contains("game.exe: PerfOptions → CpuPriorityClass = 4 (Realtime)", item.Details!["Found"]);
         Assert.DoesNotContain("other.exe", item.Details["Found"]);
-        Assert.Empty(item.Actions);
+        var step = Assert.Single(item.Actions);
+        Assert.Equal(ActionKind.RegistryDeleteValue, step.Kind);
+        Assert.True(step.Reversible);
         Assert.DoesNotContain(new TweakRegistryAllowances().Allowances(), a => a.ValueName == "CpuPriorityClass");
     }
 
@@ -234,7 +239,7 @@ public class ResearchAdditions3Tests
         var item = Item(await Find(reg, folder, probe), "windows.system-devices-disabled");
         Assert.Contains(@"High precision event timer is disabled (ACPI\PNP0103\0)", item.Details!["Found"]);
         Assert.Contains("Enable device", item.Details["How to fix"]);
-        Assert.Empty(item.Actions); // no reversible enable-device handler exists, so PC Tidy only explains
+        Assert.Empty(item.Actions); // System-class devices are only explained (manual steps); see FinderV31Tests
         Assert.False(Has(await Find(reg, folder, new FixedSystemProbe { DisabledSystemDevices = Array.Empty<DisabledDevice>() }), "windows.system-devices-disabled"));
         Assert.False(Has(await Find(reg, folder, new FixedSystemProbe { DisabledSystemDevices = null }), "windows.system-devices-disabled"));
     }

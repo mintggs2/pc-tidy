@@ -70,9 +70,11 @@ public static partial class BadTweakCatalog
             Title = "A program is forced to Realtime priority",
             WhyBad = "Realtime priority can starve Windows itself (mouse, audio, disk) and freeze the PC.",
             WindowsDefault = "Not set.", Flags = BadTweakFlags.Admin, Sources = Src(PcTuning),
-            // Microsoft doesn't document CpuPriorityClass, so PC Tidy only explains this one (no allowance, no removal).
-            Note = "Microsoft doesn't document this value (4 is what tuning tools write for Realtime), so PC Tidy only points to it and doesn't remove it for you.",
-            Signals = new[] { Custom(CustomProbeKind.RealtimePriority, new GuidanceFix("In Registry Editor (as admin), open the program's key under HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options, then delete the CpuPriorityClass value inside PerfOptions. Or reinstall the tool that set it.")) },
+            // verify: Microsoft doesn't document PerfOptions\CpuPriorityClass; 4 = Realtime is what tuning tools write (1 Idle, 2 Normal,
+            // 3 High, 5 Below normal, 6 Above normal). v3.1: removing it (Windows' default: not set) is offered, with undo, through
+            // the patterned delete-only allowance in BadTweakAllowances.
+            Note = "Microsoft doesn't document this value; 4 is what tuning tools write for Realtime. Removing it lets Windows pick the priority again, and Undo in History puts it back.",
+            Signals = new[] { Custom(CustomProbeKind.RealtimePriority, new RegistryDeleteFoundFix(), new GuidanceFix("Or yourself: in Registry Editor (as admin), open the program's key under HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options, then delete the CpuPriorityClass value inside PerfOptions.")) },
         };
     }
 
@@ -259,11 +261,13 @@ public static partial class BadTweakCatalog
                      + "Malware uses these drivers too, and Microsoft Defender flags WinRing0. Anti-cheats may refuse to run.",
             WindowsDefault = "Not installed.",
             Flags = BadTweakFlags.Admin, Sources = Src(KnownBadDrivers, VulnerableDriverBlocklist),
-            Note = "Newer versions of several fan-control and monitoring apps (Fan Control among them) no longer use WinRing0, so updating is often enough. Don't exclude the driver from your antivirus.",
+            Note = "Newer versions of several fan-control and monitoring apps (Fan Control among them) no longer use WinRing0, so updating is often enough. Don't exclude the driver from your antivirus. "
+                   + "PC Tidy only reports these drivers; it never removes them for you.",
             Signals = new[]
             {
                 Custom(CustomProbeKind.HardwareAccessDrivers, new GuidanceFix(
-                    "Update or uninstall the tool that installed it (Settings → Apps → Installed apps). For RWEverything, also remove any startup task or script that runs it.",
+                    "Update or uninstall the tool that installed it in PC Tidy's Apps section (or Settings → Apps → Installed apps). If the tool is gone but the driver stayed, PC Tidy's Drivers section lists it. "
+                    + "For RWEverything, also remove any startup task or script that runs it.",
                     "ms-settings:appsfeatures")),
             },
         };

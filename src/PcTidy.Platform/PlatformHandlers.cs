@@ -33,5 +33,7 @@ public static class PlatformHandlers
         new StartWithWindowsHandler(),
         new LaunchAppHandler(),
         new QuickAccessPinHandler(),
+        // v3.1
+        new DeviceSetEnabledHandler(),
     };
 }

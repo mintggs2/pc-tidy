@@ -2,6 +2,16 @@ using PcTidy.Core.Model;
 
 namespace PcTidy.Platform;
 
+/// <summary>
+/// A handler whose steps, when settled as finished after the helper stopped mid-step, may lack the before-state undo
+/// needs. It says so in the step's message instead of leaving the user to find out when they try to undo.
+/// </summary>
+internal interface ISettledStepNote
+{
+    /// <summary>Text added to the "it finished" message, or null when the step can be undone as usual.</summary>
+    string? NoteWhenSettledDone(StepRecord step);
+}
+
 /// <summary>Extra rules the real elevated helper applies (the composition root supplies them; tests may leave them out).</summary>
 public sealed record ElevatedHelperPolicy
 {
@@ -54,6 +64,8 @@ public sealed class ElevatedBatchExecutor
         ActionKind.OptionalFeatureRemove,
         ActionKind.VolumeOptimize,
         ActionKind.ShellExtensionSetEnabled,
+        // v3.1: turning a disabled device back on (and, only as its undo, off again).
+        ActionKind.DeviceSetEnabled,
     };
 
     /// <summary>Kinds that are always machine-wide (safe to run from another admin account).</summary>
@@ -61,7 +73,7 @@ public sealed class ElevatedBatchExecutor
     {
         ActionKind.ServiceSetStartType, ActionKind.ScheduledTaskSetEnabled, ActionKind.RunSystemTool,
         ActionKind.PowerPlanSet, ActionKind.HostsCommentOut, ActionKind.RestorePointDelete, ActionKind.UserProfileDelete,
-        ActionKind.OptionalFeatureRemove, ActionKind.VolumeOptimize,
+        ActionKind.OptionalFeatureRemove, ActionKind.VolumeOptimize, ActionKind.DeviceSetEnabled,
         // Machine-wide when they need admin: all-user Wi-Fi profiles (per-user ones are refused by the handler) and
         // apps installed for everyone (the handler only runs HKLM-listed uninstallers in the helper).
         ActionKind.WlanProfileDelete, ActionKind.RunUninstaller,
@@ -288,7 +300,10 @@ public sealed class ElevatedBatchExecutor
         try
         {
             if (handler is not null && await handler.WasCompletedAsync(step, ctx, CancellationToken.None).ConfigureAwait(false))
-                return step.Finish(StepStatus.Done, "It finished before PC Tidy's admin helper stopped.");
+            {
+                var note = handler is ISettledStepNote n && n.NoteWhenSettledDone(step) is { Length: > 0 } text ? " " + text : "";
+                return step.Finish(StepStatus.Done, "It finished before PC Tidy's admin helper stopped." + note);
+            }
         }
         catch (Exception) { /* can't tell: reported as not done */ }
         return step.Skipped("It didn't happen before PC Tidy's admin helper stopped, so nothing changed.");

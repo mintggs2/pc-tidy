@@ -41,6 +41,7 @@ public sealed partial class WindowsPcCareSource : IPcCareSource
         var features = Safe(ReadFeatures);
         ct.ThrowIfCancellationRequested();
         var network = Safe(ReadNetworkBasics);
+        var adapterPower = Safe(ReadAdapterPower);
         progress?.Report("Reading drive health…");
         var health = await SafeAsync(() => ReadHealthAsync(ct)).ConfigureAwait(false);
 
@@ -59,7 +60,7 @@ public sealed partial class WindowsPcCareSource : IPcCareSource
         return new PcCareSnapshot
         {
             TakenUtc = now, IsAdmin = IsElevated(), Winget = winget, Security = security, Crashes = crashes, Browsers = browsers,
-            Restore = restore, Store = store, Wlan = wlan, Profiles = profiles, Features = features, Network = network, Health = health,
+            Restore = restore, Store = store, Wlan = wlan, Profiles = profiles, Features = features, Network = network, AdapterPower = adapterPower, Health = health,
         };
     }
 

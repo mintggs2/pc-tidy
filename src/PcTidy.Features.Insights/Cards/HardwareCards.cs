@@ -30,22 +30,26 @@ internal static class HardwareCards
         var stuck = displays.Where(d => d.MaxHzAtCurrentResolution - d.CurrentHz >= MinRefreshGapHz)
             .OrderByDescending(d => d.MaxHzAtCurrentResolution - d.CurrentHz).ToList();
         const string explanation = "A higher refresh rate makes moving pictures and the mouse smoother. Windows sometimes leaves a fast monitor below its top rate "
-                                   + "(often at 60 Hz) after a new cable, driver or monitor.";
+                                   + "(often at 60 Hz) after a new cable, driver or monitor. Going from 60 to 144 Hz is the big step for latency; above that the gain is smaller.";
+        var measured = new[] { MeasuredNumbers.RefreshRate };
         if (stuck.Count == 0)
             return new InsightCard
             {
                 Id = InsightsIds.RefreshRate, Category = InsightCategory.Hardware, Title = title, Icon = "Desktop24", Status = InsightStatus.Good,
                 Headline = displays.Count == 1 ? $"Your display runs at its fastest rate ({displays[0].CurrentHz} Hz)" : "Every display runs at its fastest rate",
-                Explanation = explanation, WhatToDo = "Nothing to do.", Facts = facts,
+                Explanation = explanation, WhatToDo = "Nothing to do.", Facts = facts, Measured = measured,
             };
         var s = stuck[0];
+        // The 60 Hz mistake on a fast monitor is the case the measurement covers (60 → 144 Hz).
+        bool sixtyOnFast = s.CurrentHz <= 61 && s.MaxHzAtCurrentResolution >= 120;
         return new InsightCard
         {
             Id = InsightsIds.RefreshRate, Category = InsightCategory.Hardware, Title = title, Icon = "Desktop24", Status = InsightStatus.Attention,
             Headline = $"{s.Name} runs at {s.CurrentHz} Hz but can do {s.MaxHzAtCurrentResolution} Hz",
-            Explanation = explanation + (c.IsLaptop ? " On a laptop, Windows may lower it on battery to save power; that's fine." : ""),
+            Explanation = (sixtyOnFast ? "This display is left at 60 Hz. " : "") + explanation
+                          + (c.IsLaptop ? " On a laptop, Windows may lower it on battery to save power; that's fine." : ""),
             WhatToDo = "Open Settings → System → Display → Advanced display and pick the highest rate under \"Choose a refresh rate\".",
-            Facts = facts,
+            Facts = facts, Measured = measured,
             Links = new[] { new InsightLink("Open Advanced display", InsightsLinks.SettingsAdvancedDisplay) },
         };
     }
@@ -64,17 +68,23 @@ internal static class HardwareCards
         if (mem.TotalSlots > 0) facts.Add(new InsightFact("Slots", $"{mem.Modules.Count} of {mem.TotalSlots} used"));
 
         var slow = mem.Modules.Where(m => m.RatedMts > 0 && m.ConfiguredMts > 0 && m.ConfiguredMts < m.RatedMts * 0.95).ToList();
+        // Windows doesn't report memory channels, so "one stick in a board with two or more slots" is the best guess for single channel.
         bool single = mem.Modules.Count == 1 && mem.TotalSlots >= 2;
+        bool x3d = HardwareFamilies.IsX3D(c.CpuName);
         const string xmp = "If the box or listing for your memory says a higher speed (for example 6000 MT/s), turn on its XMP or EXPO profile in the BIOS: that's a proven gain in games.";
-        const string explanation = "Two matched sticks run in dual channel, which is noticeably faster for games and integrated graphics than one stick. "
-                                   + "Memory also runs slower than its rating until its XMP/EXPO profile is switched on in the BIOS.";
+        var explanation = "Two matched sticks run in dual channel, which is noticeably faster for games and integrated graphics than one stick. "
+                          + "Memory also runs slower than its rating until its XMP/EXPO profile is switched on in the BIOS."
+                          + (x3d ? " Your X3D processor's large cache hides most of the difference: the measured loss on X3D chips was small." : "")
+                          + " The numbers below were measured on other PCs.";
+        var measured = new[] { MeasuredNumbers.SingleStick, MeasuredNumbers.SingleStickX3D, MeasuredNumbers.Xmp7700X, MeasuredNumbers.XmpX3D };
+        var facts2 = c.CpuName is { } cpu ? facts.Append(new InsightFact("Processor", cpu)).ToList() : facts;
 
         if (single && !c.IsLaptop)
             return new InsightCard
             {
-                Id = InsightsIds.Ram, Category = InsightCategory.Hardware, Title = title, Icon = "Ram20", Status = InsightStatus.Attention, IsHeuristic = true,
+                Id = InsightsIds.Ram, Category = InsightCategory.Hardware, Title = title, Icon = "Ram20", Status = x3d ? InsightStatus.Info : InsightStatus.Attention, IsHeuristic = true,
                 Headline = "One memory stick: probably running in single channel",
-                Explanation = explanation, Facts = facts,
+                Explanation = explanation, Facts = facts2, Measured = measured,
                 WhatToDo = "Adding a second, identical stick (in the slot your motherboard manual marks for dual channel) usually helps games. " + xmp,
             };
         if (slow.Count > 0)
@@ -82,7 +92,7 @@ internal static class HardwareCards
             {
                 Id = InsightsIds.Ram, Category = InsightCategory.Hardware, Title = title, Icon = "Ram20", Status = InsightStatus.Attention, IsHeuristic = true,
                 Headline = $"Memory runs at {Mts(slow[0].ConfiguredMts)}, below the {Mts(slow[0].RatedMts)} it reports",
-                Explanation = explanation, Facts = facts,
+                Explanation = explanation, Facts = facts2, Measured = measured,
                 WhatToDo = "Check the memory settings in the BIOS: XMP/EXPO, or a manual speed set lower. " + (c.IsLaptop ? "Some laptops fix the speed; then there's nothing to change." : ""),
             };
         return new InsightCard
@@ -91,7 +101,7 @@ internal static class HardwareCards
             Status = single ? InsightStatus.Info : InsightStatus.Good, IsHeuristic = true,
             Headline = single ? "One memory module (common on laptops; some are built in)" : $"{mem.Modules.Count} memory modules at their reported speed",
             Explanation = explanation + " Windows reports the module's own top speed, which may be lower than its XMP/EXPO rating.",
-            WhatToDo = xmp, Facts = facts,
+            WhatToDo = xmp, Facts = facts2, Measured = measured,
         };
     }
 
@@ -126,12 +136,14 @@ internal static class HardwareCards
             return InsightCard.NotAvailable(InsightsIds.GamesOnHdd, InsightCategory.Hardware, title, "Games24", "PC Tidy didn't find any installed games.");
 
         bool hasSsd = c.System.Drives.Any(d => d.Media == DriveMedia.Ssd);
-        const string explanation = "Games load levels and textures much faster from an SSD, and stutter less in open-world games. A hard disk is fine for games you rarely play.";
+        const string explanation = "Games load levels and textures much faster from an SSD, and stutter less in open-world games. A hard disk is fine for games you rarely play. "
+                                   + "Loading gets faster; the frame rate doesn't change. The numbers below were measured on other PCs.";
+        var measured = new[] { MeasuredNumbers.ForspokenLoad, MeasuredNumbers.HddLoad };
         if (onHdd.Count == 0)
             return new InsightCard
             {
                 Id = InsightsIds.GamesOnHdd, Category = InsightCategory.Hardware, Title = title, Icon = "Games24", Status = InsightStatus.Good,
-                Headline = $"All {Words.Plural(total, "game is", "games are")} on an SSD", Explanation = explanation, WhatToDo = "Nothing to do.",
+                Headline = $"All {Words.Plural(total, "game is", "games are")} on an SSD", Explanation = explanation, WhatToDo = "Nothing to do.", Measured = measured,
             };
         bool sandbox = c.Locations.IsSandbox;
         var drives = string.Join(", ", onHdd.Select(x => Words.ShowDrive(x.Drive, sandbox)).Distinct());
@@ -145,6 +157,7 @@ internal static class HardwareCards
                 : "This PC has no SSD. For game loading times, an SSD is the biggest upgrade there is.",
             Facts = onHdd.Take(10).Select(x => new InsightFact(x.Game, Words.ShowDrive(x.Drive, sandbox))).ToList(),
             Navigate = hasSsd ? new InsightNavigation("Open Move to another drive", InsightsIds.DriveMoveModule) : null,
+            Measured = measured,
         };
     }
 
@@ -155,22 +168,27 @@ internal static class HardwareCards
         const string title = "Resizable BAR";
         if (c.Gpu is not (GpuVendor.Nvidia or GpuVendor.Amd or GpuVendor.Intel))
             return InsightCard.NotAvailable(InsightsIds.ResizableBar, InsightCategory.Hardware, title, "DeveloperBoard24", "No NVIDIA, AMD or Intel graphics card was found.");
-        bool arc = c.GpuNames.Any(n => n.Contains("Arc", StringComparison.OrdinalIgnoreCase));
+        // Only Arc graphics CARDS need it badly; the "Intel Arc Graphics" built into Core Ultra laptops are not cards.
+        bool arc = c.GpuNames.Any(HardwareFamilies.IsDiscreteArc);
         var where = c.Gpu switch
         {
             GpuVendor.Nvidia => "NVIDIA Control Panel → System Information shows \"Resizable BAR: Yes\" or \"No\".",
             GpuVendor.Amd => "AMD Software shows it as \"Smart Access Memory\".",
             _ => "Intel's graphics app shows whether Resizable BAR is on.",
         };
+        var measured = arc
+            ? new[] { MeasuredNumbers.ReBarArc, MeasuredNumbers.ReBarAverage, MeasuredNumbers.ReBarPerGame }
+            : new[] { MeasuredNumbers.ReBarAverage, MeasuredNumbers.ReBarPerGame };
         return new InsightCard
         {
             Id = InsightsIds.ResizableBar, Category = InsightCategory.Hardware, Title = title, Icon = "DeveloperBoard24",
             Status = InsightStatus.Info, IsHeuristic = true,
             Headline = arc ? "Intel Arc: make sure Resizable BAR is on" : "Check whether Resizable BAR is on",
             Explanation = "Resizable BAR (AMD calls it Smart Access Memory) lets the processor reach all of the graphics card's memory at once. "
-                          + (arc ? "Intel Arc cards lose a lot of speed without it. " : "It gives a small gain in many games. ")
-                          + "Windows doesn't report it in a way PC Tidy can read reliably, so this card only explains where to look.",
+                          + (arc ? "Intel Arc cards run at about three quarters of their speed without it. " : "It gives a small average gain; a few games run a little slower with it. ")
+                          + "Windows doesn't report it in a way PC Tidy can read reliably, so this card only explains where to look. The numbers below were measured on other PCs.",
             WhatToDo = where + " To turn it on, enable \"Above 4G decoding\" and \"Re-Size BAR support\" in the UEFI/BIOS (it needs UEFI mode, not legacy/CSM).",
+            Measured = measured,
         };
     }
 

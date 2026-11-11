@@ -46,7 +46,7 @@
                         Margin="0,4,0,0"
                         FontFamily="Cascadia Mono, Consolas"
                         FontSize="12"
-                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                         Text="{Binding Evidence}"
                         TextWrapping="Wrap" />
                 </StackPanel>

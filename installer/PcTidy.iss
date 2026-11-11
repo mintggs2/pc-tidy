@@ -48,7 +48,7 @@ SetupIconFile=..\src\PcTidy.App\Assets\PcTidy.ico
 UninstallDisplayIcon={app}\{#MyAppExe}
 UninstallDisplayName={#MyAppName}
 ; No licence page: PC Tidy isn't released under a licence yet. Third-party notices ship as THIRD-PARTY-NOTICES.txt.
-OutputBaseFilename=PC Tidy Setup {#MyAppVersion} (Inno Setup)
+OutputBaseFilename=PC-Tidy-Setup-{#MyAppVersion}-InnoSetup
 Compression=lzma2/max
 SolidCompression=yes
 ; Ask running copies of PC Tidy to close (Restart Manager) before files are replaced or removed.

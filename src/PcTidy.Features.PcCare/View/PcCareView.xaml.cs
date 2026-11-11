@@ -28,8 +28,11 @@ public partial class PcCareView : UserControl, IFixedHeightPage
     private CancellationTokenSource? _scanCts;
     private bool _running;
     private bool _switchingGroup;
+    /// <summary>One long task at a time: scan, run, a fix or the lag check (layout spec §4.6 item 3).</summary>
+    private readonly LongTaskGate _gate = new();
 
-    public PcCareView(IServiceProvider services, PcCareScanner scanner)
+    /// <param name="lagCheck">The lag check's test server setting; default off (no endpoint chosen yet).</param>
+    public PcCareView(IServiceProvider services, PcCareScanner scanner, Source.LagCheckSettings? lagCheck = null)
     {
         InitializeComponent();
         _services = services;
@@ -46,7 +49,33 @@ public partial class PcCareView : UserControl, IFixedHeightPage
         ShredAckBox.Content = ShredderPlanner.PageAcknowledgement;
         Results.OpenInExplorerRequested += p => Host?.OpenInExplorer(p);
         Subtitle.Text = "App updates, Windows repair, network, security, browsers, crashes, restore points and a health report.";
+        // Unknown locations count as a sandbox, so the lag check never sends traffic by accident.
+        bool sandbox = (services.GetService(typeof(IKnownLocations)) as IKnownLocations)?.IsSandbox ?? true;
+        LagPanel.Init(_gate, lagCheck ?? Source.LagCheckSettings.Default, sandbox);
+        FixPanel.Init(_gate, ReviewFixAsync);
+        _gate.Changed += OnGateChanged;
         SetState(PageState.Ready);
+    }
+
+    private void OnGateChanged()
+    {
+        ScanButton.IsEnabled = !_gate.IsLocalBusy;
+        UpdateSelectionBar();
+    }
+
+    /// <summary>A fix card's one-item plan: always the standard confirm (IFlowHost.ReviewAndRunAsync). True when it ran.</summary>
+    private async Task<bool> ReviewFixAsync(ActionPlan plan)
+    {
+        if (Host is not { } host) return false;
+        try
+        {
+            return await host.ReviewAndRunAsync(plan, CancellationToken.None).ConfigureAwait(true) is not null;
+        }
+        catch (Exception ex)
+        {
+            host.ShowMessage("That didn't work", ex.Message + " Anything that already ran is in History.", isError: true);
+            return false;
+        }
     }
 
     private IFlowHost? Host => _services.GetService(typeof(IFlowHost)) as IFlowHost;
@@ -71,7 +100,7 @@ public partial class PcCareView : UserControl, IFixedHeightPage
 
     private async Task RunScanAsync(string title, Func<ScanContext, IProgress<ScanProgress>, CancellationToken, Task<PcCareScanReport>> scan)
     {
-        if (_scanCts is not null || _running) return;
+        if (_scanCts is not null || _running || !_gate.TryEnter("scan", waitForShared: false)) return;
         _scanCts = new CancellationTokenSource();
         int tab = Tabs.SelectedIndex;
         ScanTitle.Text = title;
@@ -101,7 +130,8 @@ public partial class PcCareView : UserControl, IFixedHeightPage
         {
             _scanCts?.Dispose();
             _scanCts = null;
-            ScanButton.IsEnabled = true;
+            _gate.Exit("scan");
+            ScanButton.IsEnabled = !_gate.IsLocalBusy;
         }
     }
 
@@ -155,8 +185,9 @@ public partial class PcCareView : UserControl, IFixedHeightPage
         }
         var title = PcCareTabs.All.First(t => t.Id == id).Title;
         var section = new SectionModel(PcCareActions.FeatureId, title, SymbolRegular.HeartPulse24, _report.Result with { Groups = groups.Where(g => g.Items.Count > 0).ToList() });
-        // Nothing in PC care is ever pre-ticked; small groups open so a tab isn't just headers.
-        _models[id].Load(new[] { section }, (_, _, _) => false, (_, g) => g.Items.Count <= 40);
+        // Only rows the builder marks DefaultSelected start ticked (just the Wi-Fi adapter power rows, build list B6);
+        // the confirm still lists them before anything runs. Small groups open so a tab isn't just headers.
+        _models[id].Load(new[] { section }, (_, _, row) => row.Item.DefaultSelected && row.IsSelectable, (_, g) => g.Items.Count <= 40);
     }
 
     /// <summary>The health report's facts as plain "label / value" pairs: read-only, so no tick box and no badge.</summary>
@@ -213,17 +244,38 @@ public partial class PcCareView : UserControl, IFixedHeightPage
             Tabs.SelectedIndex = 0;
         }
         finally { _switchingGroup = false; }
-        if (_report is not null) ShowTab();
+        Refresh();
     }
 
     private void OnTabChanged(object? sender, EventArgs e)
     {
-        if (!_switchingGroup && _report is not null) ShowTab();
+        if (!_switchingGroup) Refresh();
+    }
+
+    /// <summary>Lag check and Fixes work without a scan; the other tabs need one.</summary>
+    private void Refresh()
+    {
+        if (ScanningState.Visibility == Visibility.Visible) return; // the scanning card stays until the scan ends
+        if (_report is not null || PcCareTabs.IsPanel(CurrentTab)) ShowTab();
+        else SetState(PageState.Ready);
     }
 
     private void ShowTab()
     {
         var tab = CurrentTab;
+        LagPanel.Visibility = Vis(tab == PcCareTabs.LagCheck);
+        FixPanel.Visibility = Vis(tab == PcCareTabs.Fixes);
+        if (PcCareTabs.IsPanel(tab))
+        {
+            ReadyState.Visibility = Visibility.Collapsed;
+            Results.Visibility = Visibility.Collapsed;
+            TabEmpty.Visibility = Visibility.Collapsed;
+            StickyBar.Visibility = Visibility.Collapsed;
+            TabNote.IsOpen = false;
+            TabTools.Visibility = Visibility.Collapsed;
+            FactsCard.Visibility = Visibility.Collapsed;
+            return;
+        }
         var model = _models[tab];
         Results.Model = model;
         bool empty = model.TotalItems == 0;
@@ -318,9 +370,17 @@ public partial class PcCareView : UserControl, IFixedHeightPage
         SelectedCaption.Text = extras.Count > 0 ? string.Join(" · ", extras) : "Tick what you want, then confirm";
 
         PrimaryButton.Content = PcCarePlanBuilder.VerbFor(items);
-        PrimaryButton.IsEnabled = items.Count > 0 && !_running;
-        SimulateButton.IsEnabled = items.Count > 0 && !_running;
+        PrimaryButton.IsEnabled = items.Count > 0 && !_running && !_gate.IsBusy;
+        SimulateButton.IsEnabled = items.Count > 0 && !_running && !_gate.IsBusy;
         AutomationProperties.SetName(PrimaryButton, (string)PrimaryButton.Content);
+        // One long task at a time (UI review M1/L3): say why, in text, when another task (here or on another page) holds the gate.
+        foreach (var b in new FrameworkElement[] { PrimaryButton, SimulateButton })
+        {
+            b.ToolTip = items.Count > 0 && _gate.IsBusy ? _gate.Reason : null;
+            ToolTipService.SetShowOnDisabled(b, true);
+            AutomationProperties.SetHelpText(b, items.Count > 0 && _gate.IsBusy ? _gate.Reason : "");
+        }
+        if (items.Count > 0 && _gate.IsBusy && !_running) SelectedCaption.Text = _gate.Reason;
     }
 
     private void OnPrimary(object sender, RoutedEventArgs e) => _ = RunAsync(simulate: false);
@@ -338,6 +398,7 @@ public partial class PcCareView : UserControl, IFixedHeightPage
             return;
         }
 
+        if (!_gate.TryEnter("run")) return;
         _running = true;
         UpdateSelectionBar();
         Steps.Current = 3;
@@ -364,6 +425,7 @@ public partial class PcCareView : UserControl, IFixedHeightPage
         finally
         {
             _running = false;
+            _gate.Exit("run");
             UpdateSelectionBar();
             if (!ran) Steps.Current = _report is null ? 1 : 2;
         }
@@ -400,13 +462,15 @@ public partial class PcCareView : UserControl, IFixedHeightPage
         Steps.Set(state == PageState.Results ? 2 : 1,
             state == PageState.Scanning ? "Scanning…" : _report is null ? "Looks only" : FoundCaption(),
             "Pick what changes", "Nothing changed yet", "");
-        ReadyState.Visibility = Vis(state == PageState.Ready);
+        bool panel = state != PageState.Scanning && PcCareTabs.IsPanel(CurrentTab);
+        ReadyState.Visibility = Vis(state == PageState.Ready && !panel);
         ScanningState.Visibility = Vis(state == PageState.Scanning);
         Tabs.IsEnabled = state != PageState.Scanning;
-        ScanButton.IsEnabled = state != PageState.Scanning;
+        TabGroups.IsEnabled = state != PageState.Scanning;
+        ScanButton.IsEnabled = state != PageState.Scanning && (!_gate.IsLocalBusy || _gate.Current == "scan");
         ScanButton.Content = _report is null ? "Scan" : "Scan again";
         AutomationProperties.SetName(ScanButton, (string)ScanButton.Content);
-        if (state == PageState.Results) ShowTab();
+        if (state == PageState.Results || panel) ShowTab();
         else
         {
             Results.Visibility = Visibility.Collapsed;
@@ -415,6 +479,8 @@ public partial class PcCareView : UserControl, IFixedHeightPage
             TabNote.IsOpen = false;
             TabTools.Visibility = Visibility.Collapsed;
             FactsCard.Visibility = Visibility.Collapsed;
+            LagPanel.Visibility = Visibility.Collapsed;
+            FixPanel.Visibility = Visibility.Collapsed;
         }
     }
 

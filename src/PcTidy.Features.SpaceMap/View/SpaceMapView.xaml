@@ -47,7 +47,7 @@
             <Setter Property="FontFamily" Value="{StaticResource SmText}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
         <Style x:Key="SmSize" TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{StaticResource SmText}" />
@@ -161,7 +161,7 @@
             <Setter Property="Margin" Value="6,0,0,0" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Symbol" Value="LockClosed24" />
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsProtected}" Value="True">
@@ -446,7 +446,7 @@
                                     <Border.Background>
                                         <DrawingBrush Stretch="None" TileMode="Tile" Viewport="0,0,4,4" ViewportUnits="Absolute">
                                             <DrawingBrush.Drawing>
-                                                <GeometryDrawing Brush="{DynamicResource TextFillColorTertiaryBrush}" Geometry="M0,4 L4,0 L4,1.5 L1.5,4 Z M0,1.5 L1.5,0 L0,0 Z" />
+                                                <GeometryDrawing Brush="{DynamicResource TextFillColorSecondaryBrush}" Geometry="M0,4 L4,0 L4,1.5 L1.5,4 Z M0,1.5 L1.5,0 L0,0 Z" />
                                             </DrawingBrush.Drawing>
                                         </DrawingBrush>
                                     </Border.Background>

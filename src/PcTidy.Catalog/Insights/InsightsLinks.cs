@@ -30,4 +30,5 @@ public static class InsightsLinks
     public const string SettingsDeviceEncryption = "ms-settings:deviceencryption";
     public const string SettingsWindowsSecurity = "ms-settings:windowsdefender";
     public const string SecurityCoreIsolation = "windowsdefender://coreisolation";
+    public const string SettingsWindowsUpdate = "ms-settings:windowsupdate";
 }

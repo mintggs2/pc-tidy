@@ -63,7 +63,7 @@
                         Source="{Binding Preview}"
                         Stretch="Uniform" />
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding Preview, Converter={StaticResource OrgVisible}, ConverterParameter=invert}">
-                        <ui:SymbolIcon HorizontalAlignment="Center" FontSize="56" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Symbol="{Binding PreviewIcon, Converter={StaticResource OrgSymbol}}" />
+                        <ui:SymbolIcon HorizontalAlignment="Center" FontSize="56" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Symbol="{Binding PreviewIcon, Converter={StaticResource OrgSymbol}}" />
                         <TextBlock Margin="0,8,0,0" HorizontalAlignment="Center" Style="{StaticResource OrgCaption}" Text="No preview for this kind of file" />
                     </StackPanel>
                 </Grid>

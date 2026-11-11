@@ -1,0 +1,97 @@
+<UserControl
+    x:Class="PcTidy.Features.PcCare.View.LagCheckPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    AutomationProperties.Name="Lag check">
+
+    <ScrollViewer Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,6,0">
+            <!--  What it is, and the Run button that says exactly what it sends  -->
+            <Border Style="{DynamicResource TidyCard}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{DynamicResource SectionTitle}" Text="Lag check" />
+                        <c:BadgePill Margin="10,2,0,0" VerticalAlignment="Center" Text="Changes nothing" Tone="Info" AutomationProperties.Name="Changes nothing on this PC. It sends and receives test data while it runs." />
+                    </StackPanel>
+                    <TextBlock
+                        Margin="0,6,0,0"
+                        Style="{DynamicResource Secondary}"
+                        Text="Does your connection lag when it's busy? This measures the delay while the line is quiet, then while a download fills it, then while an upload fills it (this lag is called bufferbloat). It only runs when you press Run test."
+                        TextWrapping="Wrap" />
+                    <ui:InfoBar
+                        x:Name="DisabledNote"
+                        Margin="0,12,0,0"
+                        IsClosable="False"
+                        IsOpen="False"
+                        Severity="Informational"
+                        Title="The lag check is off for now" />
+                    <DockPanel Margin="0,14,0,0">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                            <ui:Button
+                                x:Name="CancelButton"
+                                Margin="8,0,0,0"
+                                Appearance="Secondary"
+                                AutomationProperties.Name="Stop the lag check"
+                                Click="OnCancel"
+                                Content="Stop"
+                                Icon="{ui:SymbolIcon Dismiss24}"
+                                Visibility="Collapsed" />
+                            <ui:Button
+                                x:Name="RunButton"
+                                Margin="8,0,0,0"
+                                Appearance="Primary"
+                                AutomationProperties.Name="Run the lag check"
+                                Click="OnRun"
+                                Content="Run test"
+                                Icon="{ui:SymbolIcon Play24}" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock x:Name="SendsText" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="BusyText" Margin="0,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" TextWrapping="Wrap" Visibility="Collapsed" />
+                        </StackPanel>
+                    </DockPanel>
+                    <StackPanel x:Name="ProgressArea" Margin="0,12,0,0" Visibility="Collapsed">
+                        <ProgressBar x:Name="Progress" Height="4" Maximum="1" Minimum="0" />
+                        <TextBlock x:Name="ProgressText" Margin="0,6,0,0" Style="{DynamicResource SecondaryTrim}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!--  Results: three small cards  -->
+            <c:ResponsiveGrid x:Name="Cards" Margin="0,12,0,0" Gap="12" MaxColumns="3" MinItemWidth="220">
+                <Border x:Name="IdleCard" Style="{DynamicResource StatTile}">
+                    <StackPanel>
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" Text="Idle latency" />
+                        <TextBlock x:Name="IdleValue" Style="{DynamicResource StatNumber}" Text="—" />
+                        <TextBlock x:Name="IdleDetail" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" Text="Not measured yet" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Border x:Name="LoadCard" Style="{DynamicResource StatTile}">
+                    <StackPanel>
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" Text="Latency under load" />
+                        <TextBlock x:Name="LoadValue" Style="{DynamicResource StatNumber}" Text="—" />
+                        <TextBlock x:Name="LoadDetail" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" Text="Not measured yet" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Border x:Name="GradeCard" Style="{DynamicResource StatTile}">
+                    <StackPanel>
+                        <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" Text="Grade" />
+                        <TextBlock x:Name="GradeValue" Style="{DynamicResource StatNumber}" Text="—" />
+                        <TextBlock x:Name="GradeDetail" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" Text="Not measured yet" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </c:ResponsiveGrid>
+            <TextBlock x:Name="BandsText" Margin="2,8,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" TextWrapping="Wrap" />
+            <TextBlock x:Name="ResultNote" Margin="2,4,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{DynamicResource Caption}" TextWrapping="Wrap" Visibility="Collapsed" />
+
+            <!--  Guidance with measured numbers and their sources  -->
+            <Border Margin="0,12,0,0" Style="{DynamicResource TidyCard}">
+                <StackPanel x:Name="Guidance">
+                    <TextBlock Style="{DynamicResource SectionTitle}" Text="If the delay goes up under load" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -11,7 +11,7 @@ namespace PcTidy.Platform;
 /// DataRoot\logs\tools (in the helper: its admin-only folder). In the sandbox (real backend) it returns Simulated with
 /// the exact command that would run. Tests pass a fake <see cref="ISystemToolBackend"/> to exercise the logic.
 /// </summary>
-public sealed class SystemToolHandler : IActionHandler
+public sealed partial class SystemToolHandler : IActionHandler
 {
     internal const string PriorHibernateEnabledData = "priorHibernateEnabled";
     internal const string PriorHiberFileTypeData = "priorHiberFileType";
@@ -20,6 +20,8 @@ public sealed class SystemToolHandler : IActionHandler
     internal const string GradleQuarantineData = "gradleQuarantine";
     internal const string DriverAdminCopyData = "adminCopy";
     internal const string LogData = "log";
+    internal const string RenamedFoldersData = "renamedFolders";
+    internal static readonly TimeSpan ServiceWait = TimeSpan.FromSeconds(30);
 
     private const string NotUndoableBcd = "unreadable";
     internal static readonly TimeSpan GradleInUseAge = TimeSpan.FromDays(30);
@@ -66,6 +68,10 @@ public sealed class SystemToolHandler : IActionHandler
                 ToolIds.OneDriveShutdown => await RunOneDriveShutdownAsync(step, plan, log, ct).ConfigureAwait(false),
                 ToolIds.CleanmgrStorageSense => OpenStorageSettings(step),
                 ToolIds.DevCacheClean when plan.GradleCachesFolder is not null => await RunGradleAsync(step, plan, log, ctx, ct).ConfigureAwait(false),
+                ToolIds.ServiceRestart => await RunServiceRestartAsync(step, plan, ct).ConfigureAwait(false),
+                ToolIds.WindowsUpdateReset => await RunWindowsUpdateResetAsync(step, plan, ct).ConfigureAwait(false),
+                ToolIds.MsiReregister => await RunMsiReregisterAsync(step, plan, log, ct).ConfigureAwait(false),
+                ToolIds.WingetInstall => await RunWingetInstallAsync(step, plan, log, ct).ConfigureAwait(false),
                 _ when plan.Launch => Launch(step, plan),
                 _ => await RunPlainAsync(step, plan, log, ct).ConfigureAwait(false),
             };
@@ -88,7 +94,7 @@ public sealed class SystemToolHandler : IActionHandler
     public Task<StepRecord> SimulateAsync(StepRecord step, HandlerContext ctx, CancellationToken ct)
     {
         if (!Resolve(step.Item, out var plan, out var problem)) return Task.FromResult(step.Skipped(problem));
-        var permanent = plan.Reversible ? "" : " This can't be undone.";
+        var permanent = plan.Note is { } note ? " " + note : plan.Reversible ? "" : " This can't be undone.";
         return Task.FromResult(step.Simulated($"Would run: {plan.Display}.{permanent}"));
     }
 
@@ -102,6 +108,12 @@ public sealed class SystemToolHandler : IActionHandler
             case ToolIds.CleanmgrStorageSense: return step.Skipped("Opening a page changes nothing, so there's nothing to undo.");
             case ToolIds.PnpExportDrivers: return step.Skipped("A driver backup changes nothing on the system. The backup was kept.");
             case ToolIds.DevCacheClean when plan.GradleCachesFolder is not null: return await UndoGradleAsync(step, ctx, ct).ConfigureAwait(false);
+            case ToolIds.ServiceRestart: return step.Skipped("Restarting a service changes no settings, so there's nothing to undo.");
+            case ToolIds.MsiReregister: return step.Skipped("Registering Windows Installer again changes no settings, so there's nothing to undo.");
+            case ToolIds.WindowsUpdateReset:
+                return step.Skipped("PC Tidy doesn't undo this: Windows made fresh Windows Update folders, and putting the old ones back would bring the old problem back." +
+                                    (step.Undo(RenamedFoldersData) is { Length: > 0 } kept ? $" The old folders are still there: {kept.Replace("|", ", ")}." : ""));
+            case ToolIds.WingetInstall: return step.Skipped("PC Tidy doesn't uninstall runtimes. Remove it in Settings > Apps if you need to.");
         }
 
         IReadOnlyList<ToolCommand>? commands;
@@ -118,7 +130,7 @@ public sealed class SystemToolHandler : IActionHandler
                 if (prior is null or NotUndoableBcd || BcdUndoValue(plan.BcdName!, prior) is not { } text)
                     return step.Skipped("PC Tidy couldn't read this boot setting's old value, so it can't put it back. Nothing was changed.");
                 commands = new[] { SystemToolCatalog.BcdSetCommand(plan.BcdName!, text) };
-                done = $"Put the boot setting '{plan.BcdName}' back to {text}.";
+                done = $"Put the boot setting '{plan.BcdName}' back to {text}." + SafeBootRestoredNote(plan.BcdName!, text);
                 break;
             case ToolIds.NetshAutotuningNormal:
                 if (step.Undo(PriorAutotuningData) is not { } level || !SystemToolCatalog.AutotuningLevels.Contains(level))
@@ -135,7 +147,9 @@ public sealed class SystemToolHandler : IActionHandler
                 return step.CannotUndo();
         }
 
-        if (ctx.Locations.IsSandbox && _backend.TouchesRealSystem) return step.SandboxSimulated($"Would run: {string.Join(" then ", commands!)}");
+        if (ctx.Locations.IsSandbox && _backend.TouchesRealSystem)
+            return step.SandboxSimulated($"Would run: {string.Join(" then ", commands!)}" +
+                                         (plan.ToolId == ToolIds.BcdDeleteValue && SystemToolCatalog.SafeBootUndoWarning(plan.BcdName!) is { } warning ? ". " + warning.TrimEnd('.') : ""));
         if (plan.PerUser && ctx.IsElevated) return step.UndoFailed("This works on your own account, so PC Tidy's admin helper doesn't undo it.");
         if (plan.NeedsAdmin && _backend.TouchesRealSystem && !ctx.IsElevated()) return step.UndoFailed("Undoing this needs admin rights. PC Tidy runs it in its admin helper.");
 
@@ -335,8 +349,19 @@ public sealed class SystemToolHandler : IActionHandler
         if (result.ExitCode != 0) return WithLog(step.Failed($"Windows couldn't remove the boot setting (code {result.ExitCode})."), log);
         if (readable && _backend.ReadBcdElement(plan.BcdElementType!.Value, out _) is not null)
             return WithLog(step.Failed("Windows still has this boot setting."), log);
-        var note = prior == NotUndoableBcd ? " PC Tidy couldn't read its old value, so this can't be undone from History." : "";
+        var note = prior == NotUndoableBcd ? " PC Tidy couldn't read its old value, so this can't be undone from History."
+            : SystemToolCatalog.SafeBootUndoWarning(plan.BcdName!) is { } warning ? " " + warning : "";
         return WithLog(step.Done($"Removed the boot setting '{plan.BcdName}'. Restart your PC to finish.{note}").WithUndo((PriorBcdData, prior)), log);
+    }
+
+    /// <summary>After undoing a safe-mode flag's removal: what the next restart does. Empty for other settings (and for "No").</summary>
+    internal static string SafeBootRestoredNote(string name, string value)
+    {
+        if (name.Equals("safeboot", StringComparison.OrdinalIgnoreCase))
+            return " Safe Mode is on again: the next time you restart, Windows starts in Safe Mode. To turn it off, scan again, or untick \"Safe boot\" in System Configuration (msconfig) on the Boot tab.";
+        if (name.Equals("safebootalternateshell", StringComparison.OrdinalIgnoreCase) && value.Equals("Yes", StringComparison.OrdinalIgnoreCase))
+            return " When Windows next starts in Safe Mode, it starts with only a Command Prompt window instead of the desktop.";
+        return "";
     }
 
     private async Task<StepRecord> RunAutotuningAsync(StepRecord step, SystemToolPlan plan, string log, CancellationToken ct)

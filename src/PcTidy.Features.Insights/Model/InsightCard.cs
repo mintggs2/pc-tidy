@@ -1,3 +1,4 @@
+using PcTidy.Catalog.Insights;
 using PcTidy.Core.Model;
 
 namespace PcTidy.Features.Insights.Model;
@@ -43,6 +44,11 @@ public sealed record InsightCard
     public IReadOnlyList<ScanItem> Items { get; init; } = Array.Empty<ScanItem>();
     /// <summary>The result is a best guess (heuristic signs or unverified reads), and the card says so.</summary>
     public bool IsHeuristic { get; init; }
+    /// <summary>
+    /// Measured results from the research, each with its hardware, source and date (shown as "measured on other PCs").
+    /// Never a general claim: a card without a measurement leaves this empty.
+    /// </summary>
+    public IReadOnlyList<MeasuredNumber> Measured { get; init; } = Array.Empty<MeasuredNumber>();
 
     public bool IsAvailable => Status is not InsightStatus.NotAvailable;
 

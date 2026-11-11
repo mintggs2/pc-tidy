@@ -25,6 +25,23 @@ public static partial class SystemToolRules
         ToolIds.DockerPrune, ToolIds.DevCacheClean, ToolIds.PnpDeleteDriver, ToolIds.CipherWipeFreeSpace, ToolIds.RestorePointCreate,
         // Shrinking restore point space makes Windows delete snapshots (possibly the newest): can't be undone.
         ToolIds.ShadowStorageResize,
+        // v3.1: nothing to put back (a service restart, re-registering Windows Installer), not undone on purpose (the
+        // Windows Update reset keeps the old folders, but putting them back would bring the problem back), or an install
+        // PC Tidy doesn't remove (a Microsoft runtime other apps may then rely on).
+        ToolIds.ServiceRestart, ToolIds.MsiReregister, ToolIds.WindowsUpdateReset, ToolIds.WingetInstall,
+    };
+
+    /// <summary>service.restart: the only services that may be restarted (same list as the platform's SystemToolCatalog).</summary>
+    public static readonly IReadOnlySet<string> RestartableServices = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "WlanSvc", "bthserv", "BTAGService", "wuauserv", "BITS", "CryptSvc", "msiserver", "Audiosrv", "AudioEndpointBuilder",
+    };
+
+    /// <summary>winget.install: Microsoft's runtimes only, by exact winget-pkgs id (same list as the platform's SystemToolCatalog).</summary>
+    public static readonly IReadOnlySet<string> WingetRuntimeIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Microsoft.VCRedist.2015+.x64", "Microsoft.VCRedist.2015+.x86", "Microsoft.DirectX",
+        "Microsoft.DotNet.DesktopRuntime.8", "Microsoft.DotNet.DesktopRuntime.9",
     };
 
     /// <summary>Disk Cleanup handlers PC Tidy may run. Never "Downloads Folder", "Device Driver Packages" or the Recycle Bin.</summary>
@@ -45,6 +62,8 @@ public static partial class SystemToolRules
         "useplatformclock", "useplatformtick", "disabledynamictick", "tscsyncpolicy",
         "testsigning", "nointegritychecks", "debug", "bootdebug",
         "x2apicpolicy", "uselegacyapicmode", "increaseuserva", "quietboot", "numproc", "onecpu", "removememory",
+        // A leftover safe-boot flag: removing it starts Windows normally again (the platform uses {current}).
+        "safeboot", "safebootalternateshell",
     };
 
     private static readonly Dictionary<string, string[]> Choices = new(StringComparer.OrdinalIgnoreCase)
@@ -94,6 +113,18 @@ public static partial class SystemToolRules
         {
             ToolIds.CleanmgrHandler => CleanmgrHandlers.Contains(Arg("handler") ?? "") ? null : Reasons.ToolArgument("that Disk Cleanup handler"),
             ToolIds.WingetUpgrade => PackageIdPattern().IsMatch(Arg("id") ?? "") ? null : Reasons.ToolArgument("package id"),
+            // v3.1 fix-it tools: exact settings only, admin where Windows needs it.
+            ToolIds.ServiceRestart => !OnlyArgs(args, "name") || !RestartableServices.Contains(Arg("name") ?? "") ? Reasons.ToolArgument("restarting that service")
+                : !item.NeedsAdmin ? Reasons.ToolArgument("restarting a service without admin rights") : null,
+            // The one Windows-folder exception (SoftwareDistribution, catroot2 renamed, never deleted): its paths are fixed in
+            // the platform's code, so any setting at all is refused, and a restore point is made first.
+            ToolIds.WindowsUpdateReset => args.Count > 0 ? Reasons.ToolArgument("settings for the Windows Update reset")
+                : !item.NeedsAdmin || !item.IsSystemChange ? Reasons.ToolArgument("the Windows Update reset without admin rights and a restore point") : null,
+            ToolIds.MsiReregister => args.Count > 0 ? Reasons.ToolArgument("settings for Windows Installer")
+                : !item.NeedsAdmin ? Reasons.ToolArgument("Windows Installer without admin rights") : null,
+            // Runs as the user, like winget.upgrade (the admin helper refuses winget).
+            ToolIds.WingetInstall => !OnlyArgs(args, "id") || !WingetRuntimeIds.Contains(Arg("id") ?? "") ? Reasons.ToolArgument("installing that package")
+                : item.NeedsAdmin ? Reasons.ToolArgument("winget with admin rights") : null,
             ToolIds.PnpDeleteDriver => OemInfPattern().IsMatch(Arg("inf") ?? "") ? null : Reasons.ToolArgument("only oemNN.inf driver packages"),
             ToolIds.PnpRemoveDevice or ToolIds.DriverRollback => InstanceIdPattern().IsMatch(Arg("instanceId") ?? "") ? null : Reasons.ToolArgument("device id"),
             ToolIds.WindowsUpdateInstallDrivers => UpdateIdsPattern().IsMatch(Arg("updateIds") ?? "") ? null : Reasons.ToolArgument("update ids"),
@@ -104,4 +135,8 @@ public static partial class SystemToolRules
             _ => null,
         };
     }
+
+    /// <summary>Exactly these argument keys (case-insensitive), each present once.</summary>
+    private static bool OnlyArgs(Dictionary<string, string> args, params string[] keys)
+        => args.Count == keys.Length && args.Keys.All(k => keys.Contains(k, StringComparer.OrdinalIgnoreCase));
 }

@@ -43,7 +43,7 @@ public class CountingTests
         Assert.Equal("Clean 6 KB", PlanFacts.PrimaryAction(new[] { Q(3 * 1024), Q(3 * 1024) }));
         Assert.Equal("Move 2 files", PlanFacts.PrimaryAction(new[] { Move(), Move(), Folder() }));
         Assert.Equal("Apply 3 changes", PlanFacts.PrimaryAction(new[] { Startup(), Tweak(), Tweak() }));
-        Assert.Equal("Apply all 3 changes", PlanFacts.PrimaryAction(new[] { Q(1), Move(), Tweak() }));
+        Assert.Equal("Apply these 3 changes", PlanFacts.PrimaryAction(new[] { Q(1), Move(), Tweak() }));
     }
 
     [Fact]

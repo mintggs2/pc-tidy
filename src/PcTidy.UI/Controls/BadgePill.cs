@@ -83,7 +83,7 @@ public class BadgePill : Border
             PillTone.Success => ("SystemFillColorSuccessBackgroundBrush", "SystemFillColorSuccessBrush"),
             PillTone.Caution => ("SystemFillColorCautionBackgroundBrush", "SystemFillColorCautionBrush"),
             PillTone.Critical => ("SystemFillColorCriticalBackgroundBrush", "SystemFillColorCriticalBrush"),
-            PillTone.Accent => ("TidyAccentSoftBrush", "TidyAccentBrush"),
+            PillTone.Accent => ("TidyAccentSoftBrush", "TidyAccentTextBrush"),
             PillTone.Info => ("SystemFillColorAttentionBackgroundBrush", "SystemFillColorAttentionBrush"),
             _ => ("ControlFillColorSecondaryBrush", "TextFillColorSecondaryBrush"),
         };

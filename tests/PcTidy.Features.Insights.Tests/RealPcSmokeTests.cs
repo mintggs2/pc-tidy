@@ -27,5 +27,11 @@ public class RealPcSmokeTests
         Assert.NotNull(src.ReadFileSystems());
         Assert.True(src.ReadTimer().Frequency > 0);
         Assert.NotNull(src.ReadSecurity());
+        // v3.1 reads: processor name, power plan and the System info inventory (values are only checked for shape).
+        _ = src.ReadCpuName();
+        if (src.ReadActivePowerPlan() is { } plan) Assert.True(Guid.TryParse(plan, out _));
+        var inv = src.ReadInventory();
+        Assert.NotNull(inv);
+        Assert.All(inv.Disks, d => Assert.True(d.SizeBytes >= 0));
     }
 }

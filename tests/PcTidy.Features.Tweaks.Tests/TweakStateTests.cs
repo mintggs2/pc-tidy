@@ -114,7 +114,7 @@ public class TweakStateTests
 
         var placebo = o.Rows.Where(r => r.Tweak.Verdict == TweakVerdict.Placebo).ToList();
         Assert.NotEmpty(placebo);
-        Assert.All(placebo, r => { Assert.StartsWith("Doesn't help", r.Item.DisabledReason); Assert.Empty(r.Item.Actions); Assert.False(r.Item.DefaultSelected); });
+        Assert.All(placebo, r => { Assert.Matches("^(Doesn't help|No evidence it helps): ", r.Item.DisabledReason!); Assert.Empty(r.Item.Actions); Assert.False(r.Item.DefaultSelected); });
         Assert.DoesNotContain(o.Rows, r => r.Tweak.Verdict == TweakVerdict.Harmful);
         // The placebo row still shows what's on this PC.
         Assert.Contains("38 (0x26)", Row(o, "gaming.priority-separation").Item.Details!["Change"]);

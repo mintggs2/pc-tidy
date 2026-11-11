@@ -26,7 +26,7 @@
                     <Border Background="{DynamicResource ControlFillColorTertiaryBrush}" CornerRadius="4">
                         <Grid>
                             <Image AutomationProperties.Name="{Binding Name, StringFormat='Preview of {0}'}" RenderOptions.BitmapScalingMode="HighQuality" Source="{Binding Preview}" Stretch="Uniform" />
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="No preview for this kind of file" Visibility="{Binding Preview, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}" />
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="No preview for this kind of file" Visibility="{Binding Preview, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}" />
                         </Grid>
                     </Border>
                     <StackPanel Grid.Row="1" Margin="0,10,0,0">
@@ -86,7 +86,7 @@
                 <ui:Button Margin="0,0,8,0" AutomationProperties.Name="Previous other copy" Command="{Binding PreviousCommand}" Content="Previous copy" Icon="{ui:SymbolIcon ArrowLeft24}" />
                 <ui:Button Margin="0,0,12,0" AutomationProperties.Name="Next other copy" Command="{Binding NextCommand}" Content="Next copy" Icon="{ui:SymbolIcon ArrowRight24}" />
             </StackPanel>
-            <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Text="Turn on Keep this one for the copy you want. Nothing is removed here; tick what goes on the page." TextTrimming="CharacterEllipsis" />
+            <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Turn on Keep this one for the copy you want. Nothing is removed here; tick what goes on the page." TextTrimming="CharacterEllipsis" />
         </DockPanel>
     </Grid>
     </Grid>

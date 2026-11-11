@@ -91,6 +91,20 @@ public sealed partial class ServicesViewModel : ObservableObject
     [ObservableProperty] private string _stepCaptions = ReadyCaptions;
     [ObservableProperty] private bool _isCompact;
     [ObservableProperty] private bool _showAllNotes;
+    /// <summary>v3.1: one summary line when 5 or more Windows services are disabled against their default ("" = none).</summary>
+    [ObservableProperty] private string _massDisabledText = "";
+
+    public bool HasMassDisabled => MassDisabledText.Length > 0;
+    partial void OnMassDisabledTextChanged(string value) => OnPropertyChanged(nameof(HasMassDisabled));
+
+    /// <summary>The "Why there are no service presets" card (Doesn't-help style; information only).</summary>
+    public string PresetCardTitle => ServicePresetFacts.Title;
+    public string PresetCardSummary => ServicePresetFacts.Summary;
+    public IReadOnlyList<ServicePresetFact> PresetFacts => ServicePresetFacts.Facts;
+
+    /// <summary>Points at the bad-services repair: shows the flagged rows, where the repairs are listed first. Ticks nothing.</summary>
+    [RelayCommand]
+    private void ShowRepairs() => Filter = FilterFlagged;
 
     private const string ReadyCaptions = "Reads, changes nothing|Pick what changes|One last check|";
 
@@ -180,6 +194,8 @@ public sealed partial class ServicesViewModel : ObservableObject
             _all = inventory.All.Select(s => new ServiceRowViewModel(s, repairs.GetValueOrDefault(s.Name), UpdateSelection)).ToList();
             foreach (var r in _all.Where(r => keepTicked.Contains(r.Name))) r.SetCheckedQuietly(true);
             RepairCount = repairs.Count;
+            var changed = ServiceDefaultsCounter.ChangedFromDefault(inventory.Services.Select(s => s.Record), ctx.Locations.WindowsDir);
+            MassDisabledText = ServiceDefaultsCounter.MassDisabledText(ServiceDefaultsCounter.DisabledAgainstDefault(changed)) ?? "";
             Profiles.Clear();
             foreach (var p in ServiceProfileBuilder.All) Profiles.Add(new ProfileCard(ServiceProfileBuilder.State(p, inventory.Services, ctx.System)));
             Notes.Clear();

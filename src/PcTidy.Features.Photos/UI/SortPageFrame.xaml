@@ -232,7 +232,7 @@
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" Text="{Binding SelectedText}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Foreground="{DynamicResource TextFillColorTertiaryBrush}" Style="{StaticResource OrgSecondary}" Text="{Binding SelectedCaption}" />
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Style="{StaticResource OrgSecondary}" Text="{Binding SelectedCaption}" />
                 </StackPanel>
             </DockPanel>
         </Border>

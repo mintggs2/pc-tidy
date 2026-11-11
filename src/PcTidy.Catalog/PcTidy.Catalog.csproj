@@ -10,4 +10,9 @@
   <ItemGroup>
     <ProjectReference Include="..\PcTidy.Core\PcTidy.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Patterned-allowance tests (RegistryCatalog.FullMatch / Find / WithTestAllowances). -->
+    <InternalsVisibleTo Include="PcTidy.Safety.Tests" />
+    <InternalsVisibleTo Include="PcTidy.Platform.Tests" />
+  </ItemGroup>
 </Project>

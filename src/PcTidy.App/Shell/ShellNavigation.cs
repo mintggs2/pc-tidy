@@ -11,7 +11,7 @@ namespace PcTidy.App.Shell;
 /// <see cref="INavigationService"/> (open a section, optionally a group and pre-ticked items) and the assistant's
 /// <see cref="ISectionReviewHost"/>. Opening never runs anything: at most it scans (read-only) and changes ticks.
 /// </summary>
-public sealed class ShellNavigation : INavigationService, ISectionReviewHost
+public sealed class ShellNavigation : INavigationService, ISectionReviewHost, IParameterNavigation, IRunCheckLauncher
 {
     private readonly MainWindow _window;
     private readonly IServiceProvider _services;
@@ -23,6 +23,29 @@ public sealed class ShellNavigation : INavigationService, ISectionReviewHost
     }
 
     private FlowHost Host => _window.FlowHost;
+
+    /// <summary>
+    /// Opens a section and hands its page a parameter (v3.1 hook): the page gets it in
+    /// <see cref="INavigationTarget.OnNavigatedTo"/>. Unknown or hidden sections are ignored quietly.
+    /// </summary>
+    public void OpenWithParameter(string moduleId, object? parameter)
+    {
+        if (!_window.Dispatcher.CheckAccess())
+        {
+            _window.Dispatcher.BeginInvoke(() => OpenWithParameter(moduleId, parameter));
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(moduleId) || !_window.HasPage(moduleId)) return;
+        _window.ShowFromBackground();
+        _window.NavigateWithParameter(moduleId, parameter);
+    }
+
+    // ---------------- "Check if this helped" (Done card → Measure) ----------------
+
+    /// <summary>True when this build shows the Measure section (module id "measure").</summary>
+    public bool IsAvailable => _window.HasPage(RunCheck.MeasureModuleId);
+
+    public void Open(RunCheckRequest request) => OpenWithParameter(RunCheck.MeasureModuleId, request);
 
     public void Open(string moduleId, IReadOnlyCollection<string>? preselectItemIds = null, string? groupId = null)
     {

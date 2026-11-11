@@ -270,7 +270,118 @@ internal sealed class FakeToolBackend : ISystemToolBackend
     public DriverRollbackResult RollbackDriver(string instanceId) => Rollback;
     public Task<RestorePointInfo> CreateRestorePointAsync(IKnownLocations locations, string description, CancellationToken ct) => Task.FromResult(RestorePoint);
 
+    // ---- v3.1: services and folder renames, all in memory
+    private string? _windowsDirectory;
+    private string? _systemDirectory;
+    public string WindowsDirectory
+    {
+        get => _windowsDirectory ?? Path.Combine(Path.GetDirectoryName(LocalAppData)!, "Windows");
+        set => _windowsDirectory = value;
+    }
+    public string SystemDirectory
+    {
+        get => _systemDirectory ?? Path.Combine(WindowsDirectory, "System32");
+        set => _systemDirectory = value;
+    }
+    public DateTime LocalNow { get; set; } = new(2026, 3, 4, 5, 6, 7);
+    public Dictionary<string, FakeService> Services { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>"stop:X" / "start:X" in the order they happened.</summary>
+    public List<string> ServiceLog { get; } = new();
+    /// <summary>Like the SCM: the running dependents stop first, then this one doesn't stop in time (it stays running).</summary>
+    public HashSet<string> WontStop { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The dependents stop, the wait times out, and the service finishes stopping later (it ends up stopped).</summary>
+    public HashSet<string> StopsLate { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The dependents stop, then Windows refuses the stop (InvalidOperationException, as ServiceController.Stop throws).</summary>
+    public HashSet<string> StopThrows { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> WontStart { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Called after a service stopped (tests cancel here).</summary>
+    public Action<string>? OnStop { get; set; }
+    public HashSet<string> LockedFolders { get; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Folders that are links or junctions (reparse points), not real folders.</summary>
+    public HashSet<string> ReparsePoints { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<(string From, string To)> Renamed { get; } = new();
+
+    public FakeService AddService(string name, bool running = true, bool disabled = false, params string[] dependents)
+        => Services[name] = new FakeService { Running = running, Disabled = disabled, Dependents = dependents.ToList() };
+
+    public ServiceRunState? QueryService(string serviceName)
+        => Services.TryGetValue(serviceName, out var s)
+            ? new ServiceRunState(s.Running, s.Disabled, s.Dependents.Where(d => Services.TryGetValue(d, out var x) && x.Running).ToList())
+            : null;
+
+    public Task<bool> StopServiceAsync(string serviceName, TimeSpan timeout, CancellationToken ct)
+    {
+        ServiceLog.Add("stop:" + serviceName);
+        var s = Services[serviceName];
+        StopDependents(s, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { serviceName }); // like the SCM: dependents (and theirs) stop first
+        if (StopThrows.Contains(serviceName)) throw new InvalidOperationException("The service can't accept a stop now.");
+        if (WontStop.Contains(serviceName)) return Task.FromResult(false);
+        s.Running = false;
+        OnStop?.Invoke(serviceName);
+        ct.ThrowIfCancellationRequested(); // a cancel that arrives while Windows is stopping it
+        return Task.FromResult(!StopsLate.Contains(serviceName));
+    }
+
+    private void StopDependents(FakeService s, HashSet<string> seen)
+    {
+        foreach (var d in s.Dependents)
+            if (seen.Add(d) && Services.TryGetValue(d, out var x))
+            {
+                StopDependents(x, seen);
+                x.Running = false;
+            }
+    }
+
+    public bool IsPlainDirectory(string path) => Dirs.ContainsKey(path) && !ReparsePoints.Contains(path);
+
+    public Task<bool> StartServiceAsync(string serviceName, TimeSpan timeout, CancellationToken ct)
+    {
+        ServiceLog.Add("start:" + serviceName);
+        if (WontStart.Contains(serviceName) || !Services.TryGetValue(serviceName, out var s) || s.Disabled) return Task.FromResult(false);
+        s.Running = true;
+        return Task.FromResult(true);
+    }
+
+    public void RenameFolder(string path, string newPath)
+    {
+        if (LockedFolders.Contains(path)) throw new IOException("The folder is in use.");
+        if (!Dirs.Remove(path, out var contents)) throw new DirectoryNotFoundException(path);
+        Dirs[newPath] = contents;
+        Renamed.Add((path, newPath));
+    }
+
     private sealed class Nothing : IDisposable { public void Dispose() { } }
+}
+
+internal sealed class FakeService
+{
+    public bool Running { get; set; }
+    public bool Disabled { get; set; }
+    public List<string> Dependents { get; set; } = new();
+}
+
+/// <summary>Devices in memory; pnputil calls are recorded and change the fake device as Windows would.</summary>
+internal sealed class FakeDevices : IDeviceControl
+{
+    public bool TouchesRealSystem => false;
+    public int WindowsBuild { get; set; } = 22631;
+    public Dictionary<string, DeviceFacts> Devices { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<string> Ran { get; } = new();
+    public int ExitCode { get; set; }
+    /// <summary>False: pnputil "succeeds" but the device stays as it was.</summary>
+    public bool Applies { get; set; } = true;
+
+    public DeviceFacts? Read(string instanceId) => Devices.TryGetValue(instanceId, out var d) ? d : null;
+
+    public Task<ProcessResult> RunPnputilAsync(IReadOnlyList<string> arguments, string? logPath, CancellationToken ct)
+    {
+        Ran.Add(string.Join(' ', arguments));
+        if (ExitCode is 0 or 3010 && Applies && Devices.TryGetValue(arguments[1], out var d))
+            Devices[arguments[1]] = arguments[0] == "/enable-device"
+                ? d with { HasProblem = false, ProblemCode = 0 }
+                : d with { HasProblem = true, ProblemCode = DeviceFacts.ProblemDisabled };
+        return Task.FromResult(new ProcessResult(ExitCode, false, ""));
+    }
 }
 
 /// <summary>Quarantine that moves folders into a testbed folder and back.</summary>

@@ -23,6 +23,7 @@ public sealed partial class SafetyGuard : ISafetyGuard
     private readonly IKnownLocations _locations;
     private readonly AppSettings _settings;
     private readonly IServiceImageSource _serviceImages;
+    private readonly IDeviceClassSource _deviceClasses;
     private readonly object _mapLock = new();
     private readonly BoundedCache<string?> _settingsPaths = new(SettingsCacheGeneration, TimeSpan.FromMinutes(5));
     private readonly BoundedCache<WalkResult> _parents = new(ParentCacheGeneration, ParentCacheLifetime);
@@ -30,10 +31,12 @@ public sealed partial class SafetyGuard : ISafetyGuard
     private int _mapGeneration;
 
     /// <param name="serviceImages">Where services' programs live (tests: a fake). Default: read-only from the registry.</param>
+    /// <param name="deviceClasses">Devices' setup classes (tests: a fake). Default: read-only from the registry.</param>
     public SafetyGuard(IKnownLocations locations, AppSettings settings, SafetyPolicy? policy = null, ProjectDetector? projects = null,
-        IServiceImageSource? serviceImages = null)
+        IServiceImageSource? serviceImages = null, IDeviceClassSource? deviceClasses = null)
     {
         _serviceImages = serviceImages ?? RegistryServiceImages.Instance;
+        _deviceClasses = deviceClasses ?? RegistryDeviceClasses.Instance;
         _locations = locations ?? throw new ArgumentNullException(nameof(locations));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         Policy = policy ?? SafetyPolicy.Default;

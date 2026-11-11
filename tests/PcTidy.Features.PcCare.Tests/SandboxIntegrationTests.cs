@@ -263,6 +263,7 @@ public class ModuleTests
                 groups.SelectedIndex = 0;
                 Assert.StartsWith("Fix (", groups.Items);
                 Assert.StartsWith("App updates (2)", tabs.Items);
+                PanelChecks(page, tabs);
             }
             catch (Exception ex) { failure = ex; }
         });
@@ -270,6 +271,91 @@ public class ModuleTests
         thread.Start();
         thread.Join();
         if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
+    }
+
+    /// <summary>
+    /// Lag check and Fixes panels (same STA thread as the page test): in a sandbox the lag check is off; with a fake runner it
+    /// fills the three cards; a fix shows the confirm through the review hook with a one-item plan, and while it runs every
+    /// other Run button (and the lag check) is disabled with the reason.
+    /// </summary>
+    private static void PanelChecks(View.PcCareView page, PcTidy.UI.Controls.Segmented tabs)
+    {
+        System.Threading.SynchronizationContext.SetSynchronizationContext(
+            new System.Windows.Threading.DispatcherSynchronizationContext(System.Windows.Threading.Dispatcher.CurrentDispatcher));
+        var lag = (View.LagCheckPanel)page.FindName("LagPanel");
+        var fixes = (View.FixesPanel)page.FindName("FixPanel");
+        var results = (System.Windows.UIElement)page.FindName("Results");
+
+        tabs.SelectedIndex = T.Groups[0].TabIds.ToList().IndexOf(T.LagCheck);
+        Layout(page);
+        Assert.Equal(System.Windows.Visibility.Visible, lag.Visibility);
+        Assert.Equal(System.Windows.Visibility.Collapsed, results.Visibility);
+        var run = (Wpf.Ui.Controls.Button)lag.FindName("RunButton");
+        Assert.False(run.IsEnabled); // sandbox: never sends traffic
+        Assert.True(((Wpf.Ui.Controls.InfoBar)lag.FindName("DisabledNote")).IsOpen);
+
+        var gate = new View.LongTaskGate(new PcTidy.UI.Flow.RunGate()); // its own app-wide gate, so other tests are never blocked
+        var endpoint = LagCheckEndpoint.CloudflareCandidate with
+        {
+            DownloadUrl = new Uri("https://lag.example.invalid/down"), UploadUrl = new Uri("https://lag.example.invalid/up"),
+        };
+        var quick = new LagCheckPlan
+        {
+            IdleSamples = 3, PingInterval = TimeSpan.FromMilliseconds(2), LoadDuration = TimeSpan.FromMilliseconds(80),
+            RampUp = TimeSpan.Zero, Settle = TimeSpan.Zero, DownloadChunkBytes = 1L << 30, UploadChunkBytes = 1L << 30,
+            DownloadBudgetBytes = 1L << 40, UploadBudgetBytes = 1L << 40, Streams = 1,
+        };
+        lag.Init(gate, new LagCheckSettings { Endpoint = endpoint }, sandbox: false,
+            e => new LagCheckRunner(new FakeLagServer { IdleMs = 18, DownloadAddedMs = 12, UploadAddedMs = 70 }, e.Host, quick));
+        Assert.True(run.IsEnabled);
+        Assert.Contains("lag.example.invalid", ((System.Windows.Controls.TextBlock)lag.FindName("SendsText")).Text);
+        Pump(lag.RunAsync());
+        Assert.Equal("18 ms", ((System.Windows.Controls.TextBlock)lag.FindName("IdleValue")).Text);
+        Assert.Equal("88 ms (+70)", ((System.Windows.Controls.TextBlock)lag.FindName("LoadValue")).Text);
+        Assert.Equal("Noticeable lag", ((System.Windows.Controls.TextBlock)lag.FindName("GradeValue")).Text);
+        Assert.False(gate.IsBusy);
+
+        tabs.SelectedIndex = T.Groups[0].TabIds.ToList().IndexOf(T.Fixes);
+        Layout(page);
+        Assert.Equal(System.Windows.Visibility.Visible, fixes.Visibility);
+        Assert.Equal(System.Windows.Visibility.Collapsed, lag.Visibility);
+        Assert.True(page.DesiredSize.Width <= 1000);
+
+        var confirm = new TaskCompletionSource<bool>();
+        ActionPlan? reviewed = null;
+        fixes.Init(gate, plan => { reviewed = plan; return confirm.Task; });
+        var running = fixes.RunAsync(Planning.FixRecipes.Get(Planning.FixRecipes.WifiReset));
+        Assert.Single(reviewed!.Items);
+        Assert.Equal(ToolIds.ServiceRestart, reviewed.Items[0].ToolId);
+        Assert.True(gate.IsBusy);
+        Assert.False(run.IsEnabled); // the lag check waits too
+        var cards = (PcTidy.UI.Controls.ResponsiveGrid)fixes.FindName("CardsGrid");
+        var texts = cards.Children.OfType<System.Windows.Controls.Border>()
+            .SelectMany(b => Descendants(b).OfType<System.Windows.Controls.TextBlock>())
+            .Where(t => t.Text == "Available when the fix finishes" && t.Visibility == System.Windows.Visibility.Visible).ToList(); // names the task (UI review L3)
+        Assert.Equal(Planning.FixRecipes.All.Count - 1, texts.Count);
+        confirm.SetResult(false); // the user pressed Cancel in the confirm
+        Pump(running);
+        Assert.False(gate.IsBusy);
+        Assert.True(run.IsEnabled);
+    }
+
+    private static IEnumerable<System.Windows.DependencyObject> Descendants(System.Windows.DependencyObject root)
+    {
+        foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root).OfType<System.Windows.DependencyObject>())
+        {
+            yield return child;
+            foreach (var d in Descendants(child)) yield return d;
+        }
+    }
+
+    /// <summary>Runs the dispatcher until the task ends (the page's awaits come back on the UI thread).</summary>
+    private static void Pump(Task task)
+    {
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        task.ContinueWith(_ => frame.Continue = false, TaskScheduler.Default);
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
+        task.GetAwaiter().GetResult();
     }
 
     private static void Layout(System.Windows.FrameworkElement page)

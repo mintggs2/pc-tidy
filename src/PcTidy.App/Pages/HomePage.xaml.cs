@@ -41,7 +41,162 @@ public partial class HomePage : UserControl
         InitializeComponent();
         PresetPicker.SelectionChanged += (_, _) => PresetHint.Text = OptimizePresets.Describe(OptimizePresets.All[PresetPicker.SelectedIndex]) + " Nothing changes until you confirm.";
         DrivesHost.SizeChanged += (_, e) => { if (Math.Abs(e.PreviousSize.Width - e.NewSize.Width) > 1) ShowDrives(); };
-        Loaded += (_, _) => RefreshAsync().Forget(Host, "Couldn't refresh Home");
+        Loaded += (_, _) =>
+        {
+            if (Window is { } w && !ReferenceEquals(_watchedWindow, w))
+            {
+                _watchedWindow = w;
+                w.StateChanged += (_, _) => UpdateNowSampling();
+            }
+            RefreshAsync().Forget(Host, "Couldn't refresh Home");
+        };
+        // The Now card only samples while Home is on screen.
+        IsVisibleChanged += (_, _) => UpdateNowSampling();
+        Unloaded += (_, _) => UpdateNowSampling();
+    }
+
+    private System.Windows.Window? _watchedWindow;
+
+    // ---------------- the optional "Now" card (layout spec §4.3) ----------------
+
+    private Now.NowCard? _now;
+    private Now.NowSampler? _sampler;
+    private readonly Now.NowHistory _nowHistory = new();
+
+    /// <summary>The Now card when it is switched on (screenshots and tests).</summary>
+    public Now.NowCard? NowCard => _now;
+
+    /// <summary>Shows or removes the Now card as Settings › Appearance says (off by default).</summary>
+    private void ShowNow()
+    {
+        bool on = ShellPrefs.Get(Settings).ShowNowCard;
+        if (!on)
+        {
+            NowHost.Content = null;
+            NowHost.Visibility = Visibility.Collapsed;
+            _now = null;
+            UpdateNowSampling();
+            return;
+        }
+        if (_now is null)
+        {
+            var state = ShellState.Get(Settings);
+            _now = new Now.NowCard();
+            _now.SetCollapsed(state.NowCollapsed, raise: false);
+            _now.SetChart(state.NowChart);
+            _now.FreeUpSpaceRequested += () => { if ((_cleanupModuleId ?? CleanupModule()?.Id) is { } id) Host.NavigateTo(id); };
+            _now.CollapsedChanged += folded =>
+            {
+                ShellState.Update(Settings, s => s with { NowCollapsed = folded });
+                Window?.SaveSettingsQuietly();
+                UpdateNowSampling();
+            };
+            _now.ChartChanged += chart =>
+            {
+                ShellState.Update(Settings, s => s with { NowChart = chart });
+                if (_lastNow is { } last) _now?.Show(last, _nowHistory);
+            };
+            NowHost.Content = _now;
+        }
+        NowHost.Visibility = Visibility.Visible;
+        _now.FreeButton.Visibility = CleanupModule() is null ? Visibility.Collapsed : Visibility.Visible;
+        var system = _drives.FirstOrDefault(d => d.IsSystem) ?? _drives.FirstOrDefault();
+        _now.SetDrive(system, system is null ? "" : DriveName(system));
+        UpdateNowSampling();
+    }
+
+    private Now.NowSample? _lastNow;
+
+    /// <summary>Starts or stops the 1-second sampling: only while the card is on, open, Home is shown and the window isn't minimised.</summary>
+    private void UpdateNowSampling()
+    {
+        bool minimized = Window?.WindowState == WindowState.Minimized;
+        bool run = Now.NowPolicy.ShouldSample(_now is not null, _now?.IsCollapsed ?? true, IsVisible && IsLoaded, minimized);
+        if (!run)
+        {
+            _sampler?.Stop();
+            return;
+        }
+        if (_sampler is null)
+        {
+            // Demo mode and screenshots show invented numbers, never this PC's.
+            Now.INowSource source = _services.IsDemo || Window?.ScreenshotMode == true ? new Now.DemoNowSource() : new Now.WindowsNowSource();
+            _sampler = new Now.NowSampler(source);
+            _sampler.Sampled += s => Dispatcher.BeginInvoke(() =>
+            {
+                _nowHistory.Add(s);
+                _lastNow = s;
+                _now?.Show(s, _nowHistory);
+            });
+        }
+        _sampler.Start();
+    }
+
+    /// <summary>Whether the Now card is sampling right now (tests and screenshots).</summary>
+    public bool IsNowSampling => _sampler?.IsRunning == true;
+
+    /// <summary>Screenshots: a minute of invented readings at once, so the line is full.</summary>
+    internal void FillNowForScreenshot()
+    {
+        var demo = new Now.DemoNowSource();
+        for (int i = 0; i < Now.NowHistory.Seconds; i++) _nowHistory.Add(_lastNow = demo.Read());
+        if (_lastNow is { } s) _now?.Show(s, _nowHistory);
+    }
+
+    // ---------------- System info (Insights' read-only window) ----------------
+
+    private Action<System.Windows.Window>? _systemInfo;
+    private bool _systemInfoLooked;
+
+    /// <summary>
+    /// The System info opener: an <see cref="ISystemInfoOpener"/> from the services, else Insights'
+    /// <c>SystemInfoWindow.Show(Window, IServiceProvider)</c> when this build has it (looked up by name, so Home builds
+    /// before Insights adds it), else none and the button is hidden.
+    /// </summary>
+    internal static Action<System.Windows.Window>? FindSystemInfo(IServiceProvider services)
+    {
+        if (services.GetService(typeof(ISystemInfoOpener)) is ISystemInfoOpener opener) return owner => opener.Show(owner, services);
+        try
+        {
+            var type = typeof(PcTidy.Features.Insights.InsightsModule).Assembly.GetTypes().FirstOrDefault(t => t.Name == "SystemInfoWindow");
+            var show = type?.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                .FirstOrDefault(m => m.Name == "Show" && m.GetParameters() is { Length: 2 } p
+                                     && p[0].ParameterType.IsAssignableFrom(typeof(System.Windows.Window))
+                                     && p[1].ParameterType.IsAssignableFrom(typeof(IServiceProvider)));
+            return show is null ? null : owner => show.Invoke(null, new object[] { owner, services });
+        }
+        catch (Exception ex) when (ex is System.Reflection.ReflectionTypeLoadException or TypeLoadException or FileNotFoundException) { return null; }
+    }
+
+    private void ShowSystemInfoButton()
+    {
+        if (!_systemInfoLooked)
+        {
+            _systemInfoLooked = true;
+            _systemInfo = FindSystemInfo(_services);
+        }
+        SystemInfoButton.Visibility = _systemInfo is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    /// <summary>True when Home offers "System info".</summary>
+    public bool HasSystemInfo => _systemInfo is not null;
+
+    private void OnSystemInfo(object sender, RoutedEventArgs e) => OpenSystemInfo();
+
+    private void OpenSystemInfo()
+    {
+        if (_systemInfo is null || Window is not { } owner) return;
+        if (_services.IsDemo)
+        {
+            Host.ShowMessage("Not in demo mode", "System info reads this PC's hardware, so the demo doesn't open it.");
+            return;
+        }
+        try { _systemInfo(owner); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            CrashHandler.Write(ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex, "Opening System info", terminating: false);
+            Host.ShowMessage("Couldn't open System info", "Something went wrong while reading this PC. Nothing was changed.", isError: true);
+        }
     }
 
     private IShellFlowHost Host => _services.Get<IShellFlowHost>();
@@ -92,7 +247,9 @@ public partial class HomePage : UserControl
         ShowLastRun();
         ShowQuarantine(quarantineBytes);
         ShowDrives();
+        ShowSystemInfoButton();
         ShowHealth();
+        ShowNow();
         ShowQuickActions();
         ShowTrust(real);
         ShowFreeCard();
@@ -542,6 +699,8 @@ public partial class HomePage : UserControl
             Add(SymbolRegular.FolderArrowRight24, "Organize Downloads  ·  preview first", (_, _) => StartModuleScan(org.Id));
         if (modules.FirstOrDefault(m => m.Id.Contains("speed", StringComparison.OrdinalIgnoreCase) || m.Id.Contains("startup", StringComparison.OrdinalIgnoreCase)) is { } speed)
             Add(SymbolRegular.Rocket24, "Check startup apps", (_, _) => StartModuleScan(speed.Id));
+        // With the health card hidden, "System info" (normally next to it) moves here.
+        if (HealthCard.Visibility != Visibility.Visible && _systemInfo is not null) Add(SymbolRegular.Info24, "System info  ·  read-only", (_, _) => OpenSystemInfo());
         if (QuickActions.Children.Count == 1) Add(SymbolRegular.History24, "Open History", OnHistory);
     }
 

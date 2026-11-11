@@ -96,7 +96,7 @@ public sealed class OnboardingView : UserControl
         sp.Children.Add(logo);
         var cap = T($"WELCOME TO PC TIDY · {n} OF 3", "CaptionStrong");
         cap.Margin = new Thickness(0, 20, 0, 0);
-        cap.SetResourceReference(TextBlock.ForegroundProperty, "TidyAccentBrush");
+        cap.SetResourceReference(TextBlock.ForegroundProperty, "TidyAccentTextBrush");
         sp.Children.Add(cap);
         var h = new TextBlock { Text = headline, FontSize = 34, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
         h.SetResourceReference(TextBlock.FontFamilyProperty, "TidyDisplay");

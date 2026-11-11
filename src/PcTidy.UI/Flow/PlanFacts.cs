@@ -171,7 +171,7 @@ public static class PlanFacts
         int cleans = c.Quarantine + c.Permanent;
         int changes = c.Startup + c.Settings;
         // A mix (Optimize everything): no single verb is honest, so name the whole thing.
-        if ((cleans > 0 ? 1 : 0) + (c.Moves > 0 ? 1 : 0) + (changes > 0 ? 1 : 0) > 1) return $"Apply all {c.Total:N0} changes";
+        if ((cleans > 0 ? 1 : 0) + (c.Moves > 0 ? 1 : 0) + (changes > 0 ? 1 : 0) > 1) return $"Apply these {c.Total:N0} changes";
         if (cleans > 0 && cleans >= c.Moves && cleans >= changes)
             return c.CleanBytes > 0 ? "Clean " + Sizes.Format(c.CleanBytes) : $"Clean {Items(cleans)}";
         if (c.Moves > 0 && c.Moves >= changes) return $"Move {c.Moves:N0} file{S(c.Moves)}";

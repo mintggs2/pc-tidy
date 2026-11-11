@@ -1,3 +1,4 @@
+using PcTidy.Catalog.Insights;
 using PcTidy.Core;
 using PcTidy.Core.Model;
 
@@ -9,6 +10,7 @@ namespace PcTidy.Features.Insights.Planning;
 ///   OpenExternal: Args["target"] (https / ms-settings / windowsdefender URI).
 ///   OneDriveFreeUpSpace: SourcePath = a fully downloaded file inside a OneDrive folder (reversible).
 ///   RunSystemTool compact.lzx: Args["folder"] (NTFS LZX compression of an old folder; reversible with compact /u).
+///   RunSystemTool winget.install: Args["id"] (a Microsoft runtime from RuntimeInstalls; not reversible).
 /// </summary>
 public static class InsightPlans
 {
@@ -43,6 +45,27 @@ public static class InsightPlans
         Reversible = true,
         Args = new Dictionary<string, string> { ["folder"] = folder },
     };
+
+    /// <summary>
+    /// RunSystemTool winget.install: Args["id"] = an id from <see cref="RuntimeInstalls"/> (anything else throws). winget runs
+    /// unelevated and asks for admin itself when the installer needs it, so NeedsAdmin is false. An install can't be undone
+    /// from History (Reversible = false).
+    /// </summary>
+    public static PlanItem InstallRuntime(RuntimeInstall runtime)
+    {
+        if (!RuntimeInstalls.IsAllowed(runtime.WingetId)) throw new ArgumentException("Not an allow-listed runtime.", nameof(runtime));
+        return new PlanItem
+        {
+            Kind = ActionKind.RunSystemTool,
+            ToolId = ToolIds.WingetInstall,
+            FeatureId = InsightsIds.FeatureId,
+            Description = $"Install {runtime.Name}. {RuntimeInstalls.PreviewText(runtime.Name)}",
+            NeedsAdmin = false,
+            IsSystemChange = false,
+            Reversible = false,
+            Args = new Dictionary<string, string> { ["id"] = runtime.WingetId },
+        };
+    }
 
     /// <summary>Plan for "open this page" from a card button.</summary>
     public static ActionPlan OpenPlan(string target, string description)

@@ -27,6 +27,7 @@ public static class ModifiedWindowsMarkers
     public const string ReviOs = "ReviOS";
     public const string Ame = "AME Wizard playbook";
     public const string Tiny11 = "Tiny11";
+    public const string Nano11 = "Nano11";
     public const string Custom = "a customised Windows image";
 
     public static readonly IReadOnlyList<ModifiedWindowsMarker> Names = new ModifiedWindowsMarker[]
@@ -42,6 +43,9 @@ public static class ModifiedWindowsMarkers
         new(Ame, MarkerKind.OemText, "Ameliorated"),
         new(Tiny11, MarkerKind.OemText, "tiny11"),
         new(Tiny11, MarkerKind.RegisteredText, "tiny11"),
+        // Nano11 (a Tiny11-style stripped image): unverified, like every marker here.
+        new(Nano11, MarkerKind.OemText, "nano11"),
+        new(Nano11, MarkerKind.RegisteredText, "nano11"),
         new(Custom, MarkerKind.OemText, "Ghost Spectre"),
         new(Custom, MarkerKind.RegisteredText, "Ghost Spectre"),
     };

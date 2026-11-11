@@ -1,14 +1,15 @@
 ﻿<#
 .SYNOPSIS
   Builds a PC Tidy release into .\publish\:
-    PC Tidy Setup <version>.exe      our own installer: per-machine, %ProgramFiles%\PC Tidy, one admin prompt
+    PC-Tidy-Setup-<version>.exe      our own installer: per-machine, %ProgramFiles%\PC Tidy, one admin prompt
                                      (app payload appended, see below)
-    PC Tidy <version> portable.zip   the app files + README + THIRD-PARTY-NOTICES + PRIVACY + CHANGELOG (runs from any folder,
+    PC-Tidy-<version>-portable.zip   the app files + README + THIRD-PARTY-NOTICES + PRIVACY + CHANGELOG (runs from any folder,
                                      but never runs admin steps: those need the Program Files install)
-    PC Tidy Rescue <version>.exe     the standalone Rescue download: one self-contained file (it runs on its own, never
+    PC-Tidy-Rescue-<version>.exe     the standalone Rescue download: one self-contained file (it runs on its own, never
                                      with admin rights; the installed Rescue does admin undo)
     SHA256SUMS.txt                   checksums of the three files above
-  plus "PC Tidy Setup <version> (Inno Setup).exe" when Inno Setup 6 (ISCC.exe) is installed (also listed in SHA256SUMS.txt).
+  File names have no spaces: GitHub turns spaces in release file names into dots, and SHA256SUMS.txt must match.
+  plus "PC-Tidy-Setup-<version>-InnoSetup.exe" when Inno Setup 6 (ISCC.exe) is installed (also listed in SHA256SUMS.txt).
 
 .DESCRIPTION
   1. Publishes src\PcTidy.App and src\PcTidy.Rescue self-contained, single-file, win-x64, WITHOUT self-extracting
@@ -30,8 +31,8 @@
      compiled into the running program (the trailer's copy alone proves nothing: whoever swaps the file writes it too).
      (Format and reasons: src\PcTidy.Setup\Payload\PayloadFile.cs, PayloadTrust.cs, StagedPayload.cs.)
      Signing later still works: signtool puts the certificate after the payload and Setup looks just before it.
-  3. Runs "PC Tidy Setup <version>.exe --verify" (checks the payload; installs nothing, asks for nothing).
-  4. Builds the portable zip, publishes the standalone one-file "PC Tidy Rescue <version>.exe" (runs on its own, never
+  3. Runs "PC-Tidy-Setup-<version>.exe --verify" (checks the payload; installs nothing, asks for nothing).
+  4. Builds the portable zip, publishes the standalone one-file "PC-Tidy-Rescue-<version>.exe" (runs on its own, never
      with admin rights) and writes SHA256SUMS.txt for every download.
   Only writes under this folder. Version comes from src\Directory.Build.props.
 
@@ -130,7 +131,7 @@ $setupStub = $setupFiles[0].FullName
 
 # ---- Setup exe = stub + payload + trailer ----
 New-Item -ItemType Directory -Force -Path $publish | Out-Null
-$setupOut = Join-Path $publish "PC Tidy Setup $version.exe"
+$setupOut = Join-Path $publish "PC-Tidy-Setup-$version.exe"
 $out = [System.IO.File]::Create($setupOut)
 try {
     $stubBytes = [System.IO.File]::ReadAllBytes($setupStub)
@@ -147,7 +148,7 @@ $check = Start-Process -FilePath $setupOut -ArgumentList '--verify' -Wait -PassT
 if ($check.ExitCode -ne 0) { throw "PC Tidy Setup --verify failed (exit $($check.ExitCode))." }
 
 # ---- portable zip (no uninstaller: nothing to uninstall; admin steps are refused from a portable folder) ----
-$portableOut = Join-Path $publish "PC Tidy $version portable.zip"
+$portableOut = Join-Path $publish "PC-Tidy-$version-portable.zip"
 $portableDir = Join-Path $work "portable\PC Tidy $version"
 Copy-Shared $appFiles $portableDir
 Copy-Shared $rescueFiles $portableDir
@@ -162,7 +163,7 @@ Invoke-Publish 'src\PcTidy.Rescue\PcTidy.Rescue.csproj' (Join-Path $work 'rescue
     '-p:IncludeNativeLibrariesForSelfExtract=true', '-p:EnableCompressionInSingleFile=true', '-p:StartupHookSupport=false')
 $standalone = @(Get-ChildItem -LiteralPath (Join-Path $work 'rescue-standalone') -File | Where-Object { $_.Extension -ne '.pdb' })
 if ($standalone.Count -ne 1 -or $standalone[0].Name -ne 'PC Tidy Rescue.exe') { throw "The standalone Rescue must be one file: $($standalone.Name -join ', ')" }
-$rescueOut = Join-Path $publish "PC Tidy Rescue $version.exe"
+$rescueOut = Join-Path $publish "PC-Tidy-Rescue-$version.exe"
 Copy-Item -LiteralPath $standalone[0].FullName -Destination $rescueOut -Force
 
 # ---- optional: Inno Setup build (per-machine too; it has its own uninstaller, so uninstall.exe is left out) ----
@@ -177,12 +178,15 @@ if ($iscc) {
     Write-Host "Building the Inno Setup installer with $iscc ..." -ForegroundColor Cyan
     & $iscc "/DMyAppVersion=$version" "/DSourceDir=$payloadDir" "/O$publish" (Join-Path $root 'installer\PcTidy.iss')
     if ($LASTEXITCODE -ne 0) { throw "ISCC failed (exit $LASTEXITCODE)." }
-    $outputs += (Join-Path $publish "PC Tidy Setup $version (Inno Setup).exe")
+    $outputs += (Join-Path $publish "PC-Tidy-Setup-$version-InnoSetup.exe")
 } else {
     Write-Host 'Inno Setup 6 (ISCC.exe) not found: skipping installer\PcTidy.iss. PC Tidy Setup (our own installer) was built.' -ForegroundColor Yellow
 }
 
-# ---- checksums ----
+# ---- checksums (names must survive GitHub's upload unchanged, so no spaces) ----
+foreach ($f in $outputs) {
+    if ((Split-Path -Leaf $f) -match '[^A-Za-z0-9._-]') { throw "Release file names may only use letters, digits, dot, dash and underscore: $f" }
+}
 $sums = foreach ($f in $outputs) {
     '{0}  {1}' -f (Get-FileHash -LiteralPath $f -Algorithm SHA256).Hash.ToLowerInvariant(), (Split-Path -Leaf $f)
 }

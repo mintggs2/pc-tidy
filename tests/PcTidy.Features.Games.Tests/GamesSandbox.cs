@@ -41,13 +41,13 @@ internal sealed class GamesSandbox : IDisposable
     public IGamesEnvironment Environment { get; set; } = new FakeEnvironment();
     public IMediaProbe Media { get; set; } = NullMediaProbe.Instance;
 
-    public ScanContext Context(string? preset = null, IReadOnlySet<string>? running = null, ISafetyGuard? guard = null)
+    public ScanContext Context(string? preset = null, IReadOnlySet<string>? running = null, ISafetyGuard? guard = null, ISystemInfo? system = null)
     {
         var c = Host.CreateScanContext(ScanDepth.Quick, preset: preset);
         return new ScanContext
         {
             Locations = c.Locations, Safety = guard ?? c.Safety, InUse = c.InUse, Settings = c.Settings, Walker = c.Walker, Depth = c.Depth,
-            Preset = preset, System = c.System, RunningProcesses = running ?? new HashSet<string>(),
+            Preset = preset, System = system ?? c.System, RunningProcesses = running ?? new HashSet<string>(),
             Options = new Dictionary<string, object>
             {
                 [GamesOptions.Now] = Now,
@@ -134,6 +134,24 @@ internal sealed class FakeEnvironment : IGamesEnvironment
     public IReadOnlyList<RegistryGame> RegistryGames() => Registry;
     public IReadOnlyList<StoreGame> StoreGames() => Store;
     public byte[]? NvidiaCapturePathValue() => Nvidia;
+    /// <summary>Invented per-app GPU preferences (exe path → stored text).</summary>
+    public Dictionary<string, string> Gpu { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyDictionary<string, string> GpuPreferences() => Gpu;
+}
+
+/// <summary>Invented hardware facts for a test PC (GPU names are made-up, generic product names).</summary>
+internal sealed class FakeSystemInfo : ISystemInfo
+{
+    public FakeSystemInfo(params string[] gpus) => GpuNames = gpus;
+    public PcTidy.Core.Model.GpuVendor PrimaryGpu => PcTidy.Core.Model.GpuVendor.Unknown;
+    public IReadOnlyList<string> GpuNames { get; }
+    public bool IsLaptop => true;
+    public bool HasBattery => true;
+    public bool IsAdmin => false;
+    public int WindowsBuild => 26100;
+    public bool RebootPending => false;
+    public IReadOnlyList<DriveDetails> Drives => Array.Empty<DriveDetails>();
+    public IReadOnlySet<string> RunningProcesses() => new HashSet<string>();
 }
 
 /// <summary>Media facts by file name, and records every file it was asked about.</summary>

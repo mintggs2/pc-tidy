@@ -1,6 +1,8 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!--  PC Tidy theme-specific brushes: LIGHT. Swapped by TidyTheme.Apply.  -->
     <SolidColorBrush x:Key="TidyAccentBrush" Color="#1E9A5E" />
+    <!--  Accent for small TEXT (pills, the demo label): 5.4:1 on white. TidyAccentBrush (3.6:1) is for icons, rings and lines only  -->
+    <SolidColorBrush x:Key="TidyAccentTextBrush" Color="#0F7A45" />
     <SolidColorBrush x:Key="TidyAccentSoftBrush" Color="#142BB673" />
     <SolidColorBrush x:Key="TidyAccentStrokeBrush" Color="#802BB673" />
     <SolidColorBrush x:Key="TidyRingTrackBrush" Color="#1F000000" />

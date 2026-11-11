@@ -135,6 +135,14 @@ public enum ActionKind
     OneDriveFreeUpSpace,
     /// <summary>Pin a folder to Explorer's Quick access via the shell's own "pintohome" verb. SourcePath = folder. Undo unpins.</summary>
     QuickAccessPin,
+
+    // ---- v3.1 additions ----
+    /// <summary>
+    /// Turn a device that Windows (or an old optimizer) disabled back on, via pnputil /enable-device. Args: "instanceId".
+    /// Enable = true. The only "false" allowed is the undo of PC Tidy's own enable (puts the device back as it was).
+    /// Never for devices that are currently working, never for disk/system/firmware classes (guard). Admin.
+    /// </summary>
+    DeviceSetEnabled,
 }
 
 public enum GpuVendor { Unknown, Nvidia, Amd, Intel, Microsoft, Other }

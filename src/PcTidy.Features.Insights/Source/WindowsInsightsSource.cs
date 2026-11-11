@@ -272,15 +272,40 @@ public sealed partial class WindowsInsightsSource : IInsightsSource
             ? Directory.EnumerateDirectories(desktop).Select(Path.GetFileName)
                 .Select(n => int.TryParse(n?.Split('.')[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var major) ? major : 0)
                 .Where(m => m > 0).Distinct().OrderBy(m => m).ToList()
-            : new List<int>()) ?? new List<int>();
+            : new List<int>());
 
         return new RuntimeFacts
         {
             VisualCpp64 = All(system32, "vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"),
             VisualCpp32 = Directory.Exists(wow64) ? All(wow64, "vcruntime140.dll", "msvcp140.dll") : TriState.Unknown,
             DirectX9Extras = All(system32, "d3dx9_43.dll"),
-            DotNetDesktopVersions = versions,
+            DotNetDesktopVersions = versions ?? new List<int>(),
+            DotNetKnown = versions is not null,
+            // winget is an app execution alias in the user's WindowsApps folder (the same check PC care uses).
+            WingetPresent = Safe(() => File.Exists(Path.Combine(_locations.LocalAppData, "Microsoft", "WindowsApps", "winget.exe"))),
         };
+    }
+
+    // ------------------------------------------------------------------ processor and power plan
+
+    public string? ReadCpuName()
+    {
+        using var lm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+        using var cpu = TryOpen(lm, @"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+        var name = Str(cpu, "ProcessorNameString").Trim();
+        return name.Length > 0 ? name : null;
+    }
+
+    /// <summary>
+    /// The active power scheme GUID. Verify: read from HKLM\SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes
+    /// "ActivePowerScheme" (widely used, not in Microsoft's docs); read-only, and only used for an information line.
+    /// </summary>
+    public string? ReadActivePowerPlan()
+    {
+        using var lm = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+        using var schemes = TryOpen(lm, @"SYSTEM\CurrentControlSet\Control\Power\User\PowerSchemes");
+        var guid = Str(schemes, "ActivePowerScheme").Trim();
+        return Guid.TryParse(guid, out var g) ? g.ToString("D") : null;
     }
 
     private static TriState ReadMemoryIntegrity(RegistryKey lm)

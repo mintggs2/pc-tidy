@@ -64,6 +64,7 @@ public sealed class RegistryHandler : IActionHandler
             return ApplyVisualEffects(result, spec, ctx);
         }
         catch (UnsupportedRegistryValueException ex) { return step.Skipped(ex.Message); }
+        catch (MissingRegistryKeyException ex) { return step.Skipped(ex.Message + " Nothing was changed."); }
         catch (FormatException ex) { return step.Failed(ex.Message); }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException)
         {
@@ -110,7 +111,10 @@ public sealed class RegistryHandler : IActionHandler
 
             var name = spec.ValueName!;
             var createdKey = step.UndoData is { } u && u.TryGetValue(CreatedKeyData, out var c) ? c : null;
-            RegistryAccess.Restore(spec.Hive, spec.View64, spec.KeyPath, name, prior, createdKey);
+            // Undo never brings back a pattern-only key that has gone (an adapter that was removed).
+            if (OnlyExistingKey(spec, name) && !RegistryAccess.KeyExists(spec.Hive, spec.View64, spec.KeyPath))
+                return step.Skipped("This setting's registry key isn't there any more (the device may have been removed), so there's nothing to put back.");
+            RegistryAccess.Restore(spec.Hive, spec.View64, spec.KeyPath, name, prior, createdKey, mayCreateKey: !OnlyExistingKey(spec, name));
             var now = RegistryAccess.Capture(spec.Hive, spec.View64, spec.KeyPath, name);
             var restored = prior.ValueExisted ? RegistryAccess.Matches(now, prior.Kind!.Value, prior.Data) : !now.ValueExisted;
             if (restored) RestoreVisualEffects(step, ctx);
@@ -118,11 +122,43 @@ public sealed class RegistryHandler : IActionHandler
                 ? step.Undone($"Put back the original value ({RegistryAccess.Describe(prior)}).")
                 : step.UndoFailed("Windows didn't keep the original value.");
         }
+        catch (MissingRegistryKeyException)
+        {
+            return step.Skipped("This setting's registry key isn't there any more (the device may have been removed), so there's nothing to put back.");
+        }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException or FormatException or UnsupportedRegistryValueException)
         {
             return step.UndoFailed("The original value couldn't be put back: " + ex.Message);
         }
     }
+
+    /// <summary>
+    /// The catalog entry's "only while the data is …" precondition (<see cref="PcTidy.Catalog.RegistryAllowance.OnlyWhenDataIs"/>):
+    /// null when there is none or the current value meets it, otherwise why the step is skipped.
+    /// </summary>
+    private static string? PreconditionProblem(RegistryValueSpec spec, string valueName, RegistryPriorState prior)
+    {
+        if (CatalogEntry(spec, valueName) is not { OnlyWhenDataIs: { Count: > 0 } wanted } entry) return null;
+        return wanted.Any(d => RegistryAccess.Matches(prior, entry.Kind, d))
+            ? null
+            : $"{ValueLabel(spec)} is now {RegistryAccess.Describe(prior)}, not what PC Tidy found when it scanned, so it was left alone. Scan again.";
+    }
+
+    private static PcTidy.Catalog.RegistryAllowance? CatalogEntry(RegistryValueSpec spec, string? valueName)
+    {
+        // Normalized the way the SafetyGuard normalizes it before it looks the key up.
+        var key = string.Join('\\', spec.KeyPath.Trim().Split('\\', StringSplitOptions.RemoveEmptyEntries));
+        return PcTidy.Catalog.RegistryCatalog.Find(spec.Hive, key, valueName);
+    }
+
+    /// <summary>
+    /// True when the catalog allows this value only through a key-path pattern (for example any network adapter's
+    /// "...\{4d36e972-…}\NNNN" subkey). Such keys are written only when Windows already has them: PC Tidy never creates
+    /// one, in a change or in its undo. Exact catalog entries (and value-name patterns under an exact key) may create
+    /// their key as before.
+    /// </summary>
+    internal static bool OnlyExistingKey(RegistryValueSpec spec, string? valueName)
+        => CatalogEntry(spec, valueName) is { KeyPathPattern: not null };
 
     public Task<bool> WasCompletedAsync(StepRecord step, HandlerContext ctx, CancellationToken ct)
     {
@@ -178,15 +214,19 @@ public sealed class RegistryHandler : IActionHandler
         var prior = RegistryAccess.Capture(spec.Hive, spec.View64, spec.KeyPath, name);
         if (RegistryAccess.Matches(prior, spec.Kind, spec.Data))
             return step.Skipped("Already set this way. Nothing to change.");
+        // A key allowed only by a pattern (one network adapter's subkey...) is written only when it is already there.
+        var mayCreateKey = !OnlyExistingKey(spec, name);
+        if (!prior.KeyExisted && !mayCreateKey) return step.Skipped(new MissingRegistryKeyException().Message + " Nothing was changed.");
+        if (PreconditionProblem(spec, name, prior) is { } changed) return step.Skipped(changed);
 
         var createdKey = prior.KeyExisted ? null : RegistryAccess.FirstMissingAncestor(spec.Hive, spec.View64, spec.KeyPath);
-        RegistryAccess.SetValue(spec.Hive, spec.View64, spec.KeyPath, name, spec.Kind, spec.Data);
+        RegistryAccess.SetValue(spec.Hive, spec.View64, spec.KeyPath, name, spec.Kind, spec.Data, mayCreateKey);
 
         var after = RegistryAccess.Capture(spec.Hive, spec.View64, spec.KeyPath, name);
         if (!RegistryAccess.Matches(after, spec.Kind, spec.Data))
         {
             // Some values are protected (e.g. by Windows' user-choice protection): put things back as they were.
-            RegistryAccess.Restore(spec.Hive, spec.View64, spec.KeyPath, name, prior, createdKey);
+            RegistryAccess.Restore(spec.Hive, spec.View64, spec.KeyPath, name, prior, createdKey, mayCreateKey);
             return step.Failed("Windows didn't keep this change (the setting may be protected). It was put back as it was.") with { RegistryPrior = prior };
         }
 
@@ -202,6 +242,7 @@ public sealed class RegistryHandler : IActionHandler
         var name = spec.ValueName!;
         var prior = RegistryAccess.Capture(spec.Hive, spec.View64, spec.KeyPath, name);
         if (!prior.ValueExisted) return step.Skipped("Already gone. Nothing to change.");
+        if (PreconditionProblem(spec, name, prior) is { } changed) return step.Skipped(changed);
 
         RegistryAccess.DeleteValue(spec.Hive, spec.View64, spec.KeyPath, name);
         if (RegistryAccess.Capture(spec.Hive, spec.View64, spec.KeyPath, name).ValueExisted)

@@ -55,7 +55,12 @@ public static class HelpContent
         "PC Tidy itself contains no ads, no trackers and no bundled software.";
 
     public const string Changelog =
-        "3.0.0 (beta)\n" +
+        "3.1.0 (beta)\n" +
+        "• New: Measure (compare frame-time recordings before and after a change), Lag check (off until a test server is chosen), Fixes, System info, an optional live \"Now\" card.\n" +
+        "• Tweaks: search, categories, \"N of M on\", cards that show what's on now, presets that show what they'll change, and a \"Doesn't help (measured)\" shelf with the numbers.\n" +
+        "• Games: a game list with details beside it, tips with measured numbers, GPU choice per game on laptops with two GPUs.\n" +
+        "• More bad-tweak checks, Insights cards with measured numbers, install missing runtimes, restore points in History, a replayable tour.\n" +
+        "\n3.0.0 (beta)\n" +
         "• New: Services, AI chats, Search, Insights (with Scan this script), Game boost, Schedule and reports, Ask PC Tidy, Learned, Privacy sweep, Notifications.\n" +
         "• Organize: Google Takeout, one-by-one sorting, presets. Duplicates: very large files, compare, wrong file types.\n" +
         "• Right-click \"What is this?\" and \"Tidy this folder\", optional tray icon, settings export/import, safer updates.\n" +

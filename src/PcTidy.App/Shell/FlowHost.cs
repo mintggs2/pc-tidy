@@ -62,21 +62,73 @@ public sealed class FlowHost : IShellFlowHost
     /// <summary>Asks the run in progress to stop after its current step (what already ran stays journaled and undoable).</summary>
     public void StopAfterCurrentStep() => _stopCurrent?.Cancel();
 
-    /// <summary>Marks work in progress for <see cref="IsWorking"/>; dispose to end it. UI thread only.</summary>
-    internal IDisposable Working()
+    /// <summary>
+    /// Marks work in progress for <see cref="IsWorking"/>; dispose to end it. UI thread only. It also holds the
+    /// one-long-task-at-a-time gate (<see cref="RunGate"/>): Run, Preview and Simulate elsewhere wait and say why.
+    /// </summary>
+    /// <param name="task">Short name for the busy reason ("Clean", "the undo"): "Available when Clean finishes".</param>
+    internal IDisposable Working(string task = "the current task")
     {
         if (_activeRuns++ == 0) _idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        return new WorkScope(this);
+        return new WorkScope(this, Gate.Begin(task));
     }
 
-    private sealed class WorkScope(FlowHost host) : IDisposable
+    /// <summary>The gate pages read (the app-wide one unless the services bring their own, as tests do).</summary>
+    private RunGate Gate => _services.GetService(typeof(RunGate)) as RunGate ?? RunGate.Shared;
+
+    /// <summary>Title of the message shown when a second task is started while one is going.</summary>
+    public const string OneTaskTitle = "One task at a time";
+
+    /// <summary>
+    /// One long task at a time, enforced here as well as on the buttons: a run, simulation, undo, resume or roll back
+    /// started while another is going (from History, a Done card, a page without the gate on its buttons) is refused
+    /// with a message that says what to wait for. Nothing is started, nothing is lost.
+    /// </summary>
+    private bool RefuseWhileBusy()
+    {
+        if (!Gate.IsBusy) return false;
+        ShowMessage(OneTaskTitle, BusyMessage(Gate.Reason));
+        return true;
+    }
+
+    /// <summary>"Available when Clean finishes. PC Tidy does one change at a time…"</summary>
+    public static string BusyMessage(string? reason)
+        => $"{reason ?? RunGate.BusyReason}. PC Tidy does one change at a time, so nothing new was started. Try again when it's done.";
+
+    /// <summary>Waits until no long task is going (runs the user already approved, such as watch-folder rules, queue up).</summary>
+    private async Task WhenGateFreeAsync(CancellationToken ct)
+    {
+        while (Gate.IsBusy)
+        {
+            var free = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void OnChanged(object? s, EventArgs e) { if (!Gate.IsBusy) free.TrySetResult(); }
+            Gate.Changed += OnChanged;
+            try
+            {
+                if (!Gate.IsBusy) return;
+                await free.Task.WaitAsync(ct);
+            }
+            finally { Gate.Changed -= OnChanged; }
+        }
+    }
+
+    /// <summary>Raised on the UI thread after a run, an undo, a resume or a roll back finished (the rail's counters refresh).</summary>
+    public event Action? RunsChanged;
+
+    private sealed class WorkScope(FlowHost host, IDisposable gate) : IDisposable
     {
         private bool _done;
         public void Dispose()
         {
             if (_done) return;
             _done = true;
-            if (--host._activeRuns == 0) host._idle.TrySetResult();
+            gate.Dispose();
+            if (--host._activeRuns == 0)
+            {
+                host._idle.TrySetResult();
+                try { host.RunsChanged?.Invoke(); }
+                catch (Exception ex) { CrashHandler.Write(ex, "Updating after a run", terminating: false); }
+            }
         }
     }
 
@@ -98,8 +150,13 @@ public sealed class FlowHost : IShellFlowHost
         => !OnUiThread ? await OnUi(() => SimulateAsync(plan, ct)) : (await SimulateAsync(new[] { plan }, new FlowOptions { Title = plan.Title, ShowResult = true }, ct)).FirstOrDefault();
 
     /// <summary>Safe from any thread (watch-folder rules call it from a background thread).</summary>
+    /// <remarks>An approved run waits for the task in progress to finish (it is queued, not refused).</remarks>
     public async Task<RunRecord?> RunApprovedAsync(ActionPlan plan, CancellationToken ct)
-        => !OnUiThread ? await OnUi(() => RunApprovedAsync(plan, ct)) : (await ExecuteAsync(new[] { plan }, ExecutionMode.Real, plan.Title, showProgress: false, ct)).FirstOrDefault();
+    {
+        if (!OnUiThread) return await OnUi(() => RunApprovedAsync(plan, ct));
+        await WhenGateFreeAsync(ct);
+        return (await ExecuteAsync(new[] { plan }, ExecutionMode.Real, plan.Title, plan.Title, showProgress: false, ct)).FirstOrDefault();
+    }
 
     // ---------------- IShellFlowHost ----------------
 
@@ -112,6 +169,7 @@ public sealed class FlowHost : IShellFlowHost
             ShowMessage("Nothing selected", "Tick at least one item first.");
             return FlowOutcome.Cancelled;
         }
+        if (RefuseWhileBusy()) return FlowOutcome.Cancelled;
         bool suggest = Settings.SuggestSimulationOnFirstUse;
         ConfirmResult confirm;
         await _dialogGate.WaitAsync(ct);
@@ -126,11 +184,14 @@ public sealed class FlowHost : IShellFlowHost
                 var sim = await SimulateAsync(plans, options, ct);
                 return new FlowOutcome(FlowOutcomeKind.Simulated, sim);
         }
+        // Something else may have started while the dialog was open (a watch-folder rule, another page's button).
+        if (RefuseWhileBusy()) return FlowOutcome.Cancelled;
 
         var runTitle = confirm.Plans.Count == 1 ? $"{confirm.Plans[0].Title}: working on it…" : "Working through every section…";
+        var gateName = confirm.Plans.Count == 1 ? confirm.Plans[0].Title : "the current run";
         // PC Tidy's own switches (right-click menu, start with Windows) change nothing worth measuring.
         bool measure = confirm.Plans.Any(p => p.FeatureId != WhatIs.ShellVerbs.FeatureId);
-        var records = await ExecuteAsync(confirm.Plans, ExecutionMode.Real, runTitle, showProgress: true, ct, measure);
+        var records = await ExecuteAsync(confirm.Plans, ExecutionMode.Real, runTitle, gateName, showProgress: true, ct, measure, options.RestartItemIds);
         if (records.Count == 0) return FlowOutcome.Cancelled;
         if (suggest)
         {
@@ -167,7 +228,8 @@ public sealed class FlowHost : IShellFlowHost
     public async Task<IReadOnlyList<RunRecord>> SimulateAsync(IReadOnlyList<ActionPlan> plans, FlowOptions options, CancellationToken ct)
     {
         if (!OnUiThread) return await OnUi(() => SimulateAsync(plans, options, ct));
-        var records = await ExecuteAsync(SafeOrder.Sort(plans), ExecutionMode.Simulate, "Simulating, nothing changes…", showProgress: true, ct);
+        if (RefuseWhileBusy()) return Array.Empty<RunRecord>();
+        var records = await ExecuteAsync(SafeOrder.Sort(plans), ExecutionMode.Simulate, "Simulating, nothing changes…", "the simulation", showProgress: true, ct);
         if (options.ShowResult && records.Count > 0)
         {
             var view = new SimulationReportView { Height = 480, ShowActions = false };
@@ -182,6 +244,7 @@ public sealed class FlowHost : IShellFlowHost
         if (!OnUiThread) return await OnUi(() => UndoRunsAsync(runs, ct));
         var undoable = runs.Where(r => r.Mode == ExecutionMode.Real && r.Status is not (RunStatus.Undone or RunStatus.RolledBack)).ToList();
         if (undoable.Count == 0) return false;
+        if (RefuseWhileBusy()) return false;
         int steps = undoable.Sum(r => r.Steps.Count(s => s.Status == StepStatus.Done && s.Item.Reversible));
         var ask = new ContentDialog(_window.DialogHost)
         {
@@ -193,9 +256,10 @@ public sealed class FlowHost : IShellFlowHost
             DefaultButton = ContentDialogButton.Primary,
         };
         if (await ShowDialogAsync(ask) != ContentDialogResult.Primary) return false;
+        if (RefuseWhileBusy()) return false; // something started while the question was open
 
         var undo = _services.Get<IUndoEngine>();
-        using var working = Working();
+        using var working = Working("the undo");
         _window.ShowProgress("Putting things back…", canStop: false);
         var reports = new List<UndoReport>();
         try
@@ -225,7 +289,9 @@ public sealed class FlowHost : IShellFlowHost
 
     public async Task<bool> ResumeAsync(RunRecord run)
     {
-        using var working = Working();
+        if (!OnUiThread) return await OnUi(() => ResumeAsync(run));
+        if (RefuseWhileBusy()) return false;
+        using var working = Working("the resumed run");
         _window.ShowProgress("Finishing the run…", canStop: false);
         try
         {
@@ -239,7 +305,9 @@ public sealed class FlowHost : IShellFlowHost
 
     public async Task<bool> RollbackAsync(RunRecord run)
     {
-        using var working = Working();
+        if (!OnUiThread) return await OnUi(() => RollbackAsync(run));
+        if (RefuseWhileBusy()) return false;
+        using var working = Working("the roll back");
         _window.ShowProgress("Rolling back…", canStop: false);
         try
         {
@@ -249,6 +317,14 @@ public sealed class FlowHost : IShellFlowHost
         }
         catch (Exception ex) { ShowMessage("Couldn't roll back", ex.Message, isError: true); return false; }
         finally { _window.HideProgress(); }
+    }
+
+    /// <summary>Opens a page and hands it a parameter (History selects the run of a <see cref="HistoryOpenRequest"/>).</summary>
+    public void NavigateTo(string pageKey, object? parameter)
+    {
+        if (!OnUiThread) { _window.Dispatcher.BeginInvoke(() => NavigateTo(pageKey, parameter)); return; }
+        if (parameter is null) { NavigateTo(pageKey); return; }
+        _window.NavigateWithParameter(pageKey, parameter);
     }
 
     public void NavigateTo(string pageKey)
@@ -265,7 +341,8 @@ public sealed class FlowHost : IShellFlowHost
     /// <summary>
     /// Starts PC Tidy Rescue (next to PcTidy.exe, else the spare in the data folder). Process starts in the app and UI
     /// projects: this, <see cref="OpenInExplorer"/>, and PC Tidy's own verified installer / uninstaller after a final
-    /// confirm (<see cref="Updates.OwnProcesses"/>). Not in demo or practice
+    /// confirm (<see cref="Updates.OwnProcesses"/>), Windows' own System Restore window (rstrui.exe, History › Restore points) and the
+    /// read-only nvidia-smi temperature query of Home's Now card (<see cref="Pages.Now.NvidiaTemperature"/>). Not in demo or practice
     /// mode: Rescue works on the real data folder, which those modes must never touch.
     /// </summary>
     public void OpenRescueTool()
@@ -363,15 +440,25 @@ public sealed class FlowHost : IShellFlowHost
 
     /// <summary>Runs plans one after another in the given (safe) order, with the progress overlay.</summary>
     /// <param name="measure">Confirmed real runs: take the "before" sample for the before/after proof first.</param>
-    private async Task<IReadOnlyList<RunRecord>> ExecuteAsync(IReadOnlyList<ActionPlan> plans, ExecutionMode mode, string title, bool showProgress, CancellationToken ct, bool measure = false)
+    /// <param name="restartIds">Plan item ids the preview marked "needs a restart" (the overlay says so per section).</param>
+    /// <param name="gateName">Short name for the busy reason elsewhere ("Clean", "the simulation").</param>
+    private async Task<IReadOnlyList<RunRecord>> ExecuteAsync(IReadOnlyList<ActionPlan> plans, ExecutionMode mode, string title, string gateName, bool showProgress, CancellationToken ct, bool measure = false,
+        IReadOnlySet<string>? restartIds = null)
     {
         var executor = _services.Get<IExecutor>();
         var records = new List<RunRecord>();
+        // Real runs hold the one-long-task gate through Working(); a simulation holds it too (it uses the same overlay).
+        using var working = mode == ExecutionMode.Real ? Working(gateName) : null;
+        using var simulating = mode == ExecutionMode.Simulate ? Gate.Begin(gateName) : null;
         var stop = showProgress ? _window.ShowProgress(title, canStop: plans.Sum(p => p.Items.Count) > 1) : CancellationToken.None;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, stop);
-        using var working = mode == ExecutionMode.Real ? Working() : null;
         var previousStop = _stopCurrent;
         _stopCurrent = linked;
+        // Layout spec §4.3: per-section states (Waiting · Running · Done · Skipped · Needs restart) when there are several
+        // sections, and "Everything done so far is already saved and can be undone" during a real run.
+        var sections = new ProgressSections(plans.Select(p => p.Title));
+        if (showProgress) _window.ShowProgressSections(plans.Count > 1 ? sections : null, savedLine: mode == ExecutionMode.Real);
+        int current = -1;
         try
         {
             if (mode == ExecutionMode.Real && plans.Any(p => p.RequiresRestorePoint) && !await EnsureRestorePointAsync(showProgress))
@@ -384,12 +471,18 @@ public sealed class FlowHost : IShellFlowHost
                 if (showProgress) _window.SetProgressTitle(title);
             }
             var options = new ExecuteOptions { Mode = mode, ContinueWithoutRestorePoint = AskContinueWithoutRestorePointAsync, MetricsBefore = before };
-            foreach (var plan in plans)
+            for (int i = 0; i < plans.Count; i++)
             {
+                var plan = plans[i];
                 if (linked.IsCancellationRequested) break;
                 if (showProgress && plans.Count > 1) _window.SetProgressTitle($"{plan.Title}: working on it…");
+                current = i;
+                sections.Start(i);
                 var progress = new Progress<RunProgress>(p => { if (showProgress) _window.ReportProgress(p); });
-                records.Add(await Task.Run(() => executor.ExecuteAsync(plan, options, progress, linked.Token), CancellationToken.None));
+                var record = await Task.Run(() => executor.ExecuteAsync(plan, options, progress, linked.Token), CancellationToken.None);
+                records.Add(record);
+                sections.Finish(i, record, ProgressSections.NeedsRestart(record, restartIds));
+                current = -1;
             }
         }
         catch (OperationCanceledException) { /* stopped: what ran is journaled and undoable */ }
@@ -399,6 +492,8 @@ public sealed class FlowHost : IShellFlowHost
         }
         finally
         {
+            if (current >= 0) sections.Finish(current, null, needsRestart: false);
+            sections.StopRemaining();
             _stopCurrent = previousStop;
             if (showProgress) _window.HideProgress();
             // Feature pages store their options in AppSettings without saving; a run is a natural save point.
@@ -446,6 +541,8 @@ public sealed class FlowHost : IShellFlowHost
             UndoAfterYieldAsync(runs).Forget(this, "Undo didn't finish");
         };
         card.HistoryRequested += () => { dialog.Hide(); NavigateTo("history"); };
+        card.RunCheckLauncher = _services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
+        card.CheckRequested += _ => dialog.Hide(); // Measure opens behind it
         await ShowDialogAsync(dialog);
     }
 

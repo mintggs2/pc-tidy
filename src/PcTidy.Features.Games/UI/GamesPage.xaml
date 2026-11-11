@@ -28,7 +28,7 @@
             x:Name="Tabs"
             Grid.Row="1"
             Margin="0,14,0,14"
-            Items="Library|Clips &amp; screenshots|Optimize|Cleanup"
+            Items="Library|Clips &amp; screenshots|Optimize|Cleanup|Tips"
             Label="Games sections" />
 
         <ContentControl x:Name="TabHost" Grid.Row="2" Focusable="False" />

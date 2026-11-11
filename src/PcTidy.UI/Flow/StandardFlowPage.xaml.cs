@@ -63,12 +63,27 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         _done = new DoneCard(Shell?.QuarantineDays ?? settings?.QuarantineDays ?? 7);
         _done.UndoRequested += runs => UndoAsync(runs).Forget(Host, "Undo didn't finish");
         _done.HistoryRequested += () => Shell?.NavigateTo("history");
+        _done.RunCheckLauncher = services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
         DoneHost.Content = _done;
 
         SimulationState.BackRequested += () => SetState(FlowState.Preview);
         SimulationState.RunForRealRequested += () => RunAsync().Forget(Host);
 
+        // One long task at a time: Run and Simulate wait (and say so) while another run is going.
+        Gate = services.GetService(typeof(RunGate)) as RunGate ?? RunGate.Shared;
+        Loaded += (_, _) => { Gate.Changed -= OnGateChanged; Gate.Changed += OnGateChanged; UpdateSelectionBar(); };
+        Unloaded += (_, _) => Gate.Changed -= OnGateChanged;
+
         SetState(FlowState.Ready);
+    }
+
+    /// <summary>The one-long-task-at-a-time gate (<see cref="RunGate.Shared"/> unless the services bring their own).</summary>
+    public RunGate Gate { get; }
+
+    private void OnGateChanged(object? sender, EventArgs e)
+    {
+        if (Dispatcher.CheckAccess()) UpdateSelectionBar();
+        else Dispatcher.BeginInvoke(UpdateSelectionBar);
     }
 
     private IFlowHost? Host => _services.GetService(typeof(IFlowHost)) as IFlowHost;
@@ -301,10 +316,22 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
 
         PrimaryButton.Content = PlanFacts.PrimaryAction(actions);
         PrimaryButton.Icon = new SymbolIcon(PlanFacts.PrimaryIcon(c));
-        PrimaryButton.IsEnabled = c.HasWork;
-        SimulateButton.IsEnabled = c.HasWork;
+        // One long task at a time: while another run is going, the reason replaces the caption.
+        bool busy = Gate?.IsBusy == true;
+        string busyReason = Gate?.Reason ?? RunGate.BusyReason; // "Available when Clean finishes"
+        if (busy && c.HasWork) SelectedCaption.Text = busyReason;
+        PrimaryButton.IsEnabled = c.HasWork && !busy;
+        SimulateButton.IsEnabled = c.HasWork && !busy;
         AutomationProperties.SetName(PrimaryButton, PrimaryButton.Content as string ?? "Run");
+        AutomationProperties.SetHelpText(PrimaryButton, busy ? busyReason : "");
+        AutomationProperties.SetHelpText(SimulateButton, busy ? busyReason : "");
     }
+
+    /// <summary>Whether Run and Simulate can be pressed now (something ticked, and no other long task going).</summary>
+    public bool CanRunNow => PrimaryButton.IsEnabled;
+
+    /// <summary>The sticky bar's caption (the reason text while another task is going).</summary>
+    public string SelectionCaption => SelectedCaption.Text;
 
     private void OnSelectSafe(object sender, RoutedEventArgs e) => _model.Retick((_, _, i) => i.Item.Badge == Badge.Safe && i.Item.Actions.All(a => a.Reversible));
 
@@ -317,6 +344,7 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
     /// <summary>Confirm dialog → run → Done card (public for screenshots).</summary>
     public async Task RunAsync()
     {
+        if (Gate.IsBusy) return; // one long task at a time (the buttons say so)
         var plans = _model.BuildPlans(parentRunId: null);
         if (plans.Count == 0) return;
         var picked = PlanCounts.Of(plans.SelectMany(p => p.Items));
@@ -353,6 +381,7 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
     /// <summary>"What would happen" with nothing changed (public for screenshots).</summary>
     public async Task SimulateAsync()
     {
+        if (Gate.IsBusy) return;
         var plans = _model.BuildPlans(parentRunId: null);
         if (plans.Count == 0) return;
         try

@@ -30,6 +30,23 @@ public sealed class DoneCard : UserControl
     /// <summary>The user wants these runs undone (the page forwards to IShellFlowHost.UndoRunsAsync).</summary>
     public event Action<IReadOnlyList<RunRecord>>? UndoRequested;
     public event Action? HistoryRequested;
+    /// <summary>"Check if this helped" was clicked (raised before Measure opens, so a dialog around the card can close first).</summary>
+    public event Action<RunCheckRequest>? CheckRequested;
+
+    private IRunCheckLauncher? _runCheck;
+
+    /// <summary>
+    /// Opens Measure for "Check if this helped" (from the shell's services). Null, or not available, hides the link;
+    /// it is shown only for runs from Tweaks, Games, Speed and Services (<see cref="RunCheck.For"/>).
+    /// </summary>
+    public IRunCheckLauncher? RunCheckLauncher
+    {
+        get => _runCheck;
+        set { _runCheck = value; Build(); }
+    }
+
+    /// <summary>The run "Check if this helped" opens, or null when the link is hidden.</summary>
+    public RunCheckRequest? CheckRequest => new RunSummary(_runs).IsUndone ? null : RunCheck.For(_runs, _runCheck?.IsAvailable == true);
 
     public IReadOnlyList<RunRecord> Runs
     {
@@ -140,6 +157,22 @@ public sealed class DoneCard : UserControl
         history.Click += (_, _) => HistoryRequested?.Invoke();
         actions.Children.Add(history);
         stack.Children.Add(actions);
+
+        // "Check if this helped": Tweaks, Games, Speed and Services runs, when this build has Measure.
+        if (CheckRequest is { } runCheck)
+        {
+            var link = new System.Windows.Controls.Button { Content = RunCheck.LinkText, Margin = new Thickness(0, 12, 0, 0), HorizontalAlignment = HorizontalAlignment.Left };
+            link.SetResourceReference(StyleProperty, "LinkButton");
+            AutomationProperties.SetName(link, RunCheck.LinkText + ": open Measure for this run");
+            AutomationProperties.SetHelpText(link, RunCheck.LinkCaption);
+            link.Click += (_, _) =>
+            {
+                CheckRequested?.Invoke(runCheck);
+                _runCheck?.Open(runCheck);
+            };
+            stack.Children.Add(link);
+            stack.Children.Add(T(RunCheck.LinkCaption, "Caption", new Thickness(0, 2, 0, 0)));
+        }
 
         string rp = s.RestorePoint != null || s.HadSystemChange ? " " + s.RestorePointLine.TrimEnd('.') + "." : "";
         if (!s.IsUndone && s.AnyReversible)

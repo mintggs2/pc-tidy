@@ -89,19 +89,43 @@ public sealed class Executor : IExecutor
         return new WorkScope(this);
     }
 
-    private sealed class WorkScope(Executor owner) : IDisposable
+    private sealed class WorkScope(Executor owner, SemaphoreSlim? gate = null) : IDisposable
     {
         private int _done;
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _done, 1) == 0) Interlocked.Decrement(ref owner._activeWork);
+            if (Interlocked.Exchange(ref _done, 1) != 0) return;
+            Interlocked.Decrement(ref owner._activeWork);
+            gate?.Release();
         }
+    }
+
+    /// <summary>
+    /// One change at a time: a real run, an undo, a resume or a roll back waits here until the one in progress has
+    /// finished (in this process; the window, History, watch-folder rules and schedules all share one executor). Two of
+    /// them never interleave their steps, and an undo never starts on a run that is still going. Simulations change
+    /// nothing and don't wait.
+    /// </summary>
+    private readonly SemaphoreSlim _oneChangeAtATime = new(1, 1);
+
+    /// <summary>True while a real run, undo, resume or roll back holds the one-change-at-a-time gate.</summary>
+    public bool IsChanging => _oneChangeAtATime.CurrentCount == 0;
+
+    /// <summary>
+    /// Waits for the one-change-at-a-time gate, then marks work in progress; dispose to release both. Cancelling while
+    /// waiting throws <see cref="OperationCanceledException"/> before anything was started or journaled.
+    /// </summary>
+    internal async Task<IDisposable> BeginChangeAsync(CancellationToken ct)
+    {
+        await _oneChangeAtATime.WaitAsync(ct).ConfigureAwait(false);
+        Interlocked.Increment(ref _activeWork);
+        return new WorkScope(this, _oneChangeAtATime);
     }
 
     public async Task<RunRecord> ExecuteAsync(ActionPlan plan, ExecuteOptions options, IProgress<RunProgress>? progress, CancellationToken ct)
     {
         using var timings = EngineTimings.Attach(Timings);
-        using var work = BeginWork();
+        using var work = options.Mode == ExecutionMode.Real ? await BeginChangeAsync(ct).ConfigureAwait(false) : BeginWork();
         var created = await _journal.CreateAsync(plan, options.Mode, CancellationToken.None).ConfigureAwait(false);
         var session = new RunSession(_journal, created);
         try

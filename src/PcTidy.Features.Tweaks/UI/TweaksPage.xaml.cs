@@ -22,12 +22,60 @@ public partial class TweaksPage : UserControl, IFixedHeightPage
         {
             if (e.OldValue is TweaksViewModel old) old.ConfirmExpertMode = null;
             if (e.NewValue is TweaksViewModel vm) vm.ConfirmExpertMode = ConfirmExpertModeAsync;
+            OnLayoutWidth(this, EventArgs.Empty);
         };
+        Loaded += (_, _) =>
+        {
+            OnLayoutWidth(this, EventArgs.Empty);
+            if (Window.GetWindow(this) is { } w) { w.SizeChanged -= OnLayoutWidth; w.SizeChanged += OnLayoutWidth; }
+        };
+        Unloaded += (_, _) => { if (Window.GetWindow(this) is { } w) w.SizeChanged -= OnLayoutWidth; };
     }
 
     private void OnScanClick(object sender, RoutedEventArgs e)
     {
         if (DataContext is TweaksViewModel vm && vm.ScanCommand.CanExecute(null)) vm.ScanCommand.Execute(null);
+    }
+
+    // ------------------------------------------------------------------ view width (List below ~1100 px unless the user picked)
+
+    private void OnLayoutWidth(object? sender, EventArgs e)
+    {
+        if (DataContext is not TweaksViewModel vm) return;
+        var window = Window.GetWindow(this);
+        vm.SetWindowWidth(window?.ActualWidth > 0 ? window.ActualWidth : ActualWidth);
+    }
+
+    // ------------------------------------------------------------------ preset popover
+
+    private FrameworkElement? _presetButton;
+
+    /// <summary>A preset button opens the "what will change" popover under itself; nothing is ticked yet.</summary>
+    private void OnPresetClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not TweaksViewModel vm || sender is not FrameworkElement button || button.DataContext is not TweaksViewModel.PresetChoice choice) return;
+        _presetButton = button;
+        PresetPopup.PlacementTarget = button;
+        vm.PreviewPresetCommand.Execute(choice);
+    }
+
+    private void OnPresetPopupOpened(object? sender, EventArgs e)
+    {
+        // Keyboard users land on the main choice; Esc or Cancel closes without ticking.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (PresetConfirmButton.IsEnabled) PresetConfirmButton.Focus();
+            else (PresetPopup.Child as FrameworkElement)?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+        }, System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void OnPresetPopupClosed(object? sender, EventArgs e) => _presetButton?.Focus();
+
+    private void OnPresetPopupKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Escape || DataContext is not TweaksViewModel vm) return;
+        vm.CancelPresetCommand.Execute(null);
+        e.Handled = true;
     }
 
     /// <summary>Settings' Expert mode question, word for word. Without the shell's dialog host the switch just turns on.</summary>

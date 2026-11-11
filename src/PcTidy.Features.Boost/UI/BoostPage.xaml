@@ -148,8 +148,17 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Column="2">
+            <!--  The right column scrolls as a whole, so the "Good to know" cards fit at any height  -->
+            <ScrollViewer
+                x:Name="RightColumn"
+                Grid.Column="2"
+                Focusable="False"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+            <Grid Margin="0,0,4,0">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="16" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="16" />
                     <RowDefinition Height="Auto" />
@@ -294,7 +303,48 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
+
+                <!--  Good to know: text-only cards with measured numbers (C12, C1, C7). Nothing here changes anything.  -->
+                <Border Grid.Row="4" AutomationProperties.Name="Good to know" Style="{StaticResource TidyCard}">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource CardTitle}" Text="Good to know" />
+                        <TextBlock
+                            Margin="0,4,0,4"
+                            Style="{StaticResource Caption}"
+                            Text="Measured numbers, each with the PC it was measured on and its source. Your PC may differ."
+                            TextWrapping="Wrap" />
+                        <ItemsControl x:Name="TipsList" Focusable="False" ItemsSource="{Binding Tips}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type local:TipCard}">
+                                    <Expander
+                                        Margin="0,6,0,0"
+                                        AutomationProperties.Name="{Binding AutomationName}"
+                                        Header="{Binding Title}">
+                                        <StackPanel Margin="0,4,0,4">
+                                            <TextBlock Style="{StaticResource Secondary}" Text="{Binding Summary}" TextWrapping="Wrap" />
+                                            <ItemsControl Margin="0,4,0,0" Focusable="False" ItemsSource="{Binding Points}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Margin="0,2,0,0" Style="{StaticResource Body}" Text="{Binding}" TextWrapping="Wrap" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <ItemsControl Margin="0,4,0,0" Focusable="False" ItemsSource="{Binding Measured}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Margin="0,4,0,0" Style="{StaticResource Caption}" Text="{Binding}" TextWrapping="Wrap" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Expander>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
             </Grid>
+            </ScrollViewer>
         </Grid>
     </Grid>
 </UserControl>

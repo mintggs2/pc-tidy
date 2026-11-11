@@ -24,6 +24,15 @@ public interface IInsightsSource
     SecurityFacts ReadSecurity();
     /// <summary>Which shared runtimes games and apps ask for are present (file and folder checks only).</summary>
     RuntimeFacts ReadRuntimes();
+    /// <summary>The processor's brand string ("AMD Ryzen 7 9700X 8-Core Processor"); null when it can't be read.</summary>
+    string? ReadCpuName();
+    /// <summary>The active power plan's GUID in lower case; null when it can't be read.</summary>
+    string? ReadActivePowerPlan();
+    /// <summary>
+    /// Everything the System info window lists. Only names, sizes, speeds and versions are read: never serial numbers,
+    /// MAC or IP addresses, UUIDs, product keys, the computer name or user names.
+    /// </summary>
+    InventoryFacts ReadInventory();
 }
 
 /// <summary>Why a read gave nothing (shown as "Not available on this PC" or "Needs admin").</summary>
@@ -109,4 +118,46 @@ public sealed record RuntimeFacts
     public TriState DirectX9Extras { get; init; }
     /// <summary>.NET Desktop Runtime major versions installed (folders under Program Files\dotnet\shared\Microsoft.WindowsDesktop.App).</summary>
     public IReadOnlyList<int> DotNetDesktopVersions { get; init; } = Array.Empty<int>();
+    /// <summary>
+    /// False when the .NET folder couldn't be read: then <see cref="DotNetDesktopVersions"/> is empty but means "couldn't
+    /// check", not "none", and no .NET install is offered (code review L5).
+    /// </summary>
+    public bool DotNetKnown { get; init; } = true;
+    /// <summary>winget (App Installer) is present for this user: its app execution alias exists in the WindowsApps folder.</summary>
+    public bool WingetPresent { get; init; }
 }
+
+// ------------------------------------------------------------------ System info (read-only inventory)
+
+/// <summary>Hardware the System info window lists. Each list is empty, and each record null, when it couldn't be read.</summary>
+public sealed record InventoryFacts
+{
+    public CpuInventory? Cpu { get; init; }
+    public BoardInventory? Board { get; init; }
+    public IReadOnlyList<MemoryInventory> Memory { get; init; } = Array.Empty<MemoryInventory>();
+    /// <summary>Memory slots on the board (0 = unknown).</summary>
+    public int MemorySlots { get; init; }
+    public IReadOnlyList<GpuInventory> Gpus { get; init; } = Array.Empty<GpuInventory>();
+    public IReadOnlyList<DiskInventory> Disks { get; init; } = Array.Empty<DiskInventory>();
+    public IReadOnlyList<NetworkInventory> Network { get; init; } = Array.Empty<NetworkInventory>();
+}
+
+public sealed record CpuInventory(string Name, int Cores, int Threads, int MaxMhz, int L2Kb, int L3Kb, string Socket);
+
+/// <summary>The PC and board makers and the firmware version (no serial numbers, UUIDs or asset tags).</summary>
+public sealed record BoardInventory(string SystemMaker, string SystemModel, string BoardMaker, string BoardModel, string BiosVendor, string BiosVersion, DateTime? BiosDate);
+
+/// <summary>One memory module: slot, size, speeds, maker and part number (never the serial number).</summary>
+public sealed record MemoryInventory(string Slot, long CapacityBytes, int ConfiguredMts, int RatedMts, string Maker, string PartNumber);
+
+public sealed record GpuInventory(string Name, string DriverVersion, DateTime? DriverDate, long MemoryBytes);
+
+public enum DiskMedia { Unknown, Ssd, Hdd }
+
+/// <summary>A physical disk: model, size, SSD or hard disk, and the bus ("NVMe", "SATA", "USB").</summary>
+public sealed record DiskInventory(string Model, long SizeBytes, DiskMedia Media, string Bus);
+
+public enum NetworkKind { Ethernet, WiFi, Bluetooth, Other }
+
+/// <summary>A physical network adapter: its name, link speed and whether it's connected (never its MAC or IP address).</summary>
+public sealed record NetworkInventory(string Name, NetworkKind Kind, long SpeedBitsPerSecond, bool Connected);

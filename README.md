@@ -27,7 +27,7 @@ PC Tidy finds the clutter that builds up on a PC (temporary files, old caches, l
 | Group | Sections |
 |---|---|
 | **Clean up** | Disk cleanup · Space map · Duplicates and junk · Developer cleanup |
-| **Speed up** | Apps · Speed (startup, context menu, locked files) · Tweaks (evidence-based, with a bad-tweak finder) · Services · Drivers · Games · Game boost · PC care · Insights |
+| **Speed up** | Apps · Speed (startup, context menu, locked files) · Tweaks (evidence-based, with a bad-tweak finder and a "Doesn't help (measured)" shelf) · Services · Drivers · Games · Game boost · PC care (incl. Fixes) · Insights · Measure (compare before/after frame-time recordings) |
 | **Organize** | Organize files · Photos · Desktop tidy · Search · Move to drive · AI chats |
 | **You** | Ask PC Tidy (optional local AI) · Learned · Schedule and reports · Privacy sweep · Notifications |
 
@@ -50,7 +50,7 @@ You have two choices. Both are free.
 
 ### Option A: PC Tidy Setup (recommended)
 
-1. Download **`PC Tidy Setup 3.0.0.exe`** and leave it in your normal **Downloads** folder. Run it from there (not from a shared, network or temporary folder, and not from a folder other programs put files in).
+1. Download **`PC-Tidy-Setup-3.1.0.exe`** and leave it in your normal **Downloads** folder. Run it from there (not from a shared, network or temporary folder, and not from a folder other programs put files in).
 2. Double-click it. If you see a blue “Windows protected your PC” box, see [the next section](#windows-protected-your-pc).
 3. Click **Next**, choose your shortcuts and click **Install**.
 4. Windows asks for **admin permission once**: PC Tidy goes in `Program Files\PC Tidy` for everyone on this PC, so the parts of PC Tidy that run with admin rights can't be tampered with by other programs. PC Tidy itself then runs with your normal rights.
@@ -62,7 +62,7 @@ Installing a newer version later? Just run the new Setup: it updates PC Tidy in 
 
 ### Option B: portable zip
 
-1. Download **`PC Tidy 3.0.0 portable.zip`**.
+1. Download **`PC-Tidy-3.1.0-portable.zip`**.
 2. Right-click it, choose **Extract All…**, and pick a folder (for example `Documents\PC Tidy`).
 3. Double-click **`PcTidy.exe`**.
 
@@ -70,7 +70,7 @@ The portable version needs no admin rights at all and works the same for everyth
 
 **Portable copies can't run admin steps.** A few system cleanups and repairs need admin rights. PC Tidy only asks Windows for them when it runs from `Program Files`, where no other program can change its files; a portable folder could be changed by any program, which would then get those admin rights too. In a portable copy those steps are skipped with a note saying so: install with PC Tidy Setup to use them.
 
-**`PC Tidy Rescue 3.0.0.exe`** is also offered as a separate, single-file download of [PC Tidy Rescue](#pc-tidy-rescue), handy if PC Tidy won't start. Like a portable copy it can't undo steps that needed admin rights; the Rescue that Setup installs can.
+**`PC-Tidy-Rescue-3.1.0.exe`** is also offered as a separate, single-file download of [PC Tidy Rescue](#pc-tidy-rescue), handy if PC Tidy won't start. Like a portable copy it can't undo steps that needed admin rights; the Rescue that Setup installs can.
 
 ## “Windows protected your PC”
 
@@ -81,16 +81,16 @@ When you open PC Tidy Setup (or `PcTidy.exe`) for the first time, Windows may sh
 **To run it anyway:**
 
 1. Click **More info** (small text under the message).
-2. Check that the app name is `PC Tidy Setup 3.0.0.exe` (or `PcTidy.exe`).
+2. Check that the app name is `PC-Tidy-Setup-3.1.0.exe` (or `PcTidy.exe`).
 3. Click **Run anyway**.
 
-**Want to be sure your download is genuine?** Compare its fingerprint (SHA-256 checksum) with the one published in `SHA256SUMS.txt` next to the download. It lists all three downloads: the Setup exe, the portable zip and `PC Tidy Rescue 3.0.0.exe`. To check one:
+**Want to be sure your download is genuine?** Compare its fingerprint (SHA-256 checksum) with the one published in `SHA256SUMS.txt` next to the download. It lists all three downloads: the Setup exe, the portable zip and `PC-Tidy-Rescue-3.1.0.exe`. To check one:
 
 1. Open the folder with the download, click the address bar, type `powershell` and press Enter.
 2. Type this and press Enter (use your file's name):
 
    ```powershell
-   Get-FileHash ".\PC Tidy Setup 3.0.0.exe" -Algorithm SHA256
+   Get-FileHash ".\PC-Tidy-Setup-3.1.0.exe" -Algorithm SHA256
    ```
 
 3. The long code under **Hash** must be exactly the same as the one for that file in `SHA256SUMS.txt` (upper/lower case doesn't matter). If it isn't, don't run the file: download it again from the official page.
@@ -198,11 +198,11 @@ dotnet test PcTidy.sln                                    # all tests (they only
 dotnet run --project src\PcTidy.App -- --demo             # run with sample data
 dotnet run --project tools\PcTidy.TestbedGen -- generate testbed\try   # generate a fake messy PC
 dotnet run --project src\PcTidy.App -- --sandbox testbed\try           # run the app against it
-.\build-release.ps1                                       # release: publish\PC Tidy Setup <v>.exe, portable zip, PC Tidy Rescue <v>.exe, SHA256SUMS.txt
+.\build-release.ps1                                       # release: publish\PC-Tidy-Setup-<v>.exe, PC-Tidy-<v>-portable.zip, PC-Tidy-Rescue-<v>.exe, SHA256SUMS.txt
 ```
 
 - The version lives in `src\Directory.Build.props`.
-- `build-release.ps1` publishes the app, Rescue and Setup self-contained single-file for win-x64 (the app, Rescue and the installed `uninstall.exe` keep WPF's native DLLs next to the exe instead of unpacking them to `%TEMP%`, and have startup hooks switched off, because they also run with admin rights), appends the app payload to Setup (format documented in `src\PcTidy.Setup\Payload\PayloadFile.cs`), builds the standalone `PC Tidy Rescue <v>.exe` separately as one self-contained file (WPF's native DLLs inside, so it runs on its own; it never runs with admin rights, so its checksum differs from the Rescue inside the payload and the zip), writes `SHA256SUMS.txt` for the Setup exe, the portable zip and the standalone Rescue exe, and also builds `installer\PcTidy.iss` (per-machine, `PrivilegesRequired=admin`) if Inno Setup 6 is installed.
+- `build-release.ps1` publishes the app, Rescue and Setup self-contained single-file for win-x64 (the app, Rescue and the installed `uninstall.exe` keep WPF's native DLLs next to the exe instead of unpacking them to `%TEMP%`, and have startup hooks switched off, because they also run with admin rights), appends the app payload to Setup (format documented in `src\PcTidy.Setup\Payload\PayloadFile.cs`), builds the standalone `PC-Tidy-Rescue-<v>.exe` separately as one self-contained file (WPF's native DLLs inside, so it runs on its own; it never runs with admin rights, so its checksum differs from the Rescue inside the payload and the zip), writes `SHA256SUMS.txt` for the Setup exe, the portable zip and the standalone Rescue exe, and also builds `installer\PcTidy.iss` (per-machine, `PrivilegesRequired=admin`) if Inno Setup 6 is installed.
 - A developer build (`dotnet run`, `bin\`) is like a portable copy: admin steps are skipped. Test them from an installed build.
 - Tests never change the real PC: file tests run in `testbed\<area>\`, registry tests only under `HKCU\Software\PCTidyTest\<area>`.
 

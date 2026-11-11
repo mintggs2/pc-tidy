@@ -19,7 +19,8 @@ public static partial class TweakCatalog
     internal const string Tcpip = @"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters";
 
     private static readonly Lazy<IReadOnlyList<TweakDefinition>> _all = new(() =>
-        Gaming().Concat(Privacy()).Concat(Debloat()).Concat(UiExplorer()).Concat(Network()).Concat(Power()).ToList());
+        Gaming().Concat(Privacy()).Concat(Debloat()).Concat(UiExplorer()).Concat(Network()).Concat(Power()).Concat(Shelf())
+            .Select(WithMeasured).ToList());
 
     /// <summary>All tweaks, in page order (group, then table order).</summary>
     public static IReadOnlyList<TweakDefinition> All => _all.Value;

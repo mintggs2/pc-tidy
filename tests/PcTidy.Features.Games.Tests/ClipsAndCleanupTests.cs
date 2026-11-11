@@ -175,7 +175,7 @@ public class ClipsAndCleanupTests
         Assert.Equal(5000, fortniteLogs.SizeBytes);
         Assert.Contains("FortniteClient-Win64-Shipping", fortniteLogs.RequiresClosedApps!);
         var shader = result.AllItems.Single(i => i.Title == "Fortnite: shader cache");
-        Assert.Contains("Games rebuild this on first launch; that can take up to about an hour", shader.Reason);
+        Assert.Contains("Games rebuild this on first launch; that can take 1 to 2 hours", shader.Reason);
         Assert.All(result.AllItems, i => Assert.StartsWith("https://", i.Details!["Source"]));
     }
 

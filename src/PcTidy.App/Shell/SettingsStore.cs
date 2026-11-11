@@ -151,6 +151,8 @@ public sealed record ShellPrefs
     public const string Key = "shell";
     /// <summary>Home shows the health score with its reasons (owner asked for it; users can hide it).</summary>
     public bool ShowHealthScore { get; init; } = true;
+    /// <summary>Home shows the live "Now" card (CPU, GPU and RAM load, drive space). Off by default (layout spec §4.3).</summary>
+    public bool ShowNowCard { get; init; }
     /// <summary>Quarantine size cap in GB that PC Tidy suggests purging down to (asks first). 0 = no cap.</summary>
     public int QuarantineCapGb { get; init; } = 20;
 
@@ -188,4 +190,35 @@ public sealed record ShellPrefs
     /// </summary>
     public static string FriendlyLoadProblem(string problem)
         => System.Text.RegularExpressions.Regex.Replace(problem, @"\s*\([^)]*\)", "").Trim();
+}
+
+/// <summary>
+/// The shell's remembered screen state (not preferences): whether the rail's "More" is open, when History was last
+/// opened (for its rail counter), the Now card's folded state and chart, and the colour tags on restore points.
+/// Kept in <see cref="AppSettings.Features"/>["shellstate"] and left out of settings exports (it describes this PC).
+/// </summary>
+public sealed record ShellState
+{
+    public const string Key = "shellstate";
+
+    /// <summary>The rail's "More" group is open.</summary>
+    public bool RailMoreOpen { get; init; }
+    /// <summary>When History was last opened; null = never (then nothing counts as unseen).</summary>
+    public DateTime? HistoryViewedUtc { get; init; }
+    /// <summary>The Now card is folded to its header.</summary>
+    public bool NowCollapsed { get; init; }
+    /// <summary>The Now card's 60-second line: "cpu" or "gpu".</summary>
+    public string NowChart { get; init; } = "cpu";
+    /// <summary>Colour tags on restore points (key = <see cref="Pages.RestorePointsModel.TagKey"/>, value = tag name).</summary>
+    public Dictionary<string, string> RestorePointTags { get; init; } = new();
+
+    public static ShellState Get(AppSettings s)
+    {
+        try { return s.GetFeature<ShellState>(Key) ?? new ShellState(); }
+        catch (System.Text.Json.JsonException) { return new ShellState(); }
+    }
+
+    public static void Set(AppSettings s, ShellState state) => s.SetFeature(Key, state);
+
+    public static void Update(AppSettings s, Func<ShellState, ShellState> change) => Set(s, change(Get(s)));
 }

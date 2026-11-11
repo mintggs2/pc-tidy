@@ -22,6 +22,18 @@ public static class EditArgs
     public const string IniSection = "games.iniSection";
     public const string IniKey = "games.iniKey";
     public const string IniValue = "games.iniValue";
+    /// <summary>On a merged launch-options edit: every Steam app id it changes, comma-separated (for "Reset to my backup").</summary>
+    public const string AppIds = "games.appIds";
+
+    /// <summary>The Steam app ids a launch-options edit changes (one, or several after a merge).</summary>
+    public static IReadOnlyList<string> AppIdsOf(IReadOnlyDictionary<string, string> args)
+    {
+        var ids = new List<string>();
+        if (args.TryGetValue(AppId, out var one) && one.Length > 0) ids.Add(one);
+        if (args.TryGetValue(AppIds, out var many))
+            ids.AddRange(many.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return ids.Distinct(StringComparer.Ordinal).ToList();
+    }
 }
 
 /// <summary>
@@ -157,6 +169,8 @@ public static class EditMerger
         foreach (var item in group) text = Apply(text, item.Args!) ?? throw new FileChangedException(first.SourcePath!);
 
         var args = new Dictionary<string, string> { [EditArgs.Kind] = first.Args![EditArgs.Kind], [EditArgs.Content] = text };
+        var appIds = group.SelectMany(i => EditArgs.AppIdsOf(i.Args!)).Distinct(StringComparer.Ordinal).ToList();
+        if (appIds.Count > 0) args[EditArgs.AppIds] = string.Join(",", appIds);
         return first with
         {
             Id = Guid.NewGuid().ToString("N"),

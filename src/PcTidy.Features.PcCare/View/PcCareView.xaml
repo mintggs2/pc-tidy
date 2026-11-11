@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:c="clr-namespace:PcTidy.UI.Controls;assembly=PcTidy.UI"
     xmlns:flow="clr-namespace:PcTidy.UI.Flow;assembly=PcTidy.UI"
+    xmlns:local="clr-namespace:PcTidy.Features.PcCare.View"
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     AutomationProperties.Name="PC care"
     FontFamily="{DynamicResource TidyText}">
@@ -183,6 +184,10 @@
             Icon="CheckmarkCircle24"
             Title="Nothing here"
             Visibility="Collapsed" />
+
+        <!--  Lag check and Fixes: their own panels (no scan needed, nothing to tick)  -->
+        <local:LagCheckPanel x:Name="LagPanel" Grid.Row="3" Visibility="Collapsed" />
+        <local:FixesPanel x:Name="FixPanel" Grid.Row="3" Visibility="Collapsed" />
 
         <!--  Sticky bottom bar  -->
         <Border x:Name="StickyBar" Grid.Row="4" Style="{DynamicResource StickyBar}" Visibility="Collapsed">

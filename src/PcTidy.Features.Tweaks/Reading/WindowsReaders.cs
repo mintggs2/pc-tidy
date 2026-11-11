@@ -99,13 +99,81 @@ public sealed partial class WindowsSystemProbe : ISystemProbe
         _unbound = new(ReadUnboundProtocols);
         _devices = new(DeviceReader.DisabledSystemDevices);
         _plans = new(PowerPlanReader.Read);
+        _congestion = new(ReadCongestionProviders);
+        _idle = new(() => (ReadProcessorSetting(ProcessorIdleDisable, ac: true), ReadProcessorSetting(ProcessorIdleDisable, ac: false)));
+        _webView2 = new(() => ReadWebView2(_registry));
     }
 
     private readonly Lazy<IReadOnlyList<DisabledDevice>?> _devices;
     private readonly Lazy<PowerPlanInfo?> _plans;
+    private readonly Lazy<IReadOnlyList<CongestionSetting>?> _congestion;
+    private readonly Lazy<(int? Ac, int? Dc)> _idle;
+    private readonly Lazy<bool?> _webView2;
 
     public IReadOnlyList<DisabledDevice>? DisabledSystemDevices => _devices.Value;
     public PowerPlanInfo? PowerPlans => _plans.Value;
+    public IReadOnlyList<CongestionSetting>? CongestionProviders => _congestion.Value;
+    public int? ProcessorIdleDisableAc => _idle.Value.Ac;
+    public int? ProcessorIdleDisableDc => _idle.Value.Dc;
+    public bool? WebView2Installed => _webView2.Value;
+
+    // ---- v3.1: TCP congestion provider (documented MSFT_NetTCPSetting.CongestionProvider) ----
+
+    /// <summary>
+    /// Every TCP setting template and its congestion provider. The provider is a number; its name comes from the class's own
+    /// ValueMap/Values qualifiers read at run time (never a number PC Tidy assumes), so an unknown code reads as null.
+    /// verify: "BBR2" is the name Windows 11 24H2 gives the provider.
+    /// </summary>
+    private static IReadOnlyList<CongestionSetting>? ReadCongestionProviders()
+    {
+        var rows = QueryOrNull(@"root\StandardCimv2", "SELECT SettingName, CongestionProvider FROM MSFT_NetTCPSetting",
+            o => (Name: o["SettingName"] as string, Code: Number(o["CongestionProvider"])));
+        if (rows is null) return null;
+        var names = CongestionProviderNames();
+        return rows.Where(r => r.Name is { Length: > 0 })
+            .Select(r => new CongestionSetting(r.Name!, r.Code is { } c && names.TryGetValue(c, out var n) ? n : null))
+            .ToList();
+    }
+
+    private static IReadOnlyDictionary<int, string> CongestionProviderNames()
+    {
+        var map = new Dictionary<int, string>();
+        try
+        {
+            var scope = new ManagementScope(@"\\.\root\StandardCimv2", new ConnectionOptions { Timeout = TimeSpan.FromSeconds(10) });
+            using var cls = new ManagementClass(scope, new ManagementPath("MSFT_NetTCPSetting"), new ObjectGetOptions { UseAmendedQualifiers = true });
+            var qualifiers = cls.Properties["CongestionProvider"].Qualifiers;
+            if (qualifiers["ValueMap"].Value is not string[] codes || qualifiers["Values"].Value is not string[] values) return map;
+            for (var i = 0; i < Math.Min(codes.Length, values.Length); i++)
+                if (int.TryParse(codes[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out var code) && values[i] is { Length: > 0 } v)
+                    map[code] = v.Trim();
+        }
+        catch (Exception ex) when (ex is ManagementException or COMException or UnauthorizedAccessException or ArgumentException or TimeoutException)
+        {
+            // No names: every provider reads as unknown, so nothing is flagged.
+        }
+        return map;
+    }
+
+    // ---- v3.1: WebView2 runtime (Microsoft's documented detection: the EdgeUpdate client key's "pv" value) ----
+
+    /// <summary>The Evergreen WebView2 Runtime's client id (Microsoft's WebView2 distribution docs). verify on a clean VM.</summary>
+    internal const string WebView2ClientKey = @"Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+
+    /// <summary>True when "pv" names a real version in any of the three places Microsoft lists; false when none does.</summary>
+    internal static bool? ReadWebView2(IRegistryReader registry)
+    {
+        var places = new (RegistryHive Hive, string Key)[]
+        {
+            (RegistryHive.LocalMachine, @"SOFTWARE\WOW6432Node\" + WebView2ClientKey),
+            (RegistryHive.LocalMachine, @"SOFTWARE\" + WebView2ClientKey),
+            (RegistryHive.CurrentUser, @"Software\" + WebView2ClientKey),
+        };
+        foreach (var (hive, key) in places)
+            if (registry.Read(hive, key, "pv") is { Kind: RegistryKind.String or RegistryKind.ExpandString, Data: { Length: > 0 } pv } && pv.Trim() != "0.0.0.0")
+                return true;
+        return false;
+    }
 
     public CpuKind CpuKind => _cpu.Value;
     public bool IsDomainJoined => _domain.Value;
@@ -277,6 +345,34 @@ public sealed partial class WindowsSystemProbe : ISystemProbe
 
     private static readonly Guid ProcessorSubgroup = new("54533251-82be-4824-96c1-47b60b740d00");
     private static readonly Guid CoreParkingMinCores = new("0cc5b647-c1df-4637-891a-dec35c318583");
+    /// <summary>GUID_PROCESSOR_IDLE_DISABLE (WinNT.h, Microsoft's power setting GUIDs): 1 = idle states off.</summary>
+    private static readonly Guid ProcessorIdleDisable = new("5d76a2ca-e8c0-402f-a133-2158492d58ad");
+
+    /// <summary>One processor setting of the active plan (read-only power API); null when it can't be read.</summary>
+    private static int? ReadProcessorSetting(Guid setting, bool ac)
+    {
+        try
+        {
+            if (PowerGetActiveScheme(IntPtr.Zero, out var scheme) != 0 || scheme == IntPtr.Zero) return null;
+            try
+            {
+                var scheme1 = Marshal.PtrToStructure<Guid>(scheme);
+                var sub = ProcessorSubgroup;
+                var s = setting;
+                var result = ac
+                    ? PowerReadACValueIndex(IntPtr.Zero, ref scheme1, ref sub, ref s, out var value)
+                    : PowerReadDCValueIndex(IntPtr.Zero, ref scheme1, ref sub, ref s, out value);
+                return result == 0 ? (int)value : null;
+            }
+            finally { LocalFree(scheme); }
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    [DllImport("powrprof.dll")] private static extern uint PowerReadDCValueIndex(IntPtr rootPowerKey, ref Guid schemeGuid, ref Guid subGroupOfPowerSettingsGuid, ref Guid powerSettingGuid, out uint dcValueIndex);
 
     private static int? ReadCoreParking()
     {

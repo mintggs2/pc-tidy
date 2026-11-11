@@ -150,6 +150,47 @@ public sealed record GuidanceChange(string Steps, string? SettingsUri = null) : 
     public override string Describe() => Steps;
 }
 
+// ------------------------------------------------------------------ measured evidence
+
+/// <summary>
+/// Evidence strength from the FPS research ("FPS boost tweaks - do they work.md" §4): A = vendor docs or a controlled test,
+/// B = a repeated independent test, C = one uncontrolled test or a forum result, D = no test found. D means "no evidence it
+/// helps", never "proven zero".
+/// </summary>
+public enum EvidenceStrength { A, B, C, D }
+
+/// <summary>
+/// One measured result behind a row (build list C10, "Doesn't help (measured)"): the key number as the research table states it,
+/// the hardware it was measured on, and the source with its date. Copied from the research, never rounded or generalised.
+/// </summary>
+/// <param name="Number">The key number text, e.g. "6.1 vs 6.0 ms". For untested rows: what the research found ("no test found").</param>
+/// <param name="Hardware">CPU/GPU/OS of the test, "Microsoft documentation" for doc-only rows, or "no test found".</param>
+/// <param name="Source">Who published it, e.g. "PCWorld" or "Microsoft Learn: MMCSS".</param>
+/// <param name="SourceDate">The source's date as the research gives it (yyyy, yyyy-mm, yyyy-mm-dd) or "undated".</param>
+/// <param name="Strength">Strength of the evidence for a speed effect (the weakest letter when the table gives two).</param>
+public sealed record MeasuredNote(string Number, string Hardware, string Source, string SourceDate, EvidenceStrength Strength)
+{
+    /// <summary>The strength cell exactly as the table writes it, e.g. "A (doc) / D".</summary>
+    public string? StrengthText { get; init; }
+    /// <summary>The research only saw this number in a search snippet (tagged "(snippet)" there).</summary>
+    public bool Snippet { get; init; }
+
+    /// <summary>Plain English for the strength (UI review L8): A strong, B good, C some, D weak evidence.</summary>
+    public string StrengthLabel => Strength switch
+    {
+        EvidenceStrength.A => "strong evidence",
+        EvidenceStrength.B => "good evidence",
+        EvidenceStrength.C => "some evidence",
+        _ => "weak evidence",
+    };
+
+    /// <summary>The research table's grade, kept for Details: "grade A (doc) / D".</summary>
+    public string StrengthGrade => "grade " + (StrengthText ?? Strength.ToString());
+
+    /// <summary>"6.1 vs 6.0 ms · 9800X3D + RTX 5070 Ti, CS2 · CS2 Kitchen, 2026-07-12 · good evidence".</summary>
+    public string Describe() => $"{Number}{(Snippet ? " (snippet)" : "")} · {Hardware} · {Source}, {SourceDate} · {StrengthLabel}";
+}
+
 // ------------------------------------------------------------------ the tweak
 
 /// <summary>One row of the tweak table.</summary>
@@ -176,6 +217,23 @@ public sealed record TweakDefinition
     public bool PresetDefault { get; init; }
     /// <summary>False for Store-app removal (reinstall to undo).</summary>
     public bool Reversible { get; init; } = true;
+    /// <summary>
+    /// Measured results from the FPS research. Every placebo ("Doesn't help") row has at least one; offered rows carry theirs
+    /// where the research has a number.
+    /// </summary>
+    public IReadOnlyList<MeasuredNote> Measured { get; init; } = Array.Empty<MeasuredNote>();
+
+    /// <summary>A "Doesn't help (measured)" shelf row: greyed, never ticked, never planned.</summary>
+    public bool IsShelf => Verdict == TweakVerdict.Placebo;
+
+    /// <summary>
+    /// The shelf wording: "Doesn't help (measured)" when some note has A-C evidence, "No evidence it helps" when every note is D
+    /// (no test found is not a measured zero).
+    /// </summary>
+    public string ShelfLabel => Measured.Count > 0 && Measured.All(m => m.Strength == EvidenceStrength.D) ? NoEvidenceLabel : DoesntHelpLabel;
+
+    public const string DoesntHelpLabel = "Doesn't help (measured)";
+    public const string NoEvidenceLabel = "No evidence it helps";
 
     public bool IsOffered => Verdict is TweakVerdict.Proven or TweakVerdict.Situational;
     public bool IsExpertOnly => Flags.HasFlag(TweakFlags.ExpertOnly);

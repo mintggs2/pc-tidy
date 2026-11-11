@@ -50,10 +50,10 @@ public static class GameCleanupTargets
     public const string SteamShaderCacheSource = "https://help.steampowered.com/";
 
     /// <summary>
-    /// Shader caches are never ticked for you (Community tweaks §9.7: a full shader compile took about an hour in the worst
-    /// measured game). Shown on every shader-cache row and on the group.
+    /// Shader caches are never ticked for you (card C9: Digital Foundry measured about an hour of compiling and about 16 GB
+    /// of cache in the worst game; other tools warn of up to 2 hours). Shown on every shader-cache row and on the group.
     /// </summary>
-    public const string ShaderRebuildWarning = "Games rebuild this on first launch; that can take up to about an hour, and the game may stutter until it's done.";
+    public const string ShaderRebuildWarning = "Games rebuild this on first launch; that can take 1 to 2 hours, and the game stutters until it's done.";
 
     /// <summary>Plain-English reason per kind. Shader caches carry the stutter warning (Plan §7 #12, T9 PSO note).</summary>
     public static string ReasonFor(CleanupKind kind, string game) => kind switch

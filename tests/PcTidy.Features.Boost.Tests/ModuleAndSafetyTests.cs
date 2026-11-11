@@ -88,6 +88,10 @@ public class ModuleAndSafetyTests
                     page.Arrange(new System.Windows.Rect(0, 0, 1000, 700));
                     page.UpdateLayout();
                     Assert.True(page.DesiredSize.Width <= 1000);
+                    // "Good to know" cards: text only, C12 (closing background apps) first.
+                    var tips = (System.Windows.Controls.ItemsControl)page.FindName("TipsList");
+                    var cards = tips.Items.Cast<PcTidy.Features.Boost.UI.TipCard>().ToList();
+                    Assert.Equal(new[] { "C12", "C1", "C7" }, cards.Select(c => c.Id));
                 }
             }
             catch (Exception ex) { failure = ex; }

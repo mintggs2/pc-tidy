@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PcTidy.Features.Tweaks.Tweaks;
 using PcTidy.UI.Flow;
 
 namespace PcTidy.Features.Tweaks.UI;
@@ -20,13 +21,19 @@ public sealed partial class TweaksViewModel : ObservableObject
     private readonly AppSettings _settings;
     private List<TweakItemRow> _tweakRows = new();
     private List<TweakItemRow> _finderRows = new();
-    private List<(TweakHeaderRow Header, List<TweakItemRow> Rows)> _tweakSections = new();
     private List<(TweakHeaderRow Header, List<TweakItemRow> Rows)> _finderSections = new();
     private CancellationTokenSource? _scanCts;
     private IReadOnlyList<string> _tweakNotes = Array.Empty<string>();
     private IReadOnlyList<string> _finderNotes = Array.Empty<string>();
     private bool _rescanTweaks;
     private readonly SynchronizationContext? _ui = SynchronizationContext.Current;
+    private TweakChip _chip = TweakChip.All;
+    private bool _viewChosen;
+
+    /// <summary>Key of the page's view preferences in <see cref="AppSettings.Features"/> (the shell saves settings).</summary>
+    public const string PrefsKey = "tweaks.view";
+    /// <summary>Below this window width the page starts in List view unless the user picked a view (layout spec §4.1).</summary>
+    public const double CardsMinWidth = 1100;
 
     public TweaksViewModel(IServiceProvider services, TweaksModule module)
     {
@@ -34,7 +41,28 @@ public sealed partial class TweaksViewModel : ObservableObject
         _module = module;
         _settings = services.Get<AppSettings>();
         Presets = TweakPresets.All.Select(p => new PresetChoice(p.Preset, p.Title, p.Description + " " + p.Excluded)).ToList();
+        Chips = TweakFilters.ChipOrder.Select(c => new ChipItem(c, SelectChip)).ToList();
+        Chips[0].SetSelectedQuietly(true);
+        var prefs = LoadPrefs();
+        if (prefs?.View is "Cards" or "List")
+        {
+            _viewChosen = true;
+            _viewIndex = prefs.View == "Cards" ? 1 : 0;
+        }
         UpdateSelection();
+    }
+
+    /// <summary>The page's per-user view choice, stored with the other settings (<see cref="AppSettings.SetFeature{T}"/>).</summary>
+    public sealed class ViewPrefs
+    {
+        /// <summary>"List" or "Cards"; null = not picked yet (List below <see cref="CardsMinWidth"/>).</summary>
+        public string? View { get; set; }
+    }
+
+    private ViewPrefs? LoadPrefs()
+    {
+        try { return _settings.GetFeature<ViewPrefs>(PrefsKey); }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or NotSupportedException) { return null; }
     }
 
     private IFlowHost? Flow => _services.GetService(typeof(IFlowHost)) as IFlowHost;
@@ -63,6 +91,113 @@ public sealed partial class TweaksViewModel : ObservableObject
     public bool IsTweaksTab => Tab == TweaksTab;
     public bool ShowExpertWarning => ExpertMode && IsTweaksTab;
     public bool ShowEmpty => HasScanned && !IsScanning && Rows.Count == 0;
+
+    // ------------------------------------------------------------------ search, chips, sort, view (layout spec §4.1)
+
+    /// <summary>Category chips with counts (All · Gaming · Privacy · Interface · Network · Power · Doesn't help · Expert).</summary>
+    public IReadOnlyList<ChipItem> Chips { get; }
+    public TweakChip SelectedChip => _chip;
+    /// <summary>The Tweaks tab's sections for Cards view (List view uses <see cref="Rows"/>).</summary>
+    public ObservableCollection<TweakSection> Sections { get; } = new();
+    public IReadOnlyList<string> SortOptions { get; } = Enum.GetValues<TweakSort>().Select(TweakFilters.SortTitle).ToList();
+
+    [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private int _sortIndex;
+    [ObservableProperty] private int _viewIndex;
+    /// <summary>"7 of 31 on": counted from the scan's read-back (same rule as the rail badge).</summary>
+    [ObservableProperty] private string _counterText = "";
+    [ObservableProperty] private string _counterAutomationName = "";
+    [ObservableProperty] private PresetPreview? _presetPreview;
+    [ObservableProperty] private bool _isPresetPopoverOpen;
+
+    public TweakSort Sort => (TweakSort)Math.Clamp(SortIndex, 0, 2);
+    public bool IsCardView => ViewIndex == 1;
+    public bool ShowCards => HasScanned && IsTweaksTab && IsCardView;
+    public bool ShowList => HasScanned && !ShowCards;
+    public bool HasCounter => CounterText.Length > 0 && IsTweaksTab;
+
+    partial void OnSearchTextChanged(string value) => RefreshTweaks();
+    partial void OnSortIndexChanged(int value) => RefreshTweaks();
+
+    partial void OnViewIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCardView));
+        OnPropertyChanged(nameof(ShowCards));
+        OnPropertyChanged(nameof(ShowList));
+        OnPropertyChanged(nameof(ViewChoice));
+    }
+
+    /// <summary>The List | Cards switch: a user pick (remembered); <see cref="SetWindowWidth"/> changes <see cref="ViewIndex"/> only.</summary>
+    public int ViewChoice
+    {
+        get => ViewIndex;
+        set { if (value != ViewIndex) ChooseView(value); }
+    }
+
+    partial void OnCounterTextChanged(string value) => OnPropertyChanged(nameof(HasCounter));
+
+    /// <summary>The user picked List or Cards: remember it for next time (stored in settings, which the shell saves).</summary>
+    public void ChooseView(int index)
+    {
+        _viewChosen = true;
+        ViewIndex = index == 1 ? 1 : 0;
+        try { _settings.SetFeature(PrefsKey, new ViewPrefs { View = IsCardView ? "Cards" : "List" }); }
+        catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException) { /* kept in memory for this session */ }
+    }
+
+    /// <summary>Called with the window width: until the user picks a view, Cards on wide windows and List below ~1100 px.</summary>
+    public void SetWindowWidth(double width)
+    {
+        if (_viewChosen || width <= 0 || double.IsNaN(width)) return;
+        ViewIndex = width >= CardsMinWidth ? 1 : 0;
+    }
+
+    private void SelectChip(TweakChip chip)
+    {
+        _chip = chip;
+        foreach (var c in Chips) c.SetSelectedQuietly(c.Chip == chip);
+        OnPropertyChanged(nameof(SelectedChip));
+        RefreshTweaks();
+    }
+
+    /// <summary>Picks a chip (tests and keyboard shortcuts).</summary>
+    public void SelectChipCommandless(TweakChip chip) => SelectChip(chip);
+
+    /// <summary>Rebuilds the Tweaks tab's list and cards from the current chip, search and sort. Changes nothing on the PC.</summary>
+    private void RefreshTweaks()
+    {
+        var counts = TweakFilters.Counts(_tweakRows, SearchText);
+        foreach (var c in Chips) c.Count = counts[c.Chip];
+        if (Tab == TweaksTab) ShowTab();
+    }
+
+    private void UpdateCounter()
+    {
+        var count = TweakCounter.Count(_tweakRows.Where(r => r.Tweak is not null && r.State is not null).Select(r => (r.Tweak!, r.State!)));
+        CounterText = count.Text ?? "";
+        CounterAutomationName = count.AutomationText;
+    }
+
+    // ------------------------------------------------------------------ preset popover
+
+    /// <summary>Opens the preset's "what will change" popover. Nothing is ticked until <see cref="ConfirmPreset"/>.</summary>
+    [RelayCommand]
+    private void PreviewPreset(PresetChoice? choice)
+    {
+        if (choice is null) return;
+        PresetPreview = PresetPreview.Build(TweakPresets.Info(choice.Preset), _tweakRows);
+        IsPresetPopoverOpen = true;
+    }
+
+    [RelayCommand]
+    private void ConfirmPreset()
+    {
+        if (PresetPreview is { } p) ApplyPreset(Presets.First(c => c.Preset == p.Preset));
+        IsPresetPopoverOpen = false;
+    }
+
+    [RelayCommand]
+    private void CancelPreset() => IsPresetPopoverOpen = false;
 
     /// <summary>Expert mode (Plan §8): unlocks risky-but-not-security rows. Stored in the shared settings (the shell saves them).</summary>
     public bool ExpertMode
@@ -141,7 +276,9 @@ public sealed partial class TweaksViewModel : ObservableObject
             var outcome = await _module.TweaksScanner.ScanRowsAsync(ctx, progress, ct);
             _tweakRows = outcome.Rows.Select(r => TweakItemRow.ForTweak(r, OpenLink, UpdateSelection)).ToList();
             foreach (var r in _tweakRows.Where(r => keepTicks.Contains(r.Item.Id))) r.SetCheckedQuietly(true);
-            _tweakSections = BuildTweakSections(_tweakRows);
+            var counts = TweakFilters.Counts(_tweakRows, SearchText);
+            foreach (var c in Chips) c.Count = counts[c.Chip];
+            UpdateCounter();
             _tweakNotes = outcome.Notes;
 
             if (!onlyTweaks || !HasScanned)
@@ -182,35 +319,37 @@ public sealed partial class TweaksViewModel : ObservableObject
 
     private static string Settings(int n) => n == 1 ? "1 setting" : $"{n} settings";
 
-    private static List<(TweakHeaderRow, List<TweakItemRow>)> BuildTweakSections(List<TweakItemRow> rows)
-    {
-        // Page groups: Gaming · Privacy · Debloat · UI/Explorer · Network · Power (presets are a row of buttons above).
-        var sections = new List<(TweakHeaderRow, List<TweakItemRow>)>();
-        foreach (var g in Enum.GetValues<TweakGroup>())
-        {
-            var inGroup = rows.Where(r => r.Tweak?.Group == g)
-                .OrderBy(r => r.Tweak!.Verdict == TweakVerdict.Placebo ? 1 : 0)
-                .ThenBy(r => r.Tweak!.IsExpertOnly ? 1 : 0)
-                .ToList();
-            if (inGroup.Count > 0)
-                sections.Add((new TweakHeaderRow(TweaksScanner.GroupTitle(g), TweaksScanner.GroupDescription(g), inGroup.Count), inGroup));
-        }
-        return sections;
-    }
-
     private void ShowTab()
     {
         Rows.Clear();
-        var sections = Tab == FinderTab ? _finderSections : _tweakSections;
-        foreach (var (header, rows) in sections)
+        Sections.Clear();
+        if (Tab == FinderTab)
         {
-            Rows.Add(header);
-            foreach (var r in rows) Rows.Add(r);
+            foreach (var (header, rows) in _finderSections)
+            {
+                Rows.Add(header);
+                foreach (var r in rows) Rows.Add(r);
+            }
+        }
+        else
+        {
+            // Tweaks tab: chip, search and sort decide what shows; the same sections feed List (Rows) and Cards (Sections).
+            foreach (var section in TweakFilters.Sections(_tweakRows, _chip, SearchText, Sort))
+            {
+                Sections.Add(section);
+                Rows.Add(section.Header);
+                foreach (var r in section.Rows) Rows.Add(r);
+            }
         }
         Notes.Clear();
         foreach (var n in Tab == FinderTab ? _finderNotes : _tweakNotes) Notes.Add(n);
-        EmptyText = Tab == FinderTab ? "No bad tweaks found. Nothing needs fixing." : "No tweaks apply to this PC.";
+        EmptyText = Tab == FinderTab ? "No bad tweaks found. Nothing needs fixing."
+            : _tweakRows.Count == 0 ? "No tweaks apply to this PC."
+            : "Nothing matches. Try another word or pick All.";
         OnPropertyChanged(nameof(ShowEmpty));
+        OnPropertyChanged(nameof(ShowCards));
+        OnPropertyChanged(nameof(ShowList));
+        OnPropertyChanged(nameof(HasCounter));
     }
 
     // ------------------------------------------------------------------ presets and selection
@@ -338,7 +477,12 @@ public sealed partial class TweaksViewModel : ObservableObject
         SimulateCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnHasScannedChanged(bool value) => OnPropertyChanged(nameof(ShowEmpty));
+    partial void OnHasScannedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowEmpty));
+        OnPropertyChanged(nameof(ShowCards));
+        OnPropertyChanged(nameof(ShowList));
+    }
 
     /// <summary>All rows of both tabs (tests and screenshots).</summary>
     public IReadOnlyList<TweakItemRow> AllRows => _tweakRows.Concat(_finderRows).ToList();

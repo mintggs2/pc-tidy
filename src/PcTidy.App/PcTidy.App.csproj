@@ -51,5 +51,6 @@
     <ProjectReference Include="..\PcTidy.Features.Insights\PcTidy.Features.Insights.csproj" />
     <ProjectReference Include="..\PcTidy.Features.Search\PcTidy.Features.Search.csproj" />
     <ProjectReference Include="..\PcTidy.Features.Services\PcTidy.Features.Services.csproj" />
+    <ProjectReference Include="..\PcTidy.Features.Measure\PcTidy.Features.Measure.csproj" />
   </ItemGroup>
 </Project>

@@ -77,6 +77,52 @@ public static class TweakSources
     public const string FrameCapLatencyTest = "https://www.youtube.com/watch?v=7CKnJ5ujL_Q";
     public const string Cs2LatencyTests = "https://www.youtube.com/watch?v=zNHFAAJkIvo";
 
+    // FPS research ("FPS boost tweaks - do they work.md" §4 and its appendices F1-F7): the sources behind the measured notes
+    public const string MasterYourQuantum = "https://learn.microsoft.com/archive/blogs/embedded/master-your-quantum";
+    public const string QualityOfService = "https://learn.microsoft.com/windows/win32/procthread/quality-of-service";
+    public const string SvcHostGrouping = "https://learn.microsoft.com/windows/application-management/svchost-service-refactoring";
+    public const string HpetBlurBusters = "https://forums.blurbusters.com/viewtopic.php?t=11951";
+    public const string HpetTechPowerUp = "https://techpowerup.com/forums/goto/post?id=5394019";
+    public const string UltimatePlanTest = "https://www.xda-developers.com/this-hidden-windows-11-power-plan-improved-my-games-performance/";
+    public const string ProcessorStateTest = "https://techfuelhq.com/gaming/ultimate-performance-power-plan-2026/";
+    public const string RyzenBalancedPlan = "https://www.legitreviews.com/?p=193344";
+    public const string X3dParkingBug = "https://www.pcgameshardware.de/CPU-CPU-154106/News/AMD-Ryzen-7-7800X3D-Core-Parking-Bug-1417092/";
+    public const string BeyondBalanced = "https://www.go-euc.com/beyond-balanced-benchmarking-windows-11-power-plans/";
+    public const string GameModeTest = "https://www.makeuseof.com/i-tested-windows-game-mode-for-month-what-benchmarks-actually-showed/";
+    public const string GameModeOffTest = "https://www.igeeksblog.com/turning-off-windows-game-mode-improved-gaming-performance/";
+    public const string FsoBenchmark = "https://www.reddit.com/r/allbenchmarks/comments/ggcsvc/";
+    public const string BorderlessBlurBusters = "https://forums.blurbusters.com/viewtopic.php?p=113034";
+    public const string IndexingAnecdote = "https://gamepp.com/en/faqs/performance-evaluation/110.html";
+    public const string HagsGamersNexus = "https://gamersnexus.net/guides/3599-windows-10-hardware-accelerated-gpu-scheduling-benchmarks";
+    public const string HagsBabelTech = "https://babeltechreviews.com/?p=27289";
+    public const string HagsPcgh = "https://www.pcgameshardware.de/Windows-Software-277633/Specials/HAGS-Benchmark-Test-1352947/";
+    public const string GameBarRecordingTest = "https://www.pcworld.com/article/3315624/gaming/game-bar-for-windows-10-review.html";
+    public const string DeliveryOptimizationRam = "https://www.tomsguide.com/computing/windows-operating-systems/this-hidden-windows-11-setting-might-be-quietly-hogging-your-ram-heres-a-quick-fix";
+    public const string MpoReport = "https://www.reddit.com/r/Amd/comments/yvyqc7/";
+    public const string ReflexLdat = "https://techpowerup.com/review/nvidia-reflex-review-test-ldat-v2/3.html";
+    public const string NvidiaPowerModes = "https://www.thefpsreview.com/2019/12/04/nvidia-geforce-driver-power-mode-settings-compared/11";
+    public const string TomsHardwareForum = "https://forums.tomshardware.com/";
+    public const string DduForum = "https://forums.tomshardware.com/threads/when-do-you-really-need-to-use-ddu.3792855";
+    public const string NvidiaAppPerformance = "https://www.techspot.com/review/3140-nvidia-app-performance/";
+    public const string NagleCloudflare = "https://blog.cloudflare.com/reducing-double-spend-latency-from-40-ms-to-less-than-1-ms-on-privacy-proxy";
+    public const string NetworkThrottlingDpc = "https://djdallmann.github.io/GamingPCSetup/CONTENT/RESEARCH/NETWORK";
+    public const string QosReserveChen = "https://devblogs.microsoft.com/oldnewthing/20061123-14/?p=28923";
+    public const string TcpIpPerformance = "https://learn.microsoft.com/troubleshoot/windows-server/networking/troubleshoot-tcp-ip-performance-guidance";
+    public const string Rsc = "https://learn.microsoft.com/windows-hardware/drivers/network/overview-of-receive-segment-coalescing";
+    public const string NextGenTcpIp = "https://learn.microsoft.com/previous-versions/dn567662(v=vs.85)";
+    /// <summary>verify: Set-NetTCPSetting page (timestamps); URL from memory, not opened by the research.</summary>
+    public const string NetTcpSetting = "https://learn.microsoft.com/powershell/module/nettcpip/set-nettcpsetting";
+    public const string AsusXmpTweaked = "https://www.asus.com/us/support/faq/1042256";
+    public const string CStatesIntel = "https://www.pcgameshardware.de/Raptor-Lake-S-Codename-278677/News/Energieoptionen-C-States-Performance-1558049/";
+    public const string MemReduct = "https://betanews.com/2015/04/22/mem-reduct-a-memory-cleaner-which-isnt-rubbish";
+    public const string ReadyBoost = "https://techrepublic.com/article/is-readyboost-still-an-effective-tool-in-windows-10";
+    public const string PrefetchMicrosoft = "https://www.windowslatest.com/2026/10/26/microsoft-explains-why-deleting-prefetch-can-slow-down-windows-11-as-its-designed-to-speed-up-app-launches/";
+    public const string GameBoosters = "https://www.ghacks.net/2015/05/23/do-game-boosters-improve-pc-gaming-performance/";
+    public const string IslcPage = "https://www.wagnardsoft.com/node/788";
+    public const string Cs2LaunchOptions = "https://github.com/9Erza/CS2-Optimization-Guide";
+    /// <summary>verify: Unreal Engine command-line reference; URL from memory, not opened by the research.</summary>
+    public const string UnrealCommandLine = "https://dev.epicgames.com/documentation/en-us/unreal-engine/command-line-arguments-in-unreal-engine";
+
     // Community research
     public const string DjdallmannGamingPcSetup = "https://github.com/djdallmann/GamingPCSetup";
     public const string PcTuning = "https://github.com/valleyofdoom/PC-Tuning";

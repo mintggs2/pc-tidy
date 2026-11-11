@@ -21,6 +21,9 @@ public sealed class SandboxInsightsSource : IInsightsSource
         public TimerFacts? Timer { get; init; }
         public SecurityFacts? Security { get; init; }
         public RuntimeFacts? Runtimes { get; init; }
+        public string? Cpu { get; init; }
+        public string? PowerPlan { get; init; }
+        public InventoryFacts? Inventory { get; init; }
     }
 
     private readonly SimFile _sim;
@@ -60,4 +63,7 @@ public sealed class SandboxInsightsSource : IInsightsSource
     public TimerFacts ReadTimer() => _sim.Timer ?? new TimerFacts(10_000_000, true);
     public SecurityFacts ReadSecurity() => _sim.Security ?? new SecurityFacts();
     public RuntimeFacts ReadRuntimes() => _sim.Runtimes ?? new RuntimeFacts();
+    public string? ReadCpuName() => _sim.Cpu;
+    public string? ReadActivePowerPlan() => _sim.PowerPlan;
+    public InventoryFacts ReadInventory() => _sim.Inventory ?? new InventoryFacts();
 }

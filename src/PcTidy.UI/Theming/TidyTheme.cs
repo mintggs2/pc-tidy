@@ -167,6 +167,7 @@ public static class TidyTheme
               highlight = SystemColors.HighlightColor, gray = SystemColors.GrayTextColor;
         void Put(string key, Color c) => d[key] = Frozen(new SolidColorBrush(c));
         Put("TidyAccentBrush", link);
+        Put("TidyAccentTextBrush", link);
         Put("TidyAccentSoftBrush", window);
         Put("TidyAccentStrokeBrush", text);
         Put("TidyRingTrackBrush", gray);

@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using PcTidy.Features.Tweaks.Reading;
 using PcTidy.Features.Tweaks.Tweaks;
 using PcTidy.UI.Controls;
 
@@ -63,7 +64,6 @@ public sealed partial class TweakItemRow : ObservableObject
     /// the space is kept so the titles still line up.
     /// </summary>
     public System.Windows.Visibility CheckBoxVisibility => Item.Actions.Count == 0 && !IsDisabled ? System.Windows.Visibility.Hidden : System.Windows.Visibility.Visible;
-    public double TextOpacity => IsDisabled ? 0.62 : 1.0;
     public PillItem Status { get; private init; } = new("", PillTone.Neutral);
     public PillItem Verdict { get; private init; } = new("", PillTone.Neutral);
     public IReadOnlyList<PillItem> Tags { get; private init; } = Array.Empty<PillItem>();
@@ -73,6 +73,54 @@ public sealed partial class TweakItemRow : ObservableObject
     public LinkItem? SettingsLink { get; private init; }
     public bool HasSettingsLink => SettingsLink is not null;
 
+    // ------------------------------------------------------------------ state-aware card (layout spec §4.1)
+
+    /// <summary>The live state read by the scan (null for finder rows).</summary>
+    public TweakState? State { get; private init; }
+    /// <summary>"Now: On" / "Now: Off" / "Now: Other value", read back from this PC. Empty for information rows.</summary>
+    public string NowText { get; private init; } = "";
+    public PillTone NowTone { get; private init; } = PillTone.Neutral;
+    public bool HasNow => NowText.Length > 0;
+    /// <summary>Proven / Situational / Doesn't help (measured) / No evidence it helps / Keep it on.</summary>
+    public PillItem Evidence { get; private init; } = new("", PillTone.Neutral);
+    /// <summary>Safe / Check / Permanent, or "Info only" when there's nothing to apply.</summary>
+    public PillItem Safety { get; private init; } = new("", PillTone.Neutral);
+    /// <summary>One line: what this changes (the exact value, or the steps for information rows).</summary>
+    public string WhatChanges { get; private init; } = "";
+    /// <summary>Each measured note: number · hardware · source, date · evidence strength.</summary>
+    public IReadOnlyList<string> MeasuredLines { get; private init; } = Array.Empty<string>();
+    public string MeasuredSummary => MeasuredLines.Count == 0 ? "" : "Measured: " + MeasuredLines[0];
+    public bool HasMeasured => MeasuredLines.Count > 0;
+    /// <summary>The category chip this row belongs to (shelf rows: Doesn't help).</summary>
+    public TweakChip Chip { get; private init; } = TweakChip.All;
+    public bool IsShelf => Tweak?.IsShelf == true;
+    public bool IsExpert => Tweak?.IsExpertOnly == true;
+    /// <summary>Set differently from the Windows default on this PC right now (applied, or another value).</summary>
+    public bool IsChanged => State?.Changes.Any(ChangedFromDefault) == true;
+
+    /// <summary>Another value than a fresh Windows has (an applied tweak whose value is the Windows default doesn't count).</summary>
+    private static bool ChangedFromDefault(ChangeState c) => c.Status switch
+    {
+        TweakStatus.Differs => true,
+        TweakStatus.Applied => c.Change switch
+        {
+            RegistryValueChange r => r.WindowsDefault is null || !RegData.SameValue(r.Kind, r.Data, r.WindowsDefault),
+            ServiceStartChange s => s.Target != s.WindowsDefault,
+            _ => true,
+        },
+        _ => false,
+    };
+    /// <summary>Position in the catalog (stable tie-break for sorting).</summary>
+    public int CatalogIndex { get; private init; }
+    /// <summary>Lower-case text the search box matches against: title, effect, exact values, measured notes, id.</summary>
+    public string SearchText { get; private init; } = "";
+
+    public string CardAutomationName
+        => $"{Title}. {Evidence.Text}. {Safety.Text}." + (HasNow ? $" {NowText}." : "") + (HasMeasured ? " " + MeasuredSummary + "." : "")
+           + (IsDisabled ? " Can't be ticked: " + Item.DisabledReason : IsChecked ? " Ticked to change." : IsSelectable ? " Not ticked." : " Information only.");
+
+    public string DetailsButtonName => "Show or hide details for " + Title;
+
     public string AutomationName
         => $"{Title}. {Status.Text}. {Verdict.Text}." + (IsDisabled ? " Not offered: " + Item.DisabledReason : IsChecked ? " Ticked." : IsSelectable ? " Not ticked." : " Information only.");
 
@@ -80,6 +128,7 @@ public sealed partial class TweakItemRow : ObservableObject
     {
         if (value && !IsSelectable) { IsChecked = false; return; }
         OnPropertyChanged(nameof(AutomationName));
+        OnPropertyChanged(nameof(CardAutomationName));
         _changed();
     }
 
@@ -100,11 +149,21 @@ public sealed partial class TweakItemRow : ObservableObject
 #pragma warning restore MVVMTK0034
         OnPropertyChanged(nameof(IsChecked));
         OnPropertyChanged(nameof(AutomationName));
+        OnPropertyChanged(nameof(CardAutomationName));
     }
 
     // ------------------------------------------------------------------ factories
 
-    public static TweakItemRow ForTweak(TweakRow row, Action<string> openLink, Action changed)
+    public static TweakItemRow ForTweak(TweakRow row, Action<string> openLink, Action changed) => ForTweak(row, openLink, changed, IndexOf(row.Tweak));
+
+    private static int IndexOf(TweakDefinition t)
+    {
+        var all = TweakCatalog.All;
+        for (var i = 0; i < all.Count; i++) if (all[i].Id == t.Id) return i;
+        return all.Count;
+    }
+
+    public static TweakItemRow ForTweak(TweakRow row, Action<string> openLink, Action changed, int catalogIndex)
     {
         var t = row.Tweak;
         var tags = new List<PillItem>();
@@ -116,6 +175,7 @@ public sealed partial class TweakItemRow : ObservableObject
         if (t.IsExpertOnly) tags.Add(new("Expert", PillTone.Critical));
         if (!t.Reversible) tags.Add(new("Reinstall to undo", PillTone.Critical));
         if (t.Risk != TweakRisk.Low && !TweakRowBuilder.IsKeepOn(t)) tags.Add(new("Risk: " + t.Risk.ToString().ToLowerInvariant(), t.Risk == TweakRisk.Medium ? PillTone.Caution : PillTone.Critical));
+        if (t.IsShelf) tags.Clear(); // never applied, so admin or restart tags would only confuse
 
         // A greyed row never shows a green "Available": it can't be picked, so say why in neutral words.
         var status = row.State.Status switch
@@ -134,15 +194,74 @@ public sealed partial class TweakItemRow : ObservableObject
         {
             TweakVerdict.Proven => new PillItem("Proven", PillTone.Success),
             TweakVerdict.Situational => new PillItem("Situational", PillTone.Caution),
-            _ => new PillItem("Placebo", PillTone.Neutral),
+            _ => new PillItem(TweakRowBuilder.ShelfPrefix(t), PillTone.Neutral),
         };
+        var now = Now(t, row.State);
         var settings = t.Changes.OfType<GuidanceChange>().FirstOrDefault(g => g.SettingsUri is not null) is { } g2
             ? new LinkItem("Open the Settings page", g2.SettingsUri!, "Open the Windows Settings page for " + t.Title) : null;
         return new TweakItemRow(row.Item, TweakPlanFeatures.Tweaks, openLink, changed)
         {
             Tweak = t, Status = status, Verdict = verdict, Tags = tags, SettingsLink = settings,
+            State = row.State, NowText = now.Text, NowTone = now.Tone,
+            Evidence = TweakRowBuilder.IsKeepOn(t) ? new PillItem("Keep it on", PillTone.Neutral)
+                : t.IsShelf ? new PillItem(t.ShelfLabel, PillTone.Neutral) : verdict,
+            Safety = SafetyPill(t, row.Item),
+            WhatChanges = (t.IsShelf ? "Guides say: " : "") + WhatChangesLine(t),
+            MeasuredLines = t.Measured.Select(m => m.Describe()).ToList(),
+            Chip = TweakFilters.ChipOf(t),
+            CatalogIndex = catalogIndex,
+            SearchText = SearchTextOf(t, row.Item),
         };
     }
+
+    /// <summary>"Now: On" when this change is already in effect, "Now: Off" at the Windows default, read back from this PC.</summary>
+    public static (string Text, PillTone Tone) Now(TweakDefinition t, TweakState state)
+    {
+        if (TweakRowBuilder.IsKeepOn(t)) return ("", PillTone.Neutral);
+        var appx = t.ActionableChanges.Any(c => c is AppxRemoveChange);
+        return state.Status switch
+        {
+            TweakStatus.Applied when t.IsShelf => ("Now: Set on this PC", PillTone.Caution),
+            TweakStatus.Available when t.IsShelf => ("Now: Not set", PillTone.Neutral),
+            TweakStatus.Applied => ("Now: On", PillTone.Success),
+            TweakStatus.Available when appx => ("Now: Installed", PillTone.Neutral),
+            TweakStatus.Available => ("Now: Off", PillTone.Neutral),
+            TweakStatus.Differs => ("Now: Other value (" + string.Join(", ", state.Changes.Where(c => c.Status == TweakStatus.Differs).Select(c => c.Now)) + ")", PillTone.Caution),
+            TweakStatus.Blocked => ("Now: Left alone (unexpected type)", PillTone.Neutral),
+            TweakStatus.Unknown => ("Now: Couldn't read", PillTone.Neutral),
+            _ => ("", PillTone.Neutral),
+        };
+    }
+
+    private static PillItem SafetyPill(TweakDefinition t, ScanItem item)
+    {
+        if (t.IsShelf || TweakRowBuilder.IsKeepOn(t) || !t.HasActions) return new PillItem("Info only", PillTone.Neutral);
+        return new PillItem(BadgePill.LabelFor(item.Badge), item.Badge switch { Badge.Safe => PillTone.Success, Badge.Check => PillTone.Caution, _ => PillTone.Critical });
+    }
+
+    /// <summary>The one-line "what changes": the first exact change (plus how many more), or the steps for information rows.</summary>
+    private static string WhatChangesLine(TweakDefinition t)
+    {
+        var first = t.Changes.FirstOrDefault();
+        if (first is null) return "";
+        var text = first switch
+        {
+            RegistryValueChange r => $"{r.Label} = {RegData.Show(r.Kind, r.Data)}",
+            RegistryTokenChange tok => $"{tok.Label}: {tok.Token}={tok.Value}",
+            ServiceStartChange s => $"Service {s.ServiceName} → {RegistryNames.Friendly(s.Target)}",
+            AppxRemoveChange a => $"Removes the Store app {a.PackageName} for you",
+            OptionalFeatureChange f => $"Turns off the Windows feature {f.FeatureName}",
+            _ => first.Describe(),
+        };
+        var more = t.Changes.Count - 1;
+        return more > 0 ? $"{text} (+{more} more)" : text;
+    }
+
+    private static string SearchTextOf(TweakDefinition t, ScanItem item)
+        => string.Join(" ", new[] { t.Id, t.Title, t.Effect, t.Caveat ?? "", item.Reason ?? "", item.Detail ?? "", t.IsShelf ? t.ShelfLabel : "" }
+                .Concat(t.Changes.Select(c => c.Describe()))
+                .Concat(t.Measured.Select(m => m.Describe())))
+            .ToLowerInvariant();
 
     public static TweakItemRow ForFinding(ScanItem item, Action<string> openLink, Action changed)
     {
@@ -159,7 +278,10 @@ public sealed partial class TweakItemRow : ObservableObject
             Verdict = new PillItem(severity switch { BadTweakSeverity.High => "Important", BadTweakSeverity.Medium => "Worth fixing", _ => "Minor" },
                 severity switch { BadTweakSeverity.High => PillTone.Critical, BadTweakSeverity.Medium => PillTone.Caution, _ => PillTone.Neutral }),
             Tags = tags,
-            SettingsLink = guidance is null ? null : new LinkItem("Open the Settings page", guidance.SettingsUri!, "Open the Windows Settings page for " + item.Title),
+            SettingsLink = guidance is null ? null
+                : guidance.SettingsUri!.StartsWith("windowsdefender:", StringComparison.OrdinalIgnoreCase)
+                    ? new LinkItem("Open Windows Security", guidance.SettingsUri!, "Open Windows Security for " + item.Title)
+                    : new LinkItem("Open the Settings page", guidance.SettingsUri!, "Open the Windows Settings page for " + item.Title),
         };
     }
 

@@ -159,7 +159,7 @@ public class ResearchAdditionsTests
         Assert.Contains("Tamper Protection is off", item.Details!["Found"]);
         Assert.Contains("Cloud-delivered protection is off", item.Details["Found"]);
         var link = BadTweakCatalog.Find("security.defender-protection-reduced")!.Signals.SelectMany(s => s.Fixes).OfType<GuidanceFix>().Single();
-        Assert.Equal("ms-settings:windowsdefender", link.SettingsUri);
+        Assert.Equal("windowsdefender://threat-settings", link.SettingsUri); // v3.1: straight to Virus & threat protection settings
 
         // Another antivirus in charge, or Defender's switches on: nothing to say.
         Assert.False(Has(await Find(reg, folder, new FixedSystemProbe { Defender = off, ThirdPartyAntivirus = new[] { "Example AV" } }), "security.defender-protection-reduced"));
