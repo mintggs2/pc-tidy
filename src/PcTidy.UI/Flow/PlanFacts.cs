@@ -141,15 +141,17 @@ public static class PlanFacts
     /// <summary>"Clean 6.3 GB (49 items) · sort 63 files · 1 startup item · 3 settings" (only the parts that apply).</summary>
     public static string TotalsLine(IEnumerable<PlanItem> items) => TotalsLine(PlanCounts.Of(items));
 
-    public static string TotalsLine(PlanCounts c)
+    /// <param name="quarantineFiles">Files inside the quarantine items, when known: "(49 items, 3,120 files)".</param>
+    public static string TotalsLine(PlanCounts c, long quarantineFiles = 0)
     {
         var parts = new List<string>();
-        if (c.Quarantine > 0) parts.Add(c.QuarantineBytes > 0 ? $"clean {Sizes.Format(c.QuarantineBytes)} ({Items(c.Quarantine)})" : $"clean {Items(c.Quarantine)}");
+        var inside = quarantineFiles > c.Quarantine ? $", {quarantineFiles:N0} files" : "";
+        if (c.Quarantine > 0) parts.Add(c.QuarantineBytes > 0 ? $"clean {Sizes.Format(c.QuarantineBytes)} ({Items(c.Quarantine)}{inside})" : $"clean {Items(c.Quarantine)}{inside}");
         if (c.Moves > 0) parts.Add($"sort {c.Moves:N0} file{S(c.Moves)}");
         if (c.Startup > 0) parts.Add($"{c.Startup} startup item{S(c.Startup)}");
         if (c.Cookies > 0) parts.Add($"cookies in {c.Cookies} browser profile{S(c.Cookies)}");
         if (c.Settings - c.Cookies > 0) parts.Add($"{c.Settings - c.Cookies} setting{S(c.Settings - c.Cookies)}");
-        if (c.Permanent > 0) parts.Add($"{c.Permanent} permanent");
+        if (c.Permanent > 0) parts.Add(c.PermanentBytes > 0 ? $"{c.Permanent} permanent ({Sizes.Format(c.PermanentBytes)})" : $"{c.Permanent} permanent");
         if (parts.Count == 0) return c.Opens > 0 ? OpenCount(c.Opens) : "Nothing selected";
         parts[0] = char.ToUpperInvariant(parts[0][0]) + parts[0][1..];
         return string.Join(" · ", parts);

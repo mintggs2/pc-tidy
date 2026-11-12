@@ -164,6 +164,9 @@ public sealed class FlowHost : IShellFlowHost
     {
         if (!OnUiThread) return await OnUi(() => ReviewAndRunAsync(plans, options, ct));
         plans = plans.Where(p => p.Items.Count > 0).ToList();
+        // A size "yes" is only ever given below, for this run: one carried in from an earlier run (items copied from a
+        // journal, e.g. Try again) is dropped first.
+        if (_services.GetService(typeof(IRemovalMeasure)) is IRemovalMeasure sizes) plans = plans.Select(sizes.WithoutSizeConfirmed).ToList();
         if (plans.Count == 0)
         {
             ShowMessage("Nothing selected", "Tick at least one item first.");
@@ -187,11 +190,15 @@ public sealed class FlowHost : IShellFlowHost
         // Something else may have started while the dialog was open (a watch-folder rule, another page's button).
         if (RefuseWhileBusy()) return FlowOutcome.Cancelled;
 
-        var runTitle = confirm.Plans.Count == 1 ? $"{confirm.Plans[0].Title}: working on it…" : "Working through every section…";
         var gateName = confirm.Plans.Count == 1 ? confirm.Plans[0].Title : "the current run";
+        // A very big clean-up: measured on disk and asked once, with the real numbers (the delete cap stops it otherwise).
+        if (await ConfirmBigRemovalAsync(confirm.Plans, gateName, ct) is not { } toRun) return FlowOutcome.Cancelled;
+        if (RefuseWhileBusy()) return FlowOutcome.Cancelled;
+
+        var runTitle = toRun.Count == 1 ? $"{toRun[0].Title}: working on it…" : "Working through every section…";
         // PC Tidy's own switches (right-click menu, start with Windows) change nothing worth measuring.
-        bool measure = confirm.Plans.Any(p => p.FeatureId != WhatIs.ShellVerbs.FeatureId);
-        var records = await ExecuteAsync(confirm.Plans, ExecutionMode.Real, runTitle, gateName, showProgress: true, ct, measure, options.RestartItemIds);
+        bool measure = toRun.Any(p => p.FeatureId != WhatIs.ShellVerbs.FeatureId);
+        var records = await ExecuteAsync(toRun, ExecutionMode.Real, runTitle, gateName, showProgress: true, ct, measure, options.RestartItemIds);
         if (records.Count == 0) return FlowOutcome.Cancelled;
         if (suggest)
         {
@@ -202,6 +209,67 @@ public sealed class FlowHost : IShellFlowHost
         var beforeAfter = measure ? await AfterRunAsync(records) : Array.Empty<string>();
         if (options.ShowResult) await ShowDoneAsync(records, beforeAfter);
         return new FlowOutcome(FlowOutcomeKind.Ran, records) { BeforeAfter = beforeAfter };
+    }
+
+    /// <summary>
+    /// The delete cap (default 50,000 files or 200 GB in one plan) as a question instead of a dead end: each plan is
+    /// measured on disk now, exactly as the engine counts. When one would go over the limit the user sees the real
+    /// numbers once ("This moves 58,120 files (9.4 GB) to quarantine. Continue?"). Yes: those plans carry the cap override
+    /// (the admin helper still keeps its own limit per step). No: nothing runs (null). Plans within the limit, a failed
+    /// measure (the engine's own cap still applies) and a host without the measure (demo) pass unchanged.
+    /// </summary>
+    private async Task<IReadOnlyList<ActionPlan>?> ConfirmBigRemovalAsync(IReadOnlyList<ActionPlan> plans, string gateName, CancellationToken ct)
+    {
+        if (_services.GetService(typeof(IRemovalMeasure)) is not IRemovalMeasure measure) return plans;
+        var sizes = new List<RemovalSize>(plans.Count);
+        using (Working(gateName)) // counts as busy: the close guard and the update notice wait too
+        {
+            // Stoppable, and "Stop and close" while measuring stops here: nothing has started, so nothing runs.
+            var stop = _window.ShowProgress("Measuring what this run moves…", canStop: true, stopText: "Stop");
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, stop);
+            var previousStop = _stopCurrent;
+            _stopCurrent = linked;
+            try
+            {
+                foreach (var plan in plans) sizes.Add(await Task.Run(() => measure.Measure(plan, linked.Token), linked.Token));
+            }
+            catch (OperationCanceledException) { return null; }
+            catch (Exception ex)
+            {
+                CrashHandler.Write(ex, "Measuring a run before it starts", terminating: false);
+                return plans;
+            }
+            finally
+            {
+                _stopCurrent = previousStop;
+                _window.HideProgress();
+            }
+            if (linked.IsCancellationRequested) return null;
+        }
+        var over = sizes.Where(x => x.OverLimit).ToList();
+        if (over.Count == 0) return plans;
+
+        long files = over.Sum(x => x.Files), bytes = over.Sum(x => x.Bytes);
+        bool quarantineOnly = over.All(x => x.QuarantineOnly);
+        var limit = over[0];
+        var what = quarantineOnly
+            ? $"This moves {files:N0} file{PlanFacts.S(files)} ({Sizes.Format(bytes)}) to quarantine."
+            : $"This moves or removes {files:N0} file{PlanFacts.S(files)} ({Sizes.Format(bytes)}).";
+        var why = $" That's more than PC Tidy's safety limit for one run ({limit.MaxFiles:N0} files or {Sizes.Format(limit.MaxBytes)}), so it asks first.";
+        var after = quarantineOnly
+            ? $" Everything stays in quarantine for {QuarantineDays} days, and Undo puts it all back."
+            : " What goes to quarantine can be put back with Undo.";
+        var ask = new ContentDialog(_window.DialogHost)
+        {
+            Title = "Continue with this big clean-up?",
+            Content = Body(what + why + after + "\n\nMeasured on disk just now, counting every file PC Tidy can read inside the folders."),
+            PrimaryButtonText = "Continue",
+            PrimaryButtonIcon = new SymbolIcon(SymbolRegular.Broom24),
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        if (await ShowDialogAsync(ask) != ContentDialogResult.Primary) return null;
+        return plans.Select((p, i) => sizes[i].OverLimit ? measure.WithSizeConfirmed(p) : p).ToList();
     }
 
     private IFlowLearning? Learning => _services.GetService(typeof(IFlowLearning)) as IFlowLearning;
@@ -563,9 +631,20 @@ public sealed class FlowHost : IShellFlowHost
             UndoAfterYieldAsync(runs).Forget(this, "Undo didn't finish");
         };
         card.HistoryRequested += () => { dialog.Hide(); NavigateTo("history"); };
+        card.TryAdminAgainRequested += plans =>
+        {
+            dialog.Hide();
+            TryAdminAgainAfterYieldAsync(plans).Forget(this, "The admin steps didn't run");
+        };
         card.RunCheckLauncher = _services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
         card.CheckRequested += _ => dialog.Hide(); // Measure opens behind it
         await ShowDialogAsync(dialog);
+    }
+
+    private async Task TryAdminAgainAfterYieldAsync(IReadOnlyList<ActionPlan> plans)
+    {
+        await Task.Yield(); // let the Done dialog close first (one dialog at a time)
+        await ReviewAndRunAsync(plans, new FlowOptions { Title = "Try the admin steps again?", ShowResult = true }, CancellationToken.None);
     }
 
     private async Task UndoAfterYieldAsync(IReadOnlyList<RunRecord> runs)

@@ -28,6 +28,7 @@ public sealed class PcTidyHost : IServiceProvider, IDisposable
     public bool IsSandbox => Locations.IsSandbox;
 
     private readonly Dictionary<Type, object> _extra = new();
+    private RemovalMeasure? _removal;
 
     /// <summary>Registers an extra service (IFlowHost, feature modules, ...).</summary>
     public PcTidyHost Add<T>(T service) where T : class { _extra[typeof(T)] = service; return this; }
@@ -47,6 +48,7 @@ public sealed class PcTidyHost : IServiceProvider, IDisposable
         if (t == typeof(IUndoEngine)) return Undo;
         if (t == typeof(IElevationService)) return Elevation;
         if (t == typeof(IRestorePointService)) return RestorePoints;
+        if (t == typeof(IRemovalMeasure)) return _removal ??= new RemovalMeasure(Settings);
         if (t == typeof(PcTidyHost) || t == typeof(IServiceProvider)) return this;
         return null;
     }
@@ -148,6 +150,9 @@ public sealed class PcTidyHost : IServiceProvider, IDisposable
         }
     }
 
+    /// <summary>What the admin helper's delete-cap message ends with: confirming the size in the app doesn't lift it.</summary>
+    internal const string HelperCapAdvice = "PC Tidy's admin helper keeps this limit for admin steps. Tick fewer admin items and run them in parts.";
+
     /// <summary>The helper's context factory and policy (see <see cref="RunElevatedHelper"/>).</summary>
     internal static (Func<HandlerContext> Context, ElevatedHelperPolicy Policy) CreateHelperServices(
         IKnownLocations locations, AppSettings userSettings, IInUseChecker inUse, AdminDataFolder admin)
@@ -160,7 +165,9 @@ public sealed class PcTidyHost : IServiceProvider, IDisposable
         var policy = new ElevatedHelperPolicy
         {
             Ledger = new HelperLedger(admin.Root, admin.Verify),
-            DeleteCap = (items, ct) => DeleteCap.Problem(items, limits.MaxRemoveItemsPerRun, limits.MaxRemoveBytesPerRun, ct),
+            // Per request. The app splits a request the helper refuses with this message into smaller ones, so only a
+            // single step that is over the limit by itself stays refused.
+            DeleteCap = (items, ct) => DeleteCap.Problem(items, limits.MaxRemoveItemsPerRun, limits.MaxRemoveBytesPerRun, ct, HelperCapAdvice),
             // Whole-run total across the 1,000-step requests, kept in the helper's own ledger. Admin removals can only
             // happen inside the admin cleanup folders (Windows temp, error reports, logs…), so the run limit is generous
             // but still bounded, and the user's own override never reaches the helper.

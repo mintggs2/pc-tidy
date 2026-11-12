@@ -102,4 +102,16 @@ public static class AppEntry
 
     public static Func<AppArgs, AppServices, CancellationToken, Task<int>>? ElevatedHandler { get; set; }
     public static Func<AppArgs, AppServices, CancellationToken, Task<int>>? ScheduledScanHandler { get; set; }
+
+    /// <summary>
+    /// --elevated / --scheduled-scan. The services are built FIRST: building them is what fills in the handlers
+    /// (AppServices.Register). Up to 3.1.1 the handler was read before that, so it was always null and the admin helper
+    /// and the scheduled scan quit at once ("PC Tidy's admin helper closed before it started").
+    /// </summary>
+    public static async Task<int> RunWindowlessAsync(AppArgs args, Func<AppServices> build, CancellationToken ct)
+    {
+        var services = build();
+        var handler = args.Elevated ? ElevatedHandler : ScheduledScanHandler;
+        return handler is null ? ExitNotWired : await handler(args, services, ct);
+    }
 }

@@ -511,11 +511,13 @@ public partial class MainWindow : FluentWindow
             AutomationProperties.SetName(item, title);
             return;
         }
+        // The section name wins: it always gets its full width, and a long counter is the part that gets cut (with the
+        // whole counter in its tooltip and in the accessible name).
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.Children.Add(new System.Windows.Controls.TextBlock { Text = title, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center });
-        var pill = new PcTidy.UI.Controls.BadgePill { Text = badge, Tone = PcTidy.UI.Controls.PillTone.Neutral, ShowDot = false, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(6, 0, 6, 1) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.Children.Add(new System.Windows.Controls.TextBlock { Text = title, VerticalAlignment = VerticalAlignment.Center });
+        var pill = new PcTidy.UI.Controls.BadgePill { Text = badge, Tone = PcTidy.UI.Controls.PillTone.Neutral, ShowDot = false, Margin = new Thickness(8, 0, 0, 0), Padding = new Thickness(6, 0, 6, 1), HorizontalAlignment = HorizontalAlignment.Right, ToolTip = badge };
         Grid.SetColumn(pill, 1);
         grid.Children.Add(pill);
         item.Content = grid;

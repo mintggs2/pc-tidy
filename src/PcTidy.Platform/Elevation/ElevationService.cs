@@ -74,7 +74,7 @@ public sealed class ElevationService : IElevationService, IElevationSettlement, 
         }
         catch (Exception ex) when (ex is ElevationDeclinedException or ElevationUnavailableException)
         {
-            var reason = $"{ex.Message}, so {(undo ? "this wasn't undone" : "the steps that need admin rights were skipped")}.";
+            var reason = $"{ex.Message}, so {(undo ? "this wasn't undone" : AdminSteps.SkippedMarker)}.";
             return steps.Select(s => Refuse(s, undo, reason)).ToList();
         }
         catch (HelperLostException)
@@ -305,7 +305,11 @@ public sealed class ElevationService : IElevationService, IElevationSettlement, 
                 if (helper.HasExited())
                 {
                     linked.Cancel();
-                    throw new ElevationUnavailableException("PC Tidy's admin helper closed before it started");
+                    // A helper that refused to start for a reason trying again can't fix is "refused" (no Try again).
+                    var code = helper.ExitCode?.Invoke();
+                    if (code is ElevatedHost.ExitUntrustedLocation or ElevatedHost.ExitUnsafeEnvironment)
+                        throw new ElevationRefusedException(ClosedEarly(code) + ", so the steps that need admin rights weren't run.");
+                    throw new ElevationUnavailableException(ClosedEarly(code));
                 }
             }
             try
@@ -320,7 +324,7 @@ public sealed class ElevationService : IElevationService, IElevationSettlement, 
             // Make sure the process on the other end is the one we started, running PC Tidy's own program file.
             if (helper.ProcessId is { } expected
                 && (ElevatedPipe.ClientProcessId(server) != expected || !ProcessIdentity.RunsImage(expected, Environment.ProcessPath)))
-                throw new ElevationUnavailableException("An unexpected program answered instead of PC Tidy's admin helper");
+                throw new ElevationRefusedException("An unexpected program answered instead of PC Tidy's admin helper, so nothing was sent to it.");
 
             _session = new Session(server, helper);
             return _session;
@@ -332,6 +336,17 @@ public sealed class ElevationService : IElevationService, IElevationSettlement, 
             throw;
         }
     }
+
+    /// <summary>Why the helper stopped before it connected, from its exit code (see <see cref="ElevatedHost"/>).</summary>
+    internal static string ClosedEarly(int? exitCode) => exitCode switch
+    {
+        ElevatedHost.ExitUntrustedLocation => "PC Tidy's admin helper refused to start: PC Tidy's program folder can be changed without admin rights (install PC Tidy with Setup to use admin steps)",
+        ElevatedHost.ExitUnsafeEnvironment => "PC Tidy's admin helper refused to start: a setting on this PC makes .NET load extra code into programs",
+        ElevatedHost.ExitError => "PC Tidy's admin helper couldn't set up its admin-only folder",
+        ElevatedHost.ExitParentGone => "PC Tidy's admin helper couldn't find this PC Tidy window",
+        null => "PC Tidy's admin helper closed before it started",
+        { } code => $"PC Tidy's admin helper closed before it started (code {code})",
+    };
 
     private void DropSession()
     {

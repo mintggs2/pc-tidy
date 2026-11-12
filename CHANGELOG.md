@@ -7,6 +7,18 @@ PC Tidy is a **beta**. Every change it makes can be previewed, simulated and und
 
 ## [Unreleased]
 
+## [3.1.2] - 2026-11-11
+
+Fixes from the first real use of 3.1.1.
+
+### Fixed
+- **Steps that need admin rights now run.** PC Tidy's admin helper quit as soon as it started, so every step that needs admin rights was skipped ("PC Tidy's admin helper closed before it started"). The scheduled report-only scan had the same problem and now runs too.
+- **Big clean-ups no longer get stuck at the safety limit.** When a run would move more than 50,000 files or 200 GB, PC Tidy now measures it and asks once, with the real numbers ("This moves 58,120 files (9.4 GB) to quarantine. Continue?"). Before, the run stopped with "Confirm the size to go ahead", but there was nothing to confirm with. Admin steps keep their own limit per step: PC Tidy sends them in smaller parts. The measured size covers the folders PC Tidy can read without admin rights (admin-only folders such as Windows' own temp folder aren't in that number; the admin helper limits those itself).
+- **The preview shows the real size of what can't be undone.** What goes for good (for example emptying the Recycle Bin) now shows its size in its own tile, in the selection line and in the confirm box, and is never folded into the "Clean" number. The quarantine tile shows how many files are inside the picked folders, as well as the item count.
+- **Hibernation: "Reduced" and "off" can't both be ticked.** Ticking the group picked both changes.
+- **Admin prompt declined or timed out:** the Done card says so and offers "Try the admin steps again", which runs only those steps (after the usual confirm). When the admin helper can't start, the message now says why.
+- The Services rail counter is short ("5 changed"), so the name "Services" is no longer cut off.
+
 ## [3.1.1] - 2026-11-11
 
 ### Added

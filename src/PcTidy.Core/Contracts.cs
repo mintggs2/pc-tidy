@@ -152,6 +152,48 @@ public interface IExecutor
     Task<RunRecord> ExecuteAsync(ActionPlan plan, ExecuteOptions options, IProgress<RunProgress>? progress, CancellationToken ct);
 }
 
+/// <summary>
+/// What a plan would remove or move, measured on disk now (folders are walked, links are never followed), against the
+/// delete cap. Real implementation: PcTidy.Engine (the same measure the executor uses before a real run).
+/// </summary>
+/// <param name="CappedItems">Plan items that remove or move originals.</param>
+/// <param name="Files">Files those items cover.</param>
+/// <param name="Bytes">Their size.</param>
+/// <param name="QuarantineOnly">True when every one of them goes to quarantine (restorable).</param>
+public sealed record RemovalSize(int CappedItems, long Files, long Bytes, bool QuarantineOnly, int MaxFiles, long MaxBytes)
+{
+    /// <summary>More than the delete cap allows without the user confirming the size.</summary>
+    public bool OverLimit => Files > MaxFiles || Bytes > MaxBytes;
+}
+
+/// <summary>
+/// Measures a plan against the delete cap before it runs, so the app can show the real size and ask once
+/// ("This moves 58,120 files (9.4 GB) to quarantine. Continue?"). Optional service: without it the executor's own
+/// cap still stops an oversized plan before any change.
+/// </summary>
+public interface IRemovalMeasure
+{
+    /// <summary>Slow for big folders: call it off the UI thread.</summary>
+    RemovalSize Measure(ActionPlan plan, CancellationToken ct);
+
+    /// <summary>The same plan with the cap override on every item that removes or moves originals (after the user said yes).</summary>
+    ActionPlan WithSizeConfirmed(ActionPlan plan);
+
+    /// <summary>The same plan with any cap override removed (a "yes" is never carried over from an earlier run).</summary>
+    ActionPlan WithoutSizeConfirmed(ActionPlan plan);
+}
+
+/// <summary>Admin steps skipped because the Windows admin prompt was declined, timed out or the helper couldn't start.</summary>
+public static class AdminSteps
+{
+    /// <summary>Part of every such step's message; a later run of the same steps may work, so the app offers Try again.</summary>
+    public const string SkippedMarker = "the steps that need admin rights were skipped";
+
+    /// <summary>Skipped only because the admin helper wasn't there: running the same steps again may work.</summary>
+    public static bool CanTryAgain(StepRecord s)
+        => s.Status == StepStatus.Skipped && s.Item.NeedsAdmin && s.Message?.Contains(SkippedMarker, StringComparison.Ordinal) == true;
+}
+
 /// <summary>Undo / resume / roll back. Real implementation: PcTidy.Engine.</summary>
 public interface IUndoEngine
 {
@@ -246,7 +288,7 @@ public interface IFeatureModule
 
 /// <summary>
 /// Optional on an <see cref="IFeatureModule"/> (v3.1): a small, factual counter for its rail row, e.g. Tweaks "7 of 31 on",
-/// Services "3 changed from Windows default". Read from the real system state (never from what PC Tidy remembers), read-only,
+/// Services "3 changed" (from Windows default). Read from the real system state (never from what PC Tidy remembers), read-only,
 /// cheap (the shell calls it after start-up and after each run, off the UI thread). Null = show nothing. No "NEW" badges.
 /// </summary>
 public interface INavBadgeSource

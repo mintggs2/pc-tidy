@@ -35,8 +35,11 @@ public static class ServiceDefaultsCounter
     public static int DisabledAgainstDefault(IEnumerable<ChangedService> changed)
         => changed.Count(c => c.Current == ServiceStart.Disabled && !c.Entry.WindowsDefaults.Contains(ServiceStart.Disabled));
 
-    /// <summary>The rail text, or null when nothing changed (the rail then shows nothing).</summary>
-    public static string? BadgeText(int changed) => changed <= 0 ? null : $"{changed} changed from Windows default";
+    /// <summary>
+    /// The rail text, or null when nothing changed (the rail then shows nothing). Short, so the section name keeps its
+    /// room (3.1.2: "5 changed from Windows default" cut "Services" down to "S…"); the page says from what.
+    /// </summary>
+    public static string? BadgeText(int changed) => changed <= 0 ? null : $"{changed} changed";
 
     /// <summary>The page's one summary line when many Windows services were switched off at once; null below the threshold.</summary>
     public static string? MassDisabledText(int disabled) => disabled < MassDisabledMinimum ? null

@@ -72,6 +72,9 @@ public sealed class GroupRow : ListRow
         TotalBytes = group.Items.Sum(i => i.SizeBytes);
         NeedsAdmin = group.Items.Any(i => i.NeedsAdmin);
         SelectableCount = Items.Count(i => i.IsSelectable);
+        // Alternatives (same ScanItem.ChoiceOf) count once: "all ticked" means one of each choice.
+        TickableCount = Items.Count(i => i.IsSelectable && i.Item.ChoiceOf is null)
+            + Items.Where(i => i.IsSelectable && i.Item.ChoiceOf is not null).Select(i => i.Item.ChoiceOf).Distinct(StringComparer.Ordinal).Count();
         UpdateShape();
     }
 
@@ -83,6 +86,8 @@ public sealed class GroupRow : ListRow
     public long TotalBytes { get; }
     public bool NeedsAdmin { get; }
     public int SelectableCount { get; }
+    /// <summary>The most rows that can be ticked at once (alternatives count once).</summary>
+    public int TickableCount { get; }
     public string Title => Group.Title;
     public string? Description => Group.Description;
     public Badge Badge => Group.Badge;
@@ -103,7 +108,7 @@ public sealed class GroupRow : ListRow
     /// <summary>true = all ticked, false = none, null = some.</summary>
     public bool? IsChecked
     {
-        get => _checkedCount == 0 ? false : _checkedCount >= SelectableCount ? true : null;
+        get => _checkedCount == 0 ? false : _checkedCount >= TickableCount ? true : null;
         set => SetAll(value ?? false);
     }
 
@@ -113,6 +118,7 @@ public sealed class GroupRow : ListRow
     public void SetAll(bool on)
     {
         foreach (var item in Items) item.SetCheckedSilently(on && item.IsSelectable);
+        KeepOneChoice(null);
         Recount();
     }
 
@@ -120,7 +126,21 @@ public sealed class GroupRow : ListRow
     public void SetWhere(Func<ItemRow, bool> predicate)
     {
         foreach (var item in Items) item.SetCheckedSilently(item.IsSelectable && predicate(item));
+        KeepOneChoice(null);
         Recount();
+    }
+
+    /// <summary>
+    /// Alternatives (rows with the same <see cref="ScanItem.ChoiceOf"/>, e.g. hibernation "Reduced" or "off"): at most one
+    /// stays ticked. <paramref name="keep"/> is the row just ticked; otherwise the first ticked one in the list wins.
+    /// </summary>
+    internal void KeepOneChoice(ItemRow? keep)
+    {
+        foreach (var choice in Items.Where(i => i.IsChecked && i.Item.ChoiceOf is not null).GroupBy(i => i.Item.ChoiceOf, StringComparer.Ordinal))
+        {
+            var winner = keep is not null && choice.Contains(keep) ? keep : choice.First();
+            foreach (var other in choice) if (!ReferenceEquals(other, winner)) other.SetCheckedSilently(false);
+        }
     }
 
     internal void Recount()
@@ -216,6 +236,7 @@ public sealed class ItemRow : ListRow
             if (!IsSelectable) value = false;
             if (!SetProperty(ref _isChecked, value)) return;
             OnPropertyChanged(nameof(AutomationName));
+            if (value && Item.ChoiceOf is not null) Group.KeepOneChoice(this);
             Group.Recount();
         }
     }

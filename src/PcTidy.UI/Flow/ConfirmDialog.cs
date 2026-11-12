@@ -151,7 +151,8 @@ public sealed class ConfirmDialogContent : UserControl
             warn.SetResourceReference(ForegroundProperty, "SystemFillColorCriticalBrush");
             head.Children.Add(warn);
             int n = model.Permanent.Count;
-            head.Children.Add(Styled($"Permanent: {n} item{PlanFacts.S(n)} can't go to quarantine", "BodyStrong"));
+            var gone = model.PermanentBytes > 0 ? $" ({Sizes.Format(model.PermanentBytes)})" : "";
+            head.Children.Add(Styled($"Permanent: {n} item{PlanFacts.S(n)}{gone} can't go to quarantine", "BodyStrong"));
             inner.Children.Add(head);
 
             foreach (var item in model.Permanent.Take(5))

@@ -42,6 +42,7 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         _done = new DoneCard(settings?.QuarantineDays ?? 7);
         _done.UndoRequested += runs => UndoAsync(runs).Forget(Shell, "Undo didn't finish");
         _done.HistoryRequested += () => Shell?.NavigateTo("history");
+        _done.TryAdminAgainRequested += plans => TryAdminAgainAsync(plans).Forget(Shell, "The admin steps didn't run");
         _done.RunCheckLauncher = services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
         DoneState.Content = _done;
         SimulationState.BackRequested += () => SetState(FlowState.Preview);
@@ -330,7 +331,8 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
     {
         var actions = _model.CheckedActions();
         var c = PlanCounts.Of(actions);
-        TotalsLine.Text = PlanFacts.TotalsLine(c);
+        long files = _model.CheckedQuarantineFiles();
+        TotalsLine.Text = PlanFacts.TotalsLine(c, files);
         SelectionIcon.HasSelection = c.HasWork;
         var caption = new List<string>();
         if (c.SystemChange) caption.Add("restore point first");
@@ -356,11 +358,14 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         Totals.Children.Clear();
         if (c.Quarantine > 0)
             Totals.Children.Add(Tile(SymbolRegular.Broom24, c.QuarantineBytes > 0 ? "Clean " + Sizes.Format(c.QuarantineBytes) : $"Clean {c.Quarantine:N0}",
-                $"{PlanFacts.Items(c.Quarantine)} → quarantine"));
+                files > c.Quarantine ? $"{PlanFacts.Items(c.Quarantine)}, {files:N0} files → quarantine" : $"{PlanFacts.Items(c.Quarantine)} → quarantine"));
         if (c.Moves > 0) Totals.Children.Add(Tile(SymbolRegular.FolderArrowRight24, $"Sort {c.Moves:N0} file{PlanFacts.S(c.Moves)}", "into tidy folders"));
         if (c.Startup > 0) Totals.Children.Add(Tile(SymbolRegular.Rocket24, $"{c.Startup} startup item{PlanFacts.S(c.Startup)}", "apps stay installed"));
         if (c.Settings > 0) Totals.Children.Add(Tile(SymbolRegular.WrenchScrewdriver24, $"{c.Settings} setting{PlanFacts.S(c.Settings)}", "each one undoable"));
-        if (c.Permanent > 0) Totals.Children.Add(Tile(SymbolRegular.Warning24, $"{c.Permanent} permanent", "asks separately"));
+        // What can't be undone is never folded into "Clean": its own tile, with its size (an emptied Recycle Bin can be huge).
+        if (c.Permanent > 0) Totals.Children.Add(Tile(SymbolRegular.Warning24,
+            c.PermanentBytes > 0 ? $"{Sizes.Format(c.PermanentBytes)} for good" : $"{c.Permanent} permanent",
+            $"{PlanFacts.Items(c.Permanent)} that can't be undone · asks separately"));
         if (Totals.Children.Count == 0) Totals.Children.Add(Tile(SymbolRegular.CheckboxUnchecked24, "Nothing ticked", "tick what you want below"));
         for (int i = 0; i < Totals.Children.Count; i++)
             ((FrameworkElement)Totals.Children[i]).Margin = new Thickness(i == 0 ? 0 : 5, 0, i == Totals.Children.Count - 1 ? 0 : 5, 0);
@@ -395,6 +400,25 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
     private async Task UndoAsync(IReadOnlyList<RunRecord> runs)
     {
         if (Shell != null && await Shell.UndoRunsAsync(runs, CancellationToken.None)) _done.MarkUndone();
+    }
+
+    /// <summary>"Try the admin steps again" on the Done card: just those steps, through the standard confirm.</summary>
+    private async Task TryAdminAgainAsync(IReadOnlyList<ActionPlan> plans)
+    {
+        if (Shell is not { } shell || Gate.IsBusy || plans.Count == 0) return;
+        var outcome = await shell.ReviewAndRunAsync(plans, new FlowOptions { Title = "Try the admin steps again?", ShowResult = false }, CancellationToken.None);
+        if (outcome.Kind == FlowOutcomeKind.Simulated)
+        {
+            SimulationState.Show(outcome.Records);
+            SetState(FlowState.Simulation);
+            return;
+        }
+        if (outcome.Kind != FlowOutcomeKind.Ran) return;
+        _ranSections = outcome.Records.Count;
+        _done.Runs = outcome.Records;
+        if (outcome.BeforeAfter.Count > 0) _done.BeforeAfter = outcome.BeforeAfter;
+        Subtitle.Text = $"Finished at {DateTime.Now:t} · admin steps tried again · the first run is in History";
+        SetState(FlowState.Done);
     }
 
     public async Task ConfirmAsync()

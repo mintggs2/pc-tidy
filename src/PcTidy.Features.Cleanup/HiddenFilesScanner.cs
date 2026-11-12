@@ -123,6 +123,7 @@ public sealed class HiddenFilesScanner : IFeatureScanner
         DefaultSelected = false,
         SizeBytes = saving,
         NeedsAdmin = true,
+        ChoiceOf = "hibernation", // "Reduced" or "off", never both
         CurrentState = type == "off" ? "Would turn off" : "Would become Reduced",
         Actions = new[]
         {

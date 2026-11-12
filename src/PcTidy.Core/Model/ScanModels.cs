@@ -30,6 +30,11 @@ public sealed record ScanItem
     public IReadOnlyList<PlanItem> Actions { get; init; } = Array.Empty<PlanItem>();
     /// <summary>Shown greyed out with this explanation; cannot be ticked (placebo tweaks, protected things).</summary>
     public string? DisabledReason { get; init; }
+    /// <summary>
+    /// Alternatives in one group share this key (e.g. hibernation "Reduced" or "off"): the preview lets only one of them
+    /// be ticked, so a plan never holds two changes that undo each other. Null = an ordinary row.
+    /// </summary>
+    public string? ChoiceOf { get; init; }
 }
 
 public sealed record ScanGroup
@@ -87,8 +92,16 @@ public static class PlanBuilder
             FeatureId = featureId,
             Title = title,
             ParentRunId = parentRunId,
-            Items = Normalize(selected.Where(s => s.DisabledReason is null).SelectMany(s => s.Actions)),
+            Items = Normalize(OneOfEachChoice(selected.Where(s => s.DisabledReason is null)).SelectMany(s => s.Actions)),
         };
+
+    /// <summary>Alternatives (<see cref="ScanItem.ChoiceOf"/>): only the first ticked one of each goes into the plan.</summary>
+    private static IEnumerable<ScanItem> OneOfEachChoice(IEnumerable<ScanItem> items)
+    {
+        var taken = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in items)
+            if (item.ChoiceOf is null || taken.Add(item.ChoiceOf)) yield return item;
+    }
 
     /// <summary>
     /// Removes duplicate CreateDirectory items (same destination) and runs them first, shallowest first,

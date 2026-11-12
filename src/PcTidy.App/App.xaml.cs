@@ -103,8 +103,7 @@ public partial class App : Application
         int code;
         try
         {
-            var handler = args.Elevated ? AppEntry.ElevatedHandler : AppEntry.ScheduledScanHandler;
-            code = handler is null ? AppEntry.ExitNotWired : await handler(args, AppServices.Build(args with { Demo = false }), CancellationToken.None);
+            code = await AppEntry.RunWindowlessAsync(args, () => AppServices.Build(args with { Demo = false }), CancellationToken.None);
         }
         catch (Exception ex)
         {

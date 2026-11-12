@@ -178,7 +178,9 @@ public class AdapterPowerTests
         Assert.Equal(AdapterPowerAllowances.Source, a!.Source);
         Assert.Equal(RegistryKind.DWord, a.Kind);
         Assert.Equal(new[] { "24" }, a.AllowedData);
-        Assert.True(a.NeedsAdmin && a.AllowDelete);
+        Assert.True(a.NeedsAdmin);
+        // v3.1 safety review: never deleted (undo replays the original value as a set), so a delete is never allowed.
+        Assert.False(a.AllowDelete);
         Assert.Equal(AdapterPowerAllowances.KeyPathPattern, a.KeyPathPattern);
         Assert.Null(RegistryCatalog.Find(RegistryHive.CurrentUser, key, value));
     }

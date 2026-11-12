@@ -446,46 +446,69 @@ public sealed class Executor : IExecutor
         await session.RecordAsync(records, durable: ready.Count > 0).ConfigureAwait(false);
 
         foreach (var chunk in ready.Chunk(AdminRequestSteps))
-        {
-            // Needs outside this request must already be Done; needs inside it are checked by the helper, in order.
-            var inRequest = chunk.Select(r => r.Step.Item.Id).ToHashSet(StringComparer.Ordinal);
-            var blocked = chunk.Select(r => (r.Step, Problem: DependencyProblem(session, r.Step, simulate: false, sameRequest: inRequest)))
-                .Where(x => x.Problem is not null).ToList();
-            if (blocked.Count > 0)
-                await session.RecordAsync(blocked.Select(x => Finish(Skip(x.Step, x.Problem!), x.Step)).ToList(), durable: false).ConfigureAwait(false);
-            var blockedIds = blocked.Select(x => x.Step.Index).ToHashSet();
-            var started = chunk.Select(r => r.Step).Where(s => !blockedIds.Contains(s.Index)).ToList();
-            if (started.Count == 0) continue;
-            if (ct.IsCancellationRequested)
-            {
-                await session.RecordAsync(started.Select(NotStarted).ToList(), durable: false).ConfigureAwait(false);
-                continue;
-            }
-            progress?.Report(new RunProgress(started[0].Index, session.Steps.Count, "Admin steps: " + started[0].Item.Description));
-            IReadOnlyList<StepRecord> results;
-            var helperAnswered = true;
-            try { results = await _elevation.ExecuteElevatedAsync(session.RunId, started, ExecutionMode.Real, undo: false, ct).ConfigureAwait(false); }
-            catch (Exception)
-            {
-                // The helper didn't answer (it may have run some steps): they stay Started until it can be asked.
-                helperAnswered = false;
-                results = started;
-            }
+            await RunAdminRequestAsync(session, chunk.Select(r => r.Step).ToList(), progress, ct).ConfigureAwait(false);
+    }
 
-            var finished = new List<StepRecord>(started.Count);
-            var unsettled = new List<StepRecord>();
-            foreach (var s in started)
-            {
-                var r = results.FirstOrDefault(x => x.Index == s.Index) ?? Fail(s, "The admin helper didn't report this step.");
-                if (r.Status is StepStatus.Started or StepStatus.Pending) unsettled.Add(Unsettled(s, r));
-                else finished.Add(Finish(r, s));
-            }
-            // A helper that answered (but left some steps part-way, e.g. cancelled) is asked to settle them right away;
-            // a lost helper isn't relaunched for it: they're settled on the next Resume or Undo.
-            if (unsettled.Count > 0)
-                finished.AddRange(helperAnswered ? await SettleWithHelperAsync(session.RunId, unsettled).ConfigureAwait(false) : unsettled);
-            await session.RecordAsync(finished, durable: false).ConfigureAwait(false);
+    /// <summary>
+    /// One elevated request. When the helper refuses all of it for its own delete cap (it never takes the user's size
+    /// confirmation), nothing has changed yet. If the user confirmed the size of this run (every step carries the app's
+    /// cap override), the request is split in two and each half is sent on its own, down to single steps: only a step
+    /// that is over the limit by itself stays refused. Same helper, no new admin prompt. Without that confirmation the
+    /// refusal stands (the app can't measure admin folders, so it never asked).
+    /// The helper's own per-run total (its ledger) still applies across the parts.
+    /// </summary>
+    private async Task RunAdminRequestAsync(RunSession session, IReadOnlyList<StepRecord> request, IProgress<RunProgress>? progress, CancellationToken ct)
+    {
+        // Needs outside this request must already be Done; needs inside it are checked by the helper, in order.
+        var inRequest = request.Select(s => s.Item.Id).ToHashSet(StringComparer.Ordinal);
+        var blocked = request.Select(s => (Step: s, Problem: DependencyProblem(session, s, simulate: false, sameRequest: inRequest)))
+            .Where(x => x.Problem is not null).ToList();
+        if (blocked.Count > 0)
+            await session.RecordAsync(blocked.Select(x => Finish(Skip(x.Step, x.Problem!), x.Step)).ToList(), durable: false).ConfigureAwait(false);
+        var blockedIds = blocked.Select(x => x.Step.Index).ToHashSet();
+        var started = request.Where(s => !blockedIds.Contains(s.Index)).ToList();
+        if (started.Count == 0) return;
+        if (ct.IsCancellationRequested)
+        {
+            await session.RecordAsync(started.Select(NotStarted).ToList(), durable: false).ConfigureAwait(false);
+            return;
         }
+        progress?.Report(new RunProgress(started[0].Index, session.Steps.Count, "Admin steps: " + started[0].Item.Description));
+        IReadOnlyList<StepRecord> results;
+        var helperAnswered = true;
+        try { results = await _elevation!.ExecuteElevatedAsync(session.RunId, started, ExecutionMode.Real, undo: false, ct).ConfigureAwait(false); }
+        catch (Exception)
+        {
+            // The helper didn't answer (it may have run some steps): they stay Started until it can be asked.
+            helperAnswered = false;
+            results = started;
+        }
+
+        // "Confirmed" = every step that removes or moves originals carries the override (other admin steps never do).
+        var removing = started.Where(s => DeleteCap.IsCapped(s.Item) || DeleteCap.HasOverride(s.Item)).ToList();
+        bool sizeConfirmed = removing.Count > 0 && removing.All(s => DeleteCap.HasOverride(s.Item));
+        if (helperAnswered && sizeConfirmed && started.Count > 1 && results.Count == started.Count
+            && results.All(r => r.Status == StepStatus.Skipped && DeleteCap.IsCapMessage(r.Message)))
+        {
+            int half = started.Count / 2;
+            await RunAdminRequestAsync(session, started.Take(half).ToList(), progress, ct).ConfigureAwait(false);
+            await RunAdminRequestAsync(session, started.Skip(half).ToList(), progress, ct).ConfigureAwait(false);
+            return;
+        }
+
+        var finished = new List<StepRecord>(started.Count);
+        var unsettled = new List<StepRecord>();
+        foreach (var s in started)
+        {
+            var r = results.FirstOrDefault(x => x.Index == s.Index) ?? Fail(s, "The admin helper didn't report this step.");
+            if (r.Status is StepStatus.Started or StepStatus.Pending) unsettled.Add(Unsettled(s, r));
+            else finished.Add(Finish(r, s));
+        }
+        // A helper that answered (but left some steps part-way, e.g. cancelled) is asked to settle them right away;
+        // a lost helper isn't relaunched for it: they're settled on the next Resume or Undo.
+        if (unsettled.Count > 0)
+            finished.AddRange(helperAnswered ? await SettleWithHelperAsync(session.RunId, unsettled).ConfigureAwait(false) : unsettled);
+        await session.RecordAsync(finished, durable: false).ConfigureAwait(false);
     }
 
     internal const string UnsettledMessage =

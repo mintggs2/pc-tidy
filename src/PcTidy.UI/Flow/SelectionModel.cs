@@ -202,6 +202,13 @@ public sealed class SelectionModel : ObservableObject
     /// <summary>All plan items of the ticked rows (disabled rows never contribute).</summary>
     public IReadOnlyList<PlanItem> CheckedActions() => CheckedItems().Where(i => i.IsSelectable).SelectMany(i => i.Item.Actions).ToList();
 
+    /// <summary>
+    /// Files inside what goes to quarantine (a folder row counts every file in it, as the scan found them; a row without
+    /// a count is one file). The preview shows this next to the item count, because the delete cap counts files.
+    /// </summary>
+    public long CheckedQuarantineFiles() => CheckedItems().Where(i => i.IsSelectable && i.Item.Actions.Any(PlanFacts.IsQuarantine))
+        .Sum(i => (long)Math.Max(1, i.Item.FileCount));
+
     /// <summary>Plan item ids whose scan item needs a restart.</summary>
     public IReadOnlySet<string> RestartIds()
         => CheckedItems().Where(i => i.Item.NeedsRestart).SelectMany(i => i.Item.Actions).Select(a => a.Id).ToHashSet();

@@ -30,6 +30,11 @@ public sealed class DoneCard : UserControl
     /// <summary>The user wants these runs undone (the page forwards to IShellFlowHost.UndoRunsAsync).</summary>
     public event Action<IReadOnlyList<RunRecord>>? UndoRequested;
     public event Action? HistoryRequested;
+    /// <summary>
+    /// "Try the admin steps again": the steps skipped only because the Windows admin prompt was declined, timed out or
+    /// the helper couldn't start (<see cref="AdminRetry"/>), as plans for the standard confirm.
+    /// </summary>
+    public event Action<IReadOnlyList<ActionPlan>>? TryAdminAgainRequested;
     /// <summary>"Check if this helped" was clicked (raised before Measure opens, so a dialog around the card can close first).</summary>
     public event Action<RunCheckRequest>? CheckRequested;
 
@@ -135,6 +140,25 @@ public sealed class DoneCard : UserControl
                 Severity = s.Failed > 0 ? InfoBarSeverity.Error : InfoBarSeverity.Warning,
                 Margin = new Thickness(0, 16, 0, 0),
             });
+            // Admin steps that never reached the admin helper: one button runs just those again (standard confirm first).
+            var retry = s.IsUndone ? Array.Empty<ActionPlan>() : AdminRetry.Plans(_runs);
+            int retrySteps = retry.Sum(x => x.Items.Count);
+            // Plans (and their run ids) are made fresh on every click: a simulation of them must not use up the id.
+            if (retrySteps > 0)
+            {
+                var again = new Button
+                {
+                    Content = $"Try the {retrySteps} admin step{PlanFacts.S(retrySteps)} again",
+                    Icon = new SymbolIcon(SymbolRegular.ShieldKeyhole24),
+                    Appearance = ControlAppearance.Primary,
+                    Margin = new Thickness(0, 10, 0, 0),
+                };
+                AutomationProperties.SetName(again, (string)again.Content);
+                AutomationProperties.SetHelpText(again, AdminRetry.Hint);
+                again.Click += (_, _) => TryAdminAgainRequested?.Invoke(AdminRetry.Plans(_runs));
+                stack.Children.Add(again);
+                stack.Children.Add(T(AdminRetry.Hint, "Caption", new Thickness(0, 4, 0, 0)));
+            }
         }
 
         // Before / after (only what was measured both times)
@@ -199,5 +223,37 @@ public sealed class DoneCard : UserControl
         t.SetResourceReference(StyleProperty, style);
         if (margin is { } m) t.Margin = m;
         return t;
+    }
+}
+
+/// <summary>Admin steps a run skipped because the admin helper wasn't there (<see cref="PcTidy.Core.AdminSteps"/>), as plans to try again.</summary>
+public static class AdminRetry
+{
+    public const string Hint = "Windows asks for admin rights once. Click Yes in its prompt; nothing else from this run is repeated.";
+
+    /// <summary>
+    /// One plan per run that has such steps, with only those steps, in their original order. A step already tried
+    /// again in a later run on the same card (same item id, any other result) isn't offered twice.
+    /// </summary>
+    public static IReadOnlyList<ActionPlan> Plans(IReadOnlyList<RunRecord> runs)
+    {
+        var handled = runs.SelectMany(r => r.Steps).Where(st => !PcTidy.Core.AdminSteps.CanTryAgain(st)).Select(st => st.Item.Id).ToHashSet(StringComparer.Ordinal);
+        var offered = new HashSet<string>(StringComparer.Ordinal);
+        var plans = new List<ActionPlan>();
+        foreach (var run in runs.Where(r => r.Mode == ExecutionMode.Real).OrderByDescending(r => r.CreatedUtc))
+        {
+            var items = run.Steps.Where(PcTidy.Core.AdminSteps.CanTryAgain).Select(st => st.Item)
+                .Where(i => !handled.Contains(i.Id) && offered.Add(i.Id)).ToList();
+            if (items.Count > 0)
+                plans.Add(new ActionPlan { FeatureId = run.FeatureId, Title = run.Title, Items = items });
+        }
+        plans.Reverse();
+        // Sections of one combined run share a new parent, so the confirm and History show them as one run again.
+        if (plans.Count > 1)
+        {
+            var parent = ActionPlan.NewRunId();
+            plans = plans.Select(p => p with { ParentRunId = parent }).ToList();
+        }
+        return plans;
     }
 }

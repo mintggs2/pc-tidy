@@ -10,7 +10,7 @@ namespace PcTidy.Features.Services;
 /// only catalog-approved changes (Manual / Disabled / back to the Windows default), Manual for other companies'
 /// services, profiles built from proven entries, and a repair for Windows services something switched off.
 /// Everything is a reviewed, reversible system change (restore point first; undo restores the exact old settings).
-/// v3.1: a rail counter, "N changed from Windows default" (<see cref="INavBadgeSource"/>).
+/// v3.1: a rail counter, "N changed" (from Windows default; <see cref="INavBadgeSource"/>).
 /// </summary>
 public sealed class ServicesModule : IFeatureModule, IModuleRiskInfo, IModuleFlowText, INavBadgeSource
 {

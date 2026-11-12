@@ -50,7 +50,7 @@ public class V31ServicesTests
         };
         var changed = ServiceDefaultsCounter.ChangedFromDefault(records, Win);
         Assert.Equal(entries[1].Name, Assert.Single(changed).Record.Name);
-        Assert.Equal("1 changed from Windows default", ServiceDefaultsCounter.BadgeText(changed.Count));
+        Assert.Equal("1 changed", ServiceDefaultsCounter.BadgeText(changed.Count));
         Assert.Null(ServiceDefaultsCounter.BadgeText(0));
     }
 
@@ -71,7 +71,7 @@ public class V31ServicesTests
         var world = new FakeServiceWorld().Add(WindowsService(entries[0], 4)).Add(WindowsService(entries[1], 4));
         var module = new ServicesModule(_ => world.Environment(), () => world.Environment(), Win);
         Assert.IsAssignableFrom<INavBadgeSource>(module);
-        Assert.Equal("2 changed from Windows default", await module.GetNavBadgeAsync(CancellationToken.None));
+        Assert.Equal("2 changed", await module.GetNavBadgeAsync(CancellationToken.None));
         Assert.Empty(world.StartWrites); // read-only
 
         var clean = new FakeServiceWorld().Add(WindowsService(entries[0], Raw(entries[0].WindowsDefaults[0])));

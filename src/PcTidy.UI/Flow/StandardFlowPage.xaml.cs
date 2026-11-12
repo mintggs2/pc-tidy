@@ -64,6 +64,7 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         _done = new DoneCard(Shell?.QuarantineDays ?? settings?.QuarantineDays ?? 7);
         _done.UndoRequested += runs => UndoAsync(runs).Forget(Host, "Undo didn't finish");
         _done.HistoryRequested += () => Shell?.NavigateTo("history");
+        _done.TryAdminAgainRequested += plans => TryAdminAgainAsync(plans).Forget(Host, "The admin steps didn't run");
         _done.RunCheckLauncher = services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
         DoneHost.Content = _done;
 
@@ -424,11 +425,11 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         var actions = _model.CheckedActions();
         var c = PlanCounts.Of(actions);
         // Plan items, counted exactly like the confirm dialog ("Clean 6.3 GB (49 items) · 3 settings").
-        SelectedText.Text = c.HasWork ? "Selected: " + PlanFacts.TotalsLine(c) : "Nothing selected";
+        SelectedText.Text = c.HasWork ? "Selected: " + PlanFacts.TotalsLine(c, _model.CheckedQuarantineFiles()) : "Nothing selected";
         SelectionIcon.HasSelection = c.HasWork;
 
         var extras = new List<string>();
-        if (c.Permanent > 0) extras.Add($"{c.Permanent} permanent (asks separately)");
+        if (c.Permanent > 0) extras.Add($"{c.Permanent} permanent{(c.PermanentBytes > 0 ? ", " + Sizes.Format(c.PermanentBytes) : "")} (asks separately)");
         if (c.Admin > 0) extras.Add($"{c.Admin} step{PlanFacts.S(c.Admin)} need admin");
         if (c.SystemChange) extras.Add("restore point first");
         SelectedCaption.Text = extras.Count > 0 ? string.Join(" · ", extras)
@@ -535,6 +536,17 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         if (records.Count == 0) return;
         SimulationState.Show(records);
         SetState(FlowState.Simulation);
+    }
+
+    /// <summary>"Try the admin steps again" on the Done card: just those steps, through the standard confirm.</summary>
+    private async Task TryAdminAgainAsync(IReadOnlyList<ActionPlan> plans)
+    {
+        if (Shell is not { } shell || Gate.IsBusy || plans.Count == 0) return;
+        var outcome = await shell.ReviewAndRunAsync(plans, new FlowOptions { Title = "Try the admin steps again?", ShowResult = false }, CancellationToken.None);
+        if (outcome.Kind == FlowOutcomeKind.Simulated) { ShowSimulation(outcome.Records); return; }
+        if (outcome.Kind != FlowOutcomeKind.Ran) return;
+        ShowDone(outcome.Records, outcome.BeforeAfter);
+        Subtitle.Text = $"Finished at {DateTime.Now:t} · admin steps tried again · the first run is in History";
     }
 
     private void ShowDone(IReadOnlyList<RunRecord> records, IReadOnlyList<string>? beforeAfter = null)

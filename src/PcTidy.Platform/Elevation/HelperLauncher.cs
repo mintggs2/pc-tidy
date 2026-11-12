@@ -20,7 +20,7 @@ public sealed class ElevationUnavailableException(string message) : Exception(me
 public sealed class ElevationRefusedException(string message) : Exception(message);
 
 /// <summary>A started helper process (id may be unknown). Disposing releases the process object we hold, not the process.</summary>
-internal sealed record HelperProcess(int? ProcessId, Func<bool> HasExited, IDisposable? Handle = null) : IDisposable
+internal sealed record HelperProcess(int? ProcessId, Func<bool> HasExited, IDisposable? Handle = null, Func<int?>? ExitCode = null) : IDisposable
 {
     public void Dispose() => Handle?.Dispose();
 }
@@ -57,11 +57,16 @@ internal sealed class RunAsLauncher : IHelperLauncher
             {
                 try { return process.HasExited; }
                 catch { return false; }
-            }, process);
+            }, process, () =>
+            {
+                try { return process.HasExited ? process.ExitCode : null; }
+                catch { return null; }
+            });
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == ERROR_CANCELLED)
         {
-            throw new ElevationDeclinedException("You said no to the admin prompt");
+            // Also what Windows reports when nobody answered the prompt in time.
+            throw new ElevationDeclinedException("The Windows admin prompt was declined or timed out");
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == ERROR_ACCESS_DENIED)
         {

@@ -68,7 +68,11 @@ public static class HelpContent
         "PC Tidy itself contains no ads, no trackers and no bundled software.";
 
     public const string Changelog =
-        "3.1.1 (beta)\n" +
+        "3.1.2 (beta)\n" +
+        "• Steps that need admin rights run again (the admin helper quit at start), and so does the scheduled scan.\n" +
+        "• A very big clean-up asks once with the real size instead of stopping at the safety limit. What can't be undone shows its own size.\n" +
+        "• Declined admin prompt: \"Try the admin steps again\" on the Done card. Hibernation Reduced/off can't both be ticked. A shorter Services counter.\n" +
+        "\n3.1.1 (beta)\n" +
         "• Updates from inside PC Tidy: it checks GitHub at most once a day (or when you click Check for updates), shows what's new and asks first. Checked against the release's checksums. You can switch the check off in Settings.\n" +
         "• Resume last scan: a scan keeps its progress after each section, so a restart or crash doesn't start it over.\n" +
         "• A note before long scans when Windows Update is waiting to restart the PC. PC Tidy's own code is now MIT-licensed.\n" +
