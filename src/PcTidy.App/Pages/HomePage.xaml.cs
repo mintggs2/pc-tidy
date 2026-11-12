@@ -565,13 +565,16 @@ public partial class HomePage : UserControl
             HealthReasons.Children.Add(dock);
         }
         // Say what the score covers, so "100" isn't read as "nothing anywhere": other sections have their own checks.
-        HealthReasons.Children.Add(Text(score.AnyPointsOff
-            ? "The number on the right is what each reason takes off. " + score.Covers
-            : "Nothing in these checks is taking points off. " + score.Covers, "Caption"));
+        // 3.2: one short line; what the score covers is in its tooltip (and read out by screen readers).
+        var covers = Text(score.AnyPointsOff ? "Points each reason takes off are on the right." : "Nothing in these checks takes points off.", "Caption");
+        covers.ToolTip = (score.AnyPointsOff ? "The number on the right is what each reason takes off. " : "Nothing in these checks is taking points off. ") + score.Covers;
+        AutomationProperties.SetHelpText(covers, (string)covers.ToolTip);
+        covers.TextTrimming = TextTrimming.CharacterEllipsis;
+        HealthReasons.Children.Add(covers);
         if (Window?.HasPage("insights") == true)
         {
             var insights = SectionLink("Open Insights", "insights", Host);
-            insights.Margin = new Thickness(-8, 2, 0, 0);
+            insights.Margin = new Thickness(0, 6, 0, 0); // lines up with the text above (no negative margin)
             insights.HorizontalAlignment = HorizontalAlignment.Left;
             HealthReasons.Children.Add(insights);
         }
@@ -761,7 +764,7 @@ public partial class HomePage : UserControl
         var s = new RunSummary(_lastRunGroup);
         LastRunWhen.Text = "LAST RUN · " + RunSummary.When(_lastRun.CreatedUtc).ToUpper(CultureInfo.CurrentCulture);
         string title = _lastRunGroup.Count > 1 ? "Optimize everything" : _lastRun.Title;
-        LastRunTitle.Text = s.IsUndone ? $"{title} was undone" : $"{title}: {s.Headline}";
+        LastRunTitle.Text = s.IsUndone ? $"{title} was undone" : $"{title}: {s.FullHeadline}";
         var bits = new List<string>();
         if (s.Quarantined > 0) bits.Add($"{s.Quarantined:N0} item{PlanFacts.S(s.Quarantined)} in quarantine");
         if (s.Moved > 0) bits.Add($"{s.Moved:N0} file{PlanFacts.S(s.Moved)} moved");

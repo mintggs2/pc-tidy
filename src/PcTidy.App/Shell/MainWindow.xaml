@@ -19,6 +19,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+        <!--  3.2 Workbench (option C): tabs along the top, the tab's pages on the left, the page on the right.
+             The NavigationView still hosts every page; its own left pane is hidden (IsPaneVisible=False).  -->
 
         <ui:TitleBar
             x:Name="AppTitleBar"
@@ -43,12 +45,27 @@
             </ui:TitleBar.TrailingContent>
         </ui:TitleBar>
 
+        <Grid x:Name="WorkArea" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="TabBarHost" Grid.ColumnSpan="2" />
+            <Border x:Name="InnerListHost" Grid.Row="1" />
         <ui:NavigationView
             x:Name="RootNavigation"
             Grid.Row="1"
+            Grid.Column="1"
+            IsPaneVisible="False"
+            IsPaneOpen="False"
             IsBackButtonVisible="Collapsed"
             IsPaneToggleVisible="False"
             OpenPaneLength="232"
+            CompactPaneLength="0"
             PaneDisplayMode="Left"
             Transition="FadeInWithSlide">
             <ui:NavigationView.Resources>
@@ -67,6 +84,7 @@
                 </Style>
             </ui:NavigationView.Resources>
         </ui:NavigationView>
+        </Grid>
 
         <!--  First-run onboarding (3 screens)  -->
         <Grid x:Name="OnboardingOverlay" Grid.Row="1" Background="{DynamicResource TidyOverlayBrush}" Visibility="Collapsed" />

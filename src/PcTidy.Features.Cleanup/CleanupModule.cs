@@ -8,7 +8,7 @@ public sealed class CleanupModule : IFeatureModule
 {
     public string Id => "cleanup";
     public string Title => "Clean";
-    public string Summary => "Frees space from temp files, caches, old logs and leftovers. You see everything first, and it can be undone unless it's marked Permanent.";
+    public string Summary => "Frees space from temp files, caches, old logs and leftovers. You see everything first, and it can be undone unless it's marked Can't be undone.";
     public NavGroup Group => NavGroup.CleanUp;
     public string Icon => "Broom24";
     public int Order => 10;

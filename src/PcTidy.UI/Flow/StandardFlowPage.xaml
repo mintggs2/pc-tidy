@@ -100,7 +100,7 @@
                 IsOpen="True"
                 Severity="Informational" />
             <StackPanel x:Name="NotesPanel" Grid.Row="1" />
-            <flow:ResultsPanel x:Name="Results" Grid.Row="2" />
+            <flow:ResultsPanel x:Name="Results" Grid.Row="2" GroupsAndDetails="True" />
             <c:EmptyState
                 x:Name="NothingFound"
                 Grid.Row="2"

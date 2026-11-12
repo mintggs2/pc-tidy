@@ -50,8 +50,8 @@ public class BadgePill : Border
     public static string LabelFor(Badge badge) => badge switch
     {
         Core.Model.Badge.Safe => "Safe",
-        Core.Model.Badge.Check => "Check",
-        _ => "Permanent",
+        Core.Model.Badge.Check => "Check first",
+        _ => "Can't be undone",
     };
 
     private (string Text, PillTone Tone) Resolve()
@@ -63,8 +63,8 @@ public class BadgePill : Border
         var tone = text.ToLowerInvariant() switch
         {
             "safe" or "low" or "recommended" or "on" or "restorable" or "done" or "completed" => PillTone.Success,
-            "check" or "medium" or "needs restart" or "partly undone" or "with skips" or "interrupted" => PillTone.Caution,
-            "permanent" or "high" or "can't undo" or "failed" => PillTone.Critical,
+            "check" or "check first" or "medium" or "needs restart" or "partly undone" or "with skips" or "interrupted" => PillTone.Caution,
+            "permanent" or "can't be undone" or "high" or "can't undo" or "failed" => PillTone.Critical,
             "simulated" => PillTone.Info,
             _ => PillTone.Neutral,
         };

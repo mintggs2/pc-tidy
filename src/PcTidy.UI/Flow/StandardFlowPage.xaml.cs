@@ -65,6 +65,7 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         _done.UndoRequested += runs => UndoAsync(runs).Forget(Host, "Undo didn't finish");
         _done.HistoryRequested += () => Shell?.NavigateTo("history");
         _done.TryAdminAgainRequested += plans => TryAdminAgainAsync(plans).Forget(Host, "The admin steps didn't run");
+        WorkbenchHint.Wire(Results, services);
         _done.RunCheckLauncher = services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
         DoneHost.Content = _done;
 
@@ -380,8 +381,13 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         if (LearnedDefaults.NoteBar(learning, learnedOff.ToList(), WouldTick,
                 again => _model.Retick((_, g, i) => again.Contains(g) ? OptimizePresets.IsTickableByDefault(i.Item) : i.IsChecked)) is { } learnedBar)
             NotesPanel.Children.Add(learnedBar);
-        foreach (var note in outcomes.Where(o => o.Result != null).SelectMany(o => o.Result!.Notes))
-            NotesPanel.Children.Add(new InfoBar { Message = note, IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Warning, Margin = new Thickness(0, 0, 0, 8) });
+        // 3.2: open apps on one line with Rescan, the other notes folded into one row (not a stack of yellow bars).
+        // With notes, "Nothing is changed yet." leads that row (its full text under Show) instead of a second bar.
+        var nothingYet = _previewNote ?? (outcomes.Select(o => (o.Scanner as IModuleFlowText)?.PreviewNote).FirstOrDefault(n => n != null))
+                         ?? FlowCopy.PreviewNote(sections.SelectMany(s => s.Result.AllItems).ToList(), Shell?.QuarantineDays ?? 7);
+        bool merged = ScanNotes.AddTo(NotesPanel, outcomes.Where(o => o.Result != null).SelectMany(o => o.Result!.Notes).Select(n => new ScanNotes.Note(null, n)).ToList(),
+            () => StartScanAsync().Forget(Host, "Scan didn't finish"), lead: NothingYetBar.Title, leadDetail: nothingYet);
+        NothingYetBar.Visibility = merged ? Visibility.Collapsed : Visibility.Visible;
         foreach (var problem in outcomes.Where(o => o.Problem != null && !o.Cancelled).Select(o => o.Problem!))
             NotesPanel.Children.Add(new InfoBar { Title = "Part of the scan didn't finish.", Message = problem, IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Error, Margin = new Thickness(0, 0, 0, 8) });
         if (outcomes.Any(o => o.Cancelled))
@@ -429,7 +435,7 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         SelectionIcon.HasSelection = c.HasWork;
 
         var extras = new List<string>();
-        if (c.Permanent > 0) extras.Add($"{c.Permanent} permanent{(c.PermanentBytes > 0 ? ", " + Sizes.Format(c.PermanentBytes) : "")} (asks separately)");
+        if (c.Permanent > 0) extras.Add($"{c.Permanent} can't be undone{(c.PermanentBytes > 0 ? ", " + Sizes.Format(c.PermanentBytes) : "")} (asks separately)");
         if (c.Admin > 0) extras.Add($"{c.Admin} step{PlanFacts.S(c.Admin)} need admin");
         if (c.SystemChange) extras.Add("restore point first");
         SelectedCaption.Text = extras.Count > 0 ? string.Join(" · ", extras)
@@ -554,7 +560,7 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         _done.Runs = records;
         if (beforeAfter is { Count: > 0 }) _done.BeforeAfter = beforeAfter;
         var s = new RunSummary(records);
-        Subtitle.Text = $"Finished at {DateTime.Now:t} · " + (s.Quarantined > 0 ? "everything removed is in quarantine, nothing was deleted" : "you can undo this from History");
+        Subtitle.Text = $"Finished at {DateTime.Now:t} · " + s.UndoNote;
         SetState(FlowState.Done);
     }
 
@@ -582,6 +588,8 @@ public partial class StandardFlowPage : UserControl, IFixedHeightPage, IPreselec
         if (_model.TotalItems == 0) return;
         if (State != FlowState.Preview) SetState(FlowState.Preview);
         var result = _model.Preselect(itemIds);
+        // Workbench layout: show the group holding the picked rows, not just the first group.
+        if (_model.Sections.SelectMany(s => s.Groups).FirstOrDefault(g => g.CheckedCount > 0) is { } picked) Results.ShowRow(picked);
         NotesPanel.Children.Insert(0, new InfoBar
         {
             Message = result.Message, IsOpen = true, IsClosable = true, Margin = new Thickness(0, 0, 0, 8),

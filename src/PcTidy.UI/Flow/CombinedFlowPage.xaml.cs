@@ -43,6 +43,7 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         _done.UndoRequested += runs => UndoAsync(runs).Forget(Shell, "Undo didn't finish");
         _done.HistoryRequested += () => Shell?.NavigateTo("history");
         _done.TryAdminAgainRequested += plans => TryAdminAgainAsync(plans).Forget(Shell, "The admin steps didn't run");
+        WorkbenchHint.Wire(Results, services);
         _done.RunCheckLauncher = services.GetService(typeof(IRunCheckLauncher)) as IRunCheckLauncher;
         DoneState.Content = _done;
         SimulationState.BackRequested += () => SetState(FlowState.Preview);
@@ -304,13 +305,11 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
                     _model.Retick((s, g, i) => again.Contains(g) ? ShouldTick(s, g, i) : i.IsChecked);
                 }) is { } learnedBar)
             NotesPanel.Children.Add(learnedBar);
-        foreach (var o in outcomes)
-        {
-            if (o.Problem != null && !o.Cancelled)
-                NotesPanel.Children.Add(new InfoBar { Title = "Part of the scan didn't finish.", Message = o.Problem, IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Error, Margin = new Thickness(0, 0, 0, 8) });
-            foreach (var note in o.Result?.Notes ?? Array.Empty<string>())
-                NotesPanel.Children.Add(new InfoBar { Message = $"{o.Scanner.Title}: {note}", IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Warning, Margin = new Thickness(0, 0, 0, 8) });
-        }
+        foreach (var o in outcomes.Where(o => o.Problem != null && !o.Cancelled))
+            NotesPanel.Children.Add(new InfoBar { Title = "Part of the scan didn't finish.", Message = o.Problem, IsOpen = true, IsClosable = true, Severity = InfoBarSeverity.Error, Margin = new Thickness(0, 0, 0, 8) });
+        // 3.2: open apps on one line with Rescan, the other notes folded into one row (not a stack of yellow bars).
+        ScanNotes.AddTo(NotesPanel, outcomes.SelectMany(o => (o.Result?.Notes ?? Array.Empty<string>()).Select(n => new ScanNotes.Note(o.Scanner.Title, n))).ToList(),
+            () => StartScanAsync(null).Forget(Shell, "Scan didn't finish"));
         if (outcomes.Any(o => o.Cancelled))
             NotesPanel.Children.Add(new InfoBar
             {
@@ -364,7 +363,7 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
         if (c.Settings > 0) Totals.Children.Add(Tile(SymbolRegular.WrenchScrewdriver24, $"{c.Settings} setting{PlanFacts.S(c.Settings)}", "each one undoable"));
         // What can't be undone is never folded into "Clean": its own tile, with its size (an emptied Recycle Bin can be huge).
         if (c.Permanent > 0) Totals.Children.Add(Tile(SymbolRegular.Warning24,
-            c.PermanentBytes > 0 ? $"{Sizes.Format(c.PermanentBytes)} for good" : $"{c.Permanent} permanent",
+            c.PermanentBytes > 0 ? $"{Sizes.Format(c.PermanentBytes)} for good" : $"{c.Permanent} can't be undone",
             $"{PlanFacts.Items(c.Permanent)} that can't be undone · asks separately"));
         if (Totals.Children.Count == 0) Totals.Children.Add(Tile(SymbolRegular.CheckboxUnchecked24, "Nothing ticked", "tick what you want below"));
         for (int i = 0; i < Totals.Children.Count; i++)

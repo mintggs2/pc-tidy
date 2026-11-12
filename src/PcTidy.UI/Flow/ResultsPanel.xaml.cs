@@ -32,12 +32,120 @@ public partial class ResultsPanel : UserControl
             _model = value;
             if (_model != null) _model.PropertyChanged += OnModelPropertyChanged;
             List.ItemsSource = _model?.Rows;
+            FillGroups(keep: null);
             ShowDetails(null);
         }
     }
 
+    private bool _groupsAndDetails;
+
+    /// <summary>
+    /// 3.2 Workbench layout (Clean, Scan everything): the groups on the left, the picked group's rows on the right, and
+    /// the row details as a third column. Same rows and ticks as the single list: only the layout differs. Feature pages
+    /// that read the single list (the "List" part) keep it by leaving this off.
+    /// </summary>
+    public bool GroupsAndDetails
+    {
+        get => _groupsAndDetails;
+        set
+        {
+            _groupsAndDetails = value;
+            WbGrid.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
+            List.Visibility = value ? Visibility.Collapsed : Visibility.Visible;
+            KeyboardHint.Visibility = value ? Visibility.Collapsed : Visibility.Visible;
+            DetailsPanel.Width = value ? 260 : 310; // three columns at 1280 px
+            FillGroups(keep: null);
+        }
+    }
+
+    /// <summary>The left list: section headers (only with several sections) and their groups. The first group is picked.</summary>
+    private void FillGroups(GroupRow? keep)
+    {
+        if (!_groupsAndDetails) return;
+        var rows = new List<ListRow>();
+        if (_model is { } m)
+            foreach (var s in m.Sections)
+            {
+                if (m.Sections.Count > 1) rows.Add(s.Header);
+                rows.AddRange(s.Groups);
+            }
+        GroupsList.ItemsSource = rows;
+        var pick = keep is not null && rows.Contains(keep) ? keep : rows.OfType<GroupRow>().FirstOrDefault();
+        GroupsList.SelectedItem = pick;
+        ShowGroup(pick);
+    }
+
+    private GroupRow? _group;
+
+    /// <summary>Shows the one-time "how this layout works" hint (the page decides, from its settings).</summary>
+    public bool ShowHint
+    {
+        get => WbHint.Visibility == Visibility.Visible;
+        set => WbHint.Visibility = value && _groupsAndDetails ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>"Got it" was clicked: the page stores it so the hint never comes back.</summary>
+    public event Action? HintDismissed;
+
+    private void OnHintOk(object sender, RoutedEventArgs e)
+    {
+        WbHint.Visibility = Visibility.Collapsed;
+        HintDismissed?.Invoke();
+    }
+
+    private void ShowGroup(GroupRow? g)
+    {
+        _group = g;
+        PickHint.Visibility = g is null ? Visibility.Visible : Visibility.Collapsed;
+        GroupPane.Visibility = g is null ? Visibility.Collapsed : Visibility.Visible;
+        ItemsList.ItemsSource = g?.Items;
+        ShowDetails(null);
+        if (g is null) return;
+        GroupTitle.Text = g.Title;
+        GroupWhy.Text = g.Group.Description ?? "";
+        GroupWhy.Visibility = string.IsNullOrWhiteSpace(g.Group.Description) ? Visibility.Collapsed : Visibility.Visible;
+        GroupSize.Bytes = g.TotalBytes;
+        if (g.IsInfoOnly) { GroupPill.Badge = null; GroupPill.Text = "Info only"; GroupPill.Tone = PillTone.Neutral; }
+        else GroupPill.Badge = g.Group.Badge;
+        GroupEmpty.Visibility = g.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnGroupPicked(object sender, SelectionChangedEventArgs e)
+    {
+        if (GroupsList.SelectedItem is GroupRow g) { if (!ReferenceEquals(g, _group)) ShowGroup(g); }
+        else if (GroupsList.SelectedItem is SectionRow) GroupsList.SelectedItem = _group; // headers aren't pickable
+    }
+
+    private void OnItemPicked(object sender, SelectionChangedEventArgs e) => ShowDetails(ItemsList.SelectedItem as ItemRow);
+
+    private void OnGroupsKeyDown(object sender, KeyEventArgs e)
+    {
+        if (GroupsList.SelectedItem is not GroupRow g) return;
+        if (e.Key == Key.Space) { g.IsChecked = g.IsChecked != true; e.Handled = true; }
+        else if (e.Key is Key.Right or Key.Enter && g.Items.Count > 0)
+        {
+            ItemsList.SelectedItem ??= g.Items[0];
+            (ItemsList.ItemContainerGenerator.ContainerFromItem(ItemsList.SelectedItem) as UIElement ?? ItemsList).Focus();
+            e.Handled = true;
+        }
+    }
+
+    private void OnItemsKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Left)
+        {
+            (GroupsList.ItemContainerGenerator.ContainerFromItem(GroupsList.SelectedItem) as UIElement ?? GroupsList).Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Space && ItemsList.SelectedItem is ItemRow item) { item.IsChecked = !item.IsChecked; e.Handled = true; }
+    }
+
     private void OnModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        // A new scan loads new groups (expanding a group only reshapes the single list, which this layout doesn't use).
+        if (e.PropertyName == nameof(SelectionModel.Rows) && _model != null && _groupsAndDetails
+            && (_group is null || !_model.Sections.SelectMany(s => s.Groups).Contains(_group)))
+            FillGroups(keep: null);
         if (e.PropertyName == nameof(SelectionModel.Rows) && _model != null)
         {
             var keep = List.SelectedItem;
@@ -54,6 +162,14 @@ public partial class ResultsPanel : UserControl
     public void SelectFirstItem()
     {
         if (_model == null) return;
+        if (_groupsAndDetails)
+        {
+            if (_model.Sections.SelectMany(s => s.Groups).FirstOrDefault(g => g.Items.Count > 0) is not { } g) return;
+            GroupsList.SelectedItem = g;
+            ItemsList.SelectedItem = g.Items[0];
+            ItemsList.ScrollIntoView(g.Items[0]);
+            return;
+        }
         var first = _model.Rows.OfType<ItemRow>().FirstOrDefault();
         if (first == null && _model.Rows.OfType<GroupRow>().FirstOrDefault(g => g.Items.Count > 0) is { } group)
         {
@@ -65,11 +181,24 @@ public partial class ResultsPanel : UserControl
         List.ScrollIntoView(first);
     }
 
-    public void FocusList() => List.Focus();
+    public void FocusList()
+    {
+        if (_groupsAndDetails) GroupsList.Focus();
+        else List.Focus();
+    }
 
     /// <summary>Selects a row and scrolls it into view (a group another section asked for).</summary>
     public void ShowRow(ListRow row)
     {
+        if (_groupsAndDetails)
+        {
+            var group = row as GroupRow ?? (row as ItemRow)?.Group;
+            if (group is null) return;
+            GroupsList.SelectedItem = group;
+            GroupsList.ScrollIntoView(group);
+            if (row is ItemRow item) { ItemsList.SelectedItem = item; ItemsList.ScrollIntoView(item); }
+            return;
+        }
         List.SelectedItem = row;
         List.ScrollIntoView(row);
     }
@@ -77,6 +206,7 @@ public partial class ResultsPanel : UserControl
     public void ClearSelection()
     {
         List.SelectedItem = null;
+        ItemsList.SelectedItem = null;
         ShowDetails(null);
     }
 
@@ -135,6 +265,7 @@ public partial class ResultsPanel : UserControl
     private void OnCloseDetails(object sender, RoutedEventArgs e)
     {
         List.SelectedItem = null;
+        ItemsList.SelectedItem = null;
         ShowDetails(null);
     }
 
@@ -149,6 +280,12 @@ public partial class ResultsPanel : UserControl
 
     private void ShowDetails(ItemRow? row)
     {
+        // Workbench: with the details column open, the groups column gives up room so the rows stay readable.
+        if (_groupsAndDetails && WbGrid.ColumnDefinitions.Count > 0)
+        {
+            WbGrid.ColumnDefinitions[0].Width = new GridLength(row == null ? 310 : 265);
+            GroupsList.Tag = row == null ? null : "narrow";
+        }
         if (row == null)
         {
             DetailsPanel.Visibility = Visibility.Collapsed;
@@ -236,4 +373,20 @@ public partial class ResultsPanel : UserControl
         if (wrap) t.TextWrapping = TextWrapping.Wrap;
         return t;
     }
+}
+
+/// <summary>3.2 Workbench templates: compact group rows on the left, plain rows on the right (anything else: implicit).</summary>
+public sealed class WorkbenchRowTemplates : DataTemplateSelector
+{
+    public DataTemplate? Group { get; set; }
+    public DataTemplate? Item { get; set; }
+    public DataTemplate? Section { get; set; }
+
+    public override DataTemplate? SelectTemplate(object item, DependencyObject container) => item switch
+    {
+        GroupRow => Group,
+        ItemRow => Item,
+        SectionRow => Section,
+        _ => base.SelectTemplate(item, container),
+    };
 }

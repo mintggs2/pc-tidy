@@ -57,7 +57,8 @@ public sealed class ScreenshotRunner
             if (_services.IsDemo) DemoScanner.DurationMs = 900;
             await Settle(900);
 
-            if (_services.Args.Raw.Any(a => a.Equals("--update-shots", StringComparison.OrdinalIgnoreCase))) await UpdateSetAsync();
+            if (_services.Args.Raw.Any(a => a.Equals("--workbench-shots", StringComparison.OrdinalIgnoreCase))) await WorkbenchSetAsync();
+            else if (_services.Args.Raw.Any(a => a.Equals("--update-shots", StringComparison.OrdinalIgnoreCase))) await UpdateSetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--shell-shots", StringComparison.OrdinalIgnoreCase))) await ShellSetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--v31-shots", StringComparison.OrdinalIgnoreCase))) await V31SetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--resume-shots", StringComparison.OrdinalIgnoreCase))) await ResumeSetAsync();
@@ -74,6 +75,66 @@ public sealed class ScreenshotRunner
         {
             Application.Current.Shutdown();
         }
+    }
+
+    // ---------------- 3.2 Workbench: the tabs, Clean's groups and details, the other tabs, light theme ----------------
+
+    private async Task WorkbenchSetAsync()
+    {
+        var home = _w.PageFor<HomePage>("home")!;
+        _w.NavigateTo("home");
+        await Settle(500);
+        await home.CheckFreeSpaceAsync();
+        await Shot("w1-overview.png");
+        if (_services.Args.Raw.Contains("--dump-nav")) DumpTree(_w.FindName("RootNavigation") as DependencyObject, Path.Combine(_dir, "nav-tree.txt"));
+
+        var clean = _w.PageFor<StandardFlowPage>("cleanup")!;
+        _w.NavigateTo("cleanup");
+        await Shot("w2-clean-ready.png");
+        await clean.StartScanAsync();
+        await Shot("w3-clean-first-run-hint.png");
+        clean.ResultsList.ShowHint = false;
+        await Shot("w4-clean.png");
+        clean.ResultsList.SelectFirstItem();
+        await Shot("w5-clean-details.png");
+        clean.ResultsList.ClearSelection();
+
+        foreach (var (key, file) in new[] { ("speed", "w6-optimize-speed.png"), ("tweaks", "w7-optimize-tweaks.png"), ("apps", "w8-apps.png"), ("insights", "w9-reports-insights.png") })
+        {
+            if (!_w.HasPage(key)) continue;
+            _w.NavigateTo(key);
+            await Settle(600);
+            await Shot(file);
+        }
+
+        var optimize = _w.PageFor<CombinedFlowPage>("optimize")!;
+        _w.NavigateTo("optimize");
+        await optimize.StartScanAsync();
+        optimize.ResultsList.ShowHint = false;
+        await Shot("w10-scan-everything.png");
+
+        TidyTheme.Apply(Other);
+        _w.NavigateTo("cleanup");
+        await Shot($"w11-clean-{Name(Other)}.png");
+        _w.NavigateTo("home");
+        await Shot($"w12-overview-{Name(Other)}.png");
+        TidyTheme.Apply(_theme);
+    }
+
+    /// <summary>Debug aid (--dump-nav): the visual tree's types, names and sizes, to the shots folder only.</summary>
+    private static void DumpTree(DependencyObject? root, string file)
+    {
+        if (root is null) return;
+        var sb = new System.Text.StringBuilder();
+        void Walk(DependencyObject d, int depth)
+        {
+            if (depth > 9) return;
+            if (d is FrameworkElement fe)
+                sb.AppendLine($"{new string(' ', depth * 2)}{fe.GetType().Name} '{fe.Name}' w={fe.ActualWidth:0} x={fe.TranslatePoint(new Point(0, 0), Application.Current.MainWindow).X:0} m={fe.Margin} vis={fe.Visibility}");
+            for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(d); i++) Walk(System.Windows.Media.VisualTreeHelper.GetChild(d, i), depth + 1);
+        }
+        Walk(root, 0);
+        File.WriteAllText(file, sb.ToString());
     }
 
     // ---------------- demo: every page and state, including real (fake) runs ----------------

@@ -39,7 +39,7 @@ public static class FlowCopy
         if (c.Settings > 0) parts.Add("ticked settings keep a copy of their old value");
         if (parts.Count == 0 && c.Permanent == 0) return "This list is for information: nothing here is changed by PC Tidy.";
         var text = parts.Count == 0 ? "" : char.ToUpperInvariant(parts[0][0]) + string.Join(", ", parts)[1..] + ". ";
-        text += c.Permanent > 0 ? "Everything else can be undone; Permanent items always ask again." : "Everything can be undone from History.";
+        text += c.Permanent > 0 ? "Everything else can be undone; items that can't be undone always ask again." : "Everything can be undone from History.";
         return text;
     }
 

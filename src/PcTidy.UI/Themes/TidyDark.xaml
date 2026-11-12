@@ -18,6 +18,11 @@
     <SolidColorBrush x:Key="TidyDisabledRowBrush" Color="#0AFFFFFF" />
     <SolidColorBrush x:Key="TidyItemRowBrush" Color="#08FFFFFF" />
     <SolidColorBrush x:Key="TidyRowSelectedBrush" Color="#142BB673" />
+    <!--  3.2: the one notes row when an app is open or a note reports a problem  -->
+    <SolidColorBrush x:Key="TidyCautionSoftBrush" Color="#33F2C661" />
+    <!--  3.2: selected tab / inner-list row / group row  -->
+    <SolidColorBrush x:Key="TidyNavSelectedBrush" Color="#0FFFFFFF" />
+    <SolidColorBrush x:Key="TidyNavHoverBrush" Color="#0AFFFFFF" />
     <SolidColorBrush x:Key="TidyBreakdown1Brush" Color="#33A0D9" />
     <SolidColorBrush x:Key="TidyBreakdown2Brush" Color="#3CCB86" />
     <SolidColorBrush x:Key="TidyBreakdown3Brush" Color="#C29A1E" />

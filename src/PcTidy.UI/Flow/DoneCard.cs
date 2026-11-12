@@ -83,26 +83,41 @@ public sealed class DoneCard : UserControl
         var stack = new StackPanel();
 
         // Headline
-        var head = new StackPanel { Orientation = Orientation.Horizontal };
+        // DockPanel, not a horizontal StackPanel: the titles get the card's remaining width, so a long headline wraps
+        // instead of running off the edge (a long "moved to quarantine" headline was cut off in 3.1.2).
+        var head = new DockPanel { LastChildFill = true };
         var circle = new Border { Width = 56, Height = 56, CornerRadius = new CornerRadius(28) };
         circle.SetResourceReference(Border.BackgroundProperty, s.IsUndone ? "ControlFillColorSecondaryBrush" : s.Failed > 0 && s.Quarantined + s.Moved + s.Changed == 0 ? "SystemFillColorCautionBrush" : "AccentFillColorDefaultBrush");
         var check = new SymbolIcon { Symbol = s.IsUndone ? SymbolRegular.ArrowUndo24 : SymbolRegular.Checkmark24, FontSize = 30, Filled = true, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         check.SetResourceReference(ForegroundProperty, s.IsUndone ? "TextFillColorPrimaryBrush" : "TextOnAccentFillColorPrimaryBrush");
         circle.Child = check;
+        circle.VerticalAlignment = VerticalAlignment.Top;
+        DockPanel.SetDock(circle, Dock.Left);
         head.Children.Add(circle);
         var titles = new StackPanel { Margin = new Thickness(18, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        var headline = T(s.IsUndone ? "Everything was put back" : s.Headline, "BigNumber");
+        // After Undo, a run that also deleted something for good doesn't claim everything came back.
+        var headline = T(s.IsUndone ? (s.PermanentDone > 0 ? "Put back all that could be" : "Everything was put back") : s.Headline, "BigNumber");
         if (headline.Text.Length > 22) headline.FontSize = 30; // "6.2 GB moved to quarantine" must fit the card
         titles.Children.Add(headline);
+        // What else happened to space, above all what can't be undone: its own line, never squeezed into the headline.
+        if (!s.IsUndone && s.HeadlineDetail is { } detail)
+        {
+            var second = T(detail, "BodyStrong", new Thickness(0, 2, 0, 2));
+            second.FontSize = 18;
+            titles.Children.Add(second);
+        }
         titles.Children.Add(T(s.IsUndone
-            ? "Undo finished. Your files and settings are as they were before this run."
-            : $"Finished in {s.DurationText}" + (s.Quarantined > 0 ? " · nothing was deleted" : ""), "Secondary"));
+            ? (s.PermanentDone > 0
+                ? $"Undo finished. What can't be undone ({PlanFacts.Items(s.PermanentDone)}) stays as it is now; everything else is as it was."
+                : "Undo finished. Your files and settings are as they were before this run.")
+            : $"Finished in {s.DurationText}" + (s.PermanentDone > 0 ? $" · {PlanFacts.Items(s.PermanentDone)} can't be undone" : s.Quarantined > 0 ? " · nothing was deleted" : ""), "Secondary"));
         head.Children.Add(titles);
         stack.Children.Add(head);
         if (!s.IsUndone && s.SpaceNote is { } note) stack.Children.Add(T(note, "Secondary", new Thickness(74, 10, 0, 0)));
         // Clearly less than the confirm dialog said: say how much, and where the rest went.
         if (s.ShortfallLine is { } shortfall) stack.Children.Add(T(shortfall, "Secondary", new Thickness(74, 6, 0, 0)));
-        AutomationProperties.SetName(this, s.IsUndone ? "Run undone" : "Run finished: " + s.Headline + ". " + s.SpaceNote + " " + s.ShortfallLine);
+        AutomationProperties.SetName(this, s.IsUndone ? "Run undone"
+            : string.Join(" ", new[] { "Run finished: " + s.FullHeadline + ".", s.PermanentDone > 0 ? s.UndoNote + "." : null, s.SpaceNote, s.ShortfallLine }.Where(x => !string.IsNullOrEmpty(x))));
 
         // Tiles: "48 of 49" when something was skipped, so the numbers match the confirm dialog.
         var p = s.Planned;
@@ -200,7 +215,10 @@ public sealed class DoneCard : UserControl
 
         string rp = s.RestorePoint != null || s.HadSystemChange ? " " + s.RestorePointLine.TrimEnd('.') + "." : "";
         if (!s.IsUndone && s.AnyReversible)
-            stack.Children.Add(T("Undo puts everything back exactly as it was." + rp, "Caption", new Thickness(0, 10, 0, 0)));
+            stack.Children.Add(T((s.PermanentDone > 0
+                ? (s.BytesPermanent > 0 ? "Undo puts everything else back exactly as it was; what was deleted for good can't come back."
+                    : "Undo puts everything else back exactly as it was; the steps that can't be undone stay as they are.")
+                : "Undo puts everything back exactly as it was.") + rp, "Caption", new Thickness(0, 10, 0, 0)));
 
         card.Child = stack;
         Content = card;
@@ -211,6 +229,9 @@ public sealed class DoneCard : UserControl
         var b = new Border();
         b.SetResourceReference(StyleProperty, "InnerTile");
         var sp = new StackPanel();
+        // "48 of 49": the big number stays short (one line), "of 49" leads the label underneath.
+        int of = number.IndexOf(" of ", StringComparison.Ordinal);
+        if (of > 0) { label = number[(of + 1)..] + " " + label; number = number[..of]; }
         sp.Children.Add(T(number, "StatNumber"));
         sp.Children.Add(T(label, "Secondary"));
         b.Child = sp;

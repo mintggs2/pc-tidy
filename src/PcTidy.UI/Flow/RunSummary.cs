@@ -54,6 +54,7 @@ public sealed class RunSummary
                     break;
                 case PlanCategory.Permanent:
                     BytesFreed += s.BytesAffected;
+                    BytesPermanent += s.BytesAffected;
                     break;
             }
         }
@@ -109,6 +110,8 @@ public sealed class RunSummary
     public long BytesFreed { get; }
     /// <summary>Measured bytes moved to quarantine on the same drive: freed only when quarantine is emptied.</summary>
     public long BytesHeld { get; }
+    /// <summary>Of <see cref="BytesFreed"/>: removed for good (Recycle Bin, Windows' own tools). Never in quarantine.</summary>
+    public long BytesPermanent { get; }
     /// <summary>When quarantine for this run is due to be emptied (it always asks first unless set otherwise).</summary>
     public DateTime EmptiedAfterLocal { get; }
     public IReadOnlyList<(string Reason, int Count, long Bytes)> SkipReasons { get; }
@@ -120,12 +123,15 @@ public sealed class RunSummary
     public bool IsSimulation { get; }
     public bool AnyReversible { get; }
 
-    /// <summary>"6.2 GB moved to quarantine" / "6.2 GB freed" / "241 files sorted" / "9 changes made" / "Nothing needed doing".</summary>
+    /// <summary>
+    /// "6.2 GB moved to quarantine" / "6.2 GB freed" / "241 files sorted" / "9 changes made" / "Nothing needed doing".
+    /// Short on purpose (the Done card's big line); what was freed or deleted for good besides is <see cref="HeadlineDetail"/>.
+    /// </summary>
     public string Headline
     {
         get
         {
-            if (BytesHeld > 0) return Sizes.Format(BytesHeld) + " moved to quarantine" + (BytesFreed > 0 ? $" · {Sizes.Format(BytesFreed)} freed" : "");
+            if (BytesHeld > 0) return Sizes.Format(BytesHeld) + " moved to quarantine";
             if (BytesFreed > 0) return Sizes.Format(BytesFreed) + " freed";
             if (Quarantined > 0) return $"{PlanFacts.Items(Quarantined)} moved to quarantine";
             if (Moved > 0) return $"{Moved:N0} file{PlanFacts.S(Moved)} sorted";
@@ -136,9 +142,42 @@ public sealed class RunSummary
         }
     }
 
+    /// <summary>
+    /// The second line under the headline: what else happened to space, above all what can't be undone
+    /// ("3.2 GB deleted for good", "2.0 GB freed · 3.2 GB deleted for good", "2 done for good"). Null when nothing.
+    /// </summary>
+    public string? HeadlineDetail
+    {
+        get
+        {
+            if (IsSimulation || IsUndone) return null;
+            var parts = new List<string>();
+            long freedByQuarantine = BytesFreed - BytesPermanent;
+            if (BytesHeld > 0 && freedByQuarantine > 0) parts.Add(Sizes.Format(freedByQuarantine) + " freed");
+            if (BytesPermanent > 0)
+                parts.Add(BytesHeld > 0 ? Sizes.Format(BytesPermanent) + " deleted for good"
+                    : freedByQuarantine > 0 ? Sizes.Format(BytesPermanent) + " of it deleted for good"
+                    : "All of it deleted for good: it can't be undone");
+            // A headline of "3 done" already says it; otherwise name what can't be undone.
+            else if (PermanentDone > 0 && (BytesHeld > 0 || BytesFreed > 0 || Quarantined + Moved + Changed > 0))
+                parts.Add($"{PlanFacts.Items(PermanentDone)} can't be undone");
+            return parts.Count == 0 ? null : string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>One line for lists and reports (History, Home, run reports): the headline plus <see cref="HeadlineDetail"/>.</summary>
+    public string FullHeadline => HeadlineDetail is { } d ? $"{Headline} · {char.ToLowerInvariant(d[0])}{d[1..]}" : Headline;
+
+    /// <summary>The page subtitle's second part: never "nothing was deleted" when something was done for good.</summary>
+    public string UndoNote => PermanentDone > 0
+        ? (AnyReversible ? "the rest can be undone from History; " : "") + $"{PlanFacts.Items(PermanentDone)} can't be undone"
+        : Quarantined > 0 ? "everything removed is in quarantine, nothing was deleted" : "you can undo this from History";
+
     /// <summary>Honest note about the space: null when nothing is waiting in quarantine on the same drive.</summary>
     public string? SpaceNote => BytesHeld > 0
-        ? $"The space is freed when quarantine is emptied ({EmptiedAfterLocal.ToString("d MMM", CultureInfo.CurrentCulture)} or later). Until then you can put everything back."
+        ? $"The space is freed when quarantine is emptied ({EmptiedAfterLocal.ToString("d MMM", CultureInfo.CurrentCulture)} or later). Until then you can put "
+          + (BytesPermanent > 0 ? "back everything that went to quarantine; what was deleted for good can't come back."
+             : PermanentDone > 0 ? "back everything that went to quarantine; the steps that can't be undone stay as they are." : "everything back.")
         : null;
 
     // ---------------- freed vs the plan's estimate ----------------
@@ -189,9 +228,11 @@ public sealed class RunSummary
         get
         {
             if (!FellShort) return null;
-            var verb = BytesHeld > 0
+            var verb = BytesHeld > 0 && BytesFreed == 0
                 ? $"{Sizes.Format(MeasuredBytes)} of about {Sizes.Format(EstimatedBytes)} went to quarantine."
-                : $"Freed {Sizes.Format(MeasuredBytes)} of about {Sizes.Format(EstimatedBytes)}.";
+                : BytesHeld > 0
+                    ? $"{Sizes.Format(MeasuredBytes)} of about {Sizes.Format(EstimatedBytes)} was freed or moved to quarantine."
+                    : $"Freed {Sizes.Format(MeasuredBytes)} of about {Sizes.Format(EstimatedBytes)}.";
             long explained = GapInUse + GapChanged + GapGone + GapOther;
             long smaller = Math.Max(0, EstimatedBytes - MeasuredBytes - explained);
             var parts = new List<string>();

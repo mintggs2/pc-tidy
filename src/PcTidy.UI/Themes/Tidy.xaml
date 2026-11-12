@@ -197,6 +197,64 @@
         </Setter>
     </Style>
 
+    <!--  ===== 3.2 Workbench: top tabs (accent underline when Tag="selected") =====  -->
+    <Style x:Key="TidyTabButton" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource TidyText}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="Transparent">
+                        <Border x:Name="Hover" Margin="0,6,0,4" Background="Transparent" CornerRadius="5" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                        <Border x:Name="Bar" Height="3" Margin="12,0,12,0" VerticalAlignment="Bottom" Background="{DynamicResource TidyAccentBrush}" CornerRadius="1.5" Visibility="Hidden" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Hover" Property="Background" Value="{DynamicResource TidyNavHoverBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="Tag" Value="selected">
+                            <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  ===== 3.2 Workbench: inner-list rows and the top-right buttons (soft fill + accent bar when Tag="selected") =====  -->
+    <Style x:Key="TidyNavButton" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource TidyText}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource DefaultControlFocusVisualStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="5" />
+                        <Border x:Name="Bar" Width="3" Height="16" HorizontalAlignment="Left" Background="{DynamicResource TidyAccentBrush}" CornerRadius="1.5" Visibility="Hidden" />
+                        <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TidyNavHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="Tag" Value="selected">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TidyNavSelectedBrush}" />
+                            <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!--  ===== Segmented picker button (RadioButton) =====  -->
     <Style x:Key="TidySegmentButton" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{StaticResource TidyText}" />

@@ -27,7 +27,7 @@ public static class RunReportBuilder
 
         var when = first.CreatedUtc.ToLocalTime().ToString("f", CultureInfo.CurrentCulture);
         var mode = summary.IsSimulation ? "Simulation: nothing was changed." : summary.IsUndone ? "This run has been undone." : null;
-        blocks.Add(new ParagraphBlock($"{summary.Headline}. {when}, took {summary.DurationText}." + (mode is null ? "" : " " + mode)));
+        blocks.Add(new ParagraphBlock($"{summary.FullHeadline}. {when}, took {summary.DurationText}." + (mode is null ? "" : " " + mode)));
 
         blocks.Add(new HeadingBlock("Summary"));
         var facts = new List<IReadOnlyList<string>>();
@@ -38,7 +38,7 @@ public static class RunReportBuilder
         if (p.Moves > 0) facts.Add(Row("Files moved", RunSummary.OfPlanned(summary.Moved, p.Moves)));
         if (p.Startup > 0) facts.Add(Row("Startup items changed", RunSummary.OfPlanned(summary.StartupChanged, p.Startup)));
         if (p.Settings > 0) facts.Add(Row("Settings and tweaks applied", RunSummary.OfPlanned(summary.SettingsChanged, p.Settings)));
-        if (p.Permanent > 0) facts.Add(Row("Permanent actions", RunSummary.OfPlanned(summary.PermanentDone, p.Permanent)));
+        if (p.Permanent > 0) facts.Add(Row("Can't be undone", RunSummary.OfPlanned(summary.PermanentDone, p.Permanent)));
         if (summary.Simulated > 0) facts.Add(Row("Simulated steps", summary.Simulated.ToString("N0", CultureInfo.CurrentCulture)));
         if (summary.Skipped > 0) facts.Add(Row("Skipped", summary.Skipped.ToString("N0", CultureInfo.CurrentCulture)));
         facts.Add(Row("Restore point", summary.RestorePointLine));

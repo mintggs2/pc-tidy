@@ -39,7 +39,7 @@ public static class HelpContent
         ("Where do deleted files go?",
          "Into quarantine inside PC Tidy's data folder. They stay there, restorable with one click, for the number of days you pick " +
          "in Settings. PC Tidy asks before emptying it. Only a few things can't be undone (like emptying the Recycle Bin); those are " +
-         "marked Permanent in red and always need an extra \"I understand\" tick."),
+         "marked \"Can't be undone\" in red and always need an extra \"I understand\" tick."),
         ("Why does it sometimes need admin?",
          "A few clean-ups touch Windows' own folders (for example Windows temp files or old error reports). For those, Windows asks you " +
          "once per run. PC Tidy itself always runs as a normal user, and the confirm screen shows a shield next to every step that needs admin."),
@@ -68,7 +68,11 @@ public static class HelpContent
         "PC Tidy itself contains no ads, no trackers and no bundled software.";
 
     public const string Changelog =
-        "3.1.2 (beta)\n" +
+        "3.2.0 (beta)\n" +
+        "• A cleaner layout: tabs along the top (Overview, Clean, Optimize, Apps, Organize, Reports), each with its pages on the left.\n" +
+        "• Clean shows groups and their rows side by side, with Safe / Check first / Can't be undone dots and a legend.\n" +
+        "• The scan's notes are one row with Rescan and Show. The Done card says clearly what was deleted for good.\n" +
+        "\n3.1.2 (beta)\n" +
         "• Steps that need admin rights run again (the admin helper quit at start), and so does the scheduled scan.\n" +
         "• A very big clean-up asks once with the real size instead of stopping at the safety limit. What can't be undone shows its own size.\n" +
         "• Declined admin prompt: \"Try the admin steps again\" on the Done card. Hibernation Reduced/off can't both be ticked. A shorter Services counter.\n" +

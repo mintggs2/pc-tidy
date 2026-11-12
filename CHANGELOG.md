@@ -7,6 +7,21 @@ PC Tidy is a **beta**. Every change it makes can be previewed, simulated and und
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-11-12
+
+A cleaner, more organized look ("Workbench"). Only the look and where things live changed: scanning, the preview, the confirm, quarantine and Undo work exactly as before.
+
+### Changed
+- **Tabs instead of a long sidebar.** Six tabs along the top (Overview, Clean, Optimize, Apps, Organize, Reports), each with a short list of its pages on the left, and History, Quarantine and Settings at the top right. Every section is still there, grouped by what it's for.
+- **Clean and Scan everything show groups and details side by side.** Groups on the left, the picked group's rows on the right, and a row's details as a third column. A coloured dot shows how risky each group is (Safe, Check first, Can't be undone), with a legend; groups that can't be undone also say so in words.
+- Safety labels now read **Safe**, **Check first** and **Can't be undone** everywhere.
+- **The scan's notes are one row** ("Chrome, Edge and Steam are open · 4 more notes") with Rescan and Show, instead of a yellow bar per note. Show lists every note word for word. On section pages the "Nothing is changed yet" line joins that row.
+- A one-time hint explains the new layout; empty states say what to do next.
+- Home's PC health card is shorter: what the score covers is in its tooltip.
+
+### Fixed
+- The Done card no longer says "nothing was deleted" when something was done for good (for example emptying the Recycle Bin). What can't be undone has its own line under the headline ("3.2 GB deleted for good"), the headline wraps instead of being cut off at the card's edge, and the "went to quarantine" line no longer counts the Recycle Bin as quarantine. History, Home and run reports name what was deleted for good too. After a run that deleted something for good, the card no longer says that everything can be put back, and after Undo it says what stays as it is.
+
 ## [3.1.2] - 2026-11-11
 
 Fixes from the first real use of 3.1.1.

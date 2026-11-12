@@ -36,7 +36,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="104" />
+                        <ColumnDefinition Width="124" />
                         <ColumnDefinition Width="28" />
                         <ColumnDefinition Width="84" />
                         <ColumnDefinition Width="36" />
@@ -110,7 +110,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="104" />
+                        <ColumnDefinition Width="124" />
                         <ColumnDefinition Width="28" />
                         <ColumnDefinition Width="84" />
                         <ColumnDefinition Width="36" />
@@ -171,6 +171,153 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+        <!--  ===== 3.2 Workbench layout (GroupsAndDetails = true): groups on the left, the picked group's rows on the right =====  -->
+        <DataTemplate x:Key="WbGroup" DataType="{x:Type flow:GroupRow}">
+            <Grid x:Name="Row" MinHeight="44" Margin="4,0,6,0" Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <CheckBox
+                    x:Name="GroupCheck"
+                    MinWidth="0"
+                    Margin="6,0,4,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="{Binding Title, StringFormat='Tick all in {0}'}"
+                    Focusable="False"
+                    IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                    IsEnabled="{Binding HasSelectable}" />
+                <!--  The risk dot; "Can't be undone" groups also say it in words (column 3)  -->
+                <Ellipse x:Name="Dot" Grid.Column="1" Width="8" Height="8" Margin="4,0,10,0" VerticalAlignment="Center" Fill="{DynamicResource TidyAccentBrush}" ToolTip="Safe: rebuilt automatically or clearly safe" />
+                <StackPanel Grid.Column="2" Margin="0,6,8,6" VerticalAlignment="Center">
+                    <TextBlock MaxHeight="38" FontSize="13.5" Text="{Binding Title}" TextTrimming="CharacterEllipsis" TextWrapping="Wrap" ToolTip="{Binding Title}" />
+                    <TextBlock Style="{StaticResource Caption}" Text="{Binding CountText}" />
+                </StackPanel>
+                <TextBlock
+                    x:Name="PermanentText"
+                    Grid.Column="3"
+                    Margin="0,0,8,0"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    FontWeight="SemiBold"
+                    Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                    Text="Can't be undone"
+                    Visibility="Collapsed" />
+                <c:SizeText Grid.Column="4" MinWidth="64" Bytes="{Binding TotalBytes}" ZeroText="" />
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Badge}" Value="Check">
+                    <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                    <Setter TargetName="Dot" Property="ToolTip" Value="Check first: your call, not ticked by default" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Permanent">
+                    <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                    <Setter TargetName="Dot" Property="ToolTip" Value="Can't be undone: asks again with its own tick" />
+                    <Setter TargetName="PermanentText" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <!--  Details open (narrow groups column): the words give way to the name; the dot, its tooltip and the
+                     right pane's "Can't be undone" pill still say it  -->
+                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="narrow">
+                    <Setter TargetName="PermanentText" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsInfoOnly}" Value="True">
+                    <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                    <Setter TargetName="Dot" Property="ToolTip" Value="Information only: nothing here changes" />
+                    <Setter TargetName="GroupCheck" Property="Visibility" Value="Hidden" />
+                    <Setter TargetName="PermanentText" Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <DataTemplate x:Key="WbItem" DataType="{x:Type flow:ItemRow}">
+            <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                <Grid x:Name="RowGrid" Margin="8,7,8,7">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="76" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox
+                        MinWidth="0"
+                        Margin="0,0,6,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{Binding Item.Title}"
+                        Focusable="False"
+                        IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                        IsEnabled="{Binding IsSelectable}" />
+                    <StackPanel Grid.Column="1" Margin="4,0,12,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontSize="13.5" Text="{Binding Item.Title}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="NoteText" Margin="10,1,0,0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Note}" />
+                        </StackPanel>
+                        <TextBlock x:Name="Why" Style="{StaticResource SecondaryTrim}" Text="{Binding SecondLine}" ToolTip="{Binding SecondLine}" />
+                    </StackPanel>
+                    <c:BadgePill x:Name="ItemPill" Grid.Column="2" Badge="{Binding Item.Badge}" />
+                    <ui:SymbolIcon
+                        Grid.Column="3"
+                        AutomationProperties.Name="Needs admin: Windows asks once for the whole run"
+                        FontSize="16"
+                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                        Symbol="Shield24"
+                        ToolTip="Needs admin. Windows asks once for the whole run."
+                        Visibility="{Binding Item.NeedsAdmin, Converter={StaticResource BoolVis}}" />
+                    <c:SizeText Grid.Column="4" FontWeight="Normal" Bytes="{Binding Item.SizeBytes}" ZeroText="" />
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding NoteIsBlocker}" Value="True">
+                    <Setter TargetName="NoteText" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsDisabled}" Value="True">
+                    <Setter TargetName="RowGrid" Property="Opacity" Value="0.6" />
+                    <Setter TargetName="ItemPill" Property="Badge" Value="{x:Null}" />
+                    <Setter TargetName="ItemPill" Property="Text" Value="Not offered" />
+                    <Setter TargetName="ItemPill" Property="Tone" Value="Neutral" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <DataTemplate x:Key="WbSection" DataType="{x:Type flow:SectionRow}">
+            <StackPanel Margin="10,12,8,4" Orientation="Vertical">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Margin="0,0,8,0" FontSize="16" Foreground="{DynamicResource TidyAccentBrush}" Symbol="{Binding Icon}" />
+                    <TextBlock FontSize="14" FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <TextBlock Margin="24,2,0,0" Style="{StaticResource Caption}" Text="{Binding Summary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Summary}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!--  Workbench rows: the selection fill sits BEHIND the row (the old list's cards paint their own background, so it
+             draws on top there), so a selected row reads brighter, not dimmer  -->
+        <Style x:Key="WbRowContainer" BasedOn="{StaticResource TidyRowContainer}" TargetType="ListBoxItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid>
+                            <Border x:Name="Sel" Background="Transparent" CornerRadius="6" />
+                            <Border x:Name="Bar" Width="3" Height="18" Margin="0,0,0,0" HorizontalAlignment="Left" Background="{DynamicResource TidyAccentBrush}" CornerRadius="1.5" Visibility="Hidden" />
+                            <ContentPresenter />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Sel" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Sel" Property="Background" Value="{DynamicResource TidyNavSelectedBrush}" />
+                                <Setter TargetName="Bar" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <flow:WorkbenchRowTemplates x:Key="WbTemplates" Group="{StaticResource WbGroup}" Item="{StaticResource WbItem}" Section="{StaticResource WbSection}" />
     </UserControl.Resources>
 
     <Grid>
@@ -200,6 +347,95 @@
             SelectionChanged="OnSelectionChanged"
             SelectionMode="Single"
             Style="{StaticResource TidyFlatList}" />
+
+        <!--  ===== 3.2 Workbench: groups | the picked group's rows (DetailsPanel joins as a third column) =====  -->
+        <Grid x:Name="WbGrid" Grid.RowSpan="2" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="310" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <!--  First-run hint (once; the page remembers "Got it")  -->
+            <Border
+                x:Name="WbHint"
+                Grid.ColumnSpan="2"
+                Margin="0,0,0,10"
+                Padding="14,8,10,8"
+                Background="{DynamicResource TidyAccentSoftBrush}"
+                BorderBrush="{DynamicResource TidyAccentStrokeBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="Collapsed">
+                <DockPanel>
+                    <ui:Button x:Name="WbHintOk" Margin="12,0,0,0" Click="OnHintOk" Content="Got it" DockPanel.Dock="Right" />
+                    <ui:SymbolIcon Margin="0,0,10,0" FontSize="18" Foreground="{DynamicResource TidyAccentBrush}" Symbol="Lightbulb24" />
+                    <TextBlock VerticalAlignment="Center" Style="{StaticResource Body}" TextWrapping="Wrap"
+                               Text="Tick groups on the left. The rows in the picked group are on the right; pick a row to see its details. Nothing changes until you confirm, and the dots mean Safe, Check first and Can't be undone." />
+                </DockPanel>
+            </Border>
+            <Border Grid.Row="1" Padding="0,6,0,6" Style="{StaticResource TidyCard}">
+                <DockPanel>
+                    <!--  What the dots mean (also in each dot's tooltip)  -->
+                    <WrapPanel x:Name="Legend" Margin="12,8,8,4" AutomationProperties.Name="Dots: green is Safe, amber is Check first, red is Can't be undone" DockPanel.Dock="Bottom">
+                        <StackPanel Margin="0,0,14,0" Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{DynamicResource TidyAccentBrush}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="Safe" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,0" Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{DynamicResource SystemFillColorCautionBrush}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="Check first" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Margin="0,0,6,0" Fill="{DynamicResource SystemFillColorCriticalBrush}" />
+                            <TextBlock Style="{StaticResource Caption}" Text="Can't be undone" />
+                        </StackPanel>
+                    </WrapPanel>
+                    <ListBox
+                        x:Name="GroupsList"
+                        AutomationProperties.HelpText="Arrow keys move between groups. Space ticks or unticks a group. Right arrow or Enter goes to its rows."
+                        AutomationProperties.Name="Groups"
+                        ItemContainerStyle="{StaticResource WbRowContainer}"
+                        ItemTemplateSelector="{StaticResource WbTemplates}"
+                        PreviewKeyDown="OnGroupsKeyDown"
+                        SelectionChanged="OnGroupPicked"
+                        SelectionMode="Single"
+                        Style="{StaticResource TidyFlatList}" />
+                </DockPanel>
+            </Border>
+            <Border Grid.Row="1" Grid.Column="1" Margin="12,0,0,0" Padding="16,12,10,8" Style="{StaticResource TidyCard}">
+                <Grid>
+                    <DockPanel x:Name="GroupPane">
+                        <StackPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+                            <DockPanel>
+                                <c:SizeText x:Name="GroupSize" DockPanel.Dock="Right" FontWeight="SemiBold" ZeroText="" />
+                                <c:BadgePill x:Name="GroupPill" Margin="10,0,10,0" DockPanel.Dock="Right" />
+                                <TextBlock x:Name="GroupTitle" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                            <TextBlock x:Name="GroupWhy" Margin="0,4,0,0" Style="{StaticResource Secondary}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock x:Name="GroupEmpty" Margin="0,24,0,0" HorizontalAlignment="Center" DockPanel.Dock="Top" Style="{StaticResource Secondary}" Text="Nothing to do here right now." Visibility="Collapsed" />
+                        <ListBox
+                            x:Name="ItemsList"
+                            AutomationProperties.HelpText="Arrow keys move. Space ticks or unticks. Left arrow goes back to the groups."
+                            AutomationProperties.Name="Rows in this group"
+                            ItemContainerStyle="{StaticResource WbRowContainer}"
+                            ItemTemplateSelector="{StaticResource WbTemplates}"
+                            PreviewKeyDown="OnItemsKeyDown"
+                            SelectionChanged="OnItemPicked"
+                            SelectionMode="Single"
+                            Style="{StaticResource TidyFlatList}" />
+                    </DockPanel>
+                    <!--  Empty state before a group is picked  -->
+                    <StackPanel x:Name="PickHint" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+                        <ui:SymbolIcon HorizontalAlignment="Center" FontSize="28" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Symbol="ArrowLeft24" />
+                        <TextBlock Margin="0,8,0,0" HorizontalAlignment="Center" Style="{StaticResource Secondary}" Text="Pick a group on the left to see what's in it." />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
 
         <!--  Details for the selected row  -->
         <Border

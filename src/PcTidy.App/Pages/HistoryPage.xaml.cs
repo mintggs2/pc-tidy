@@ -27,7 +27,7 @@ public sealed class RunGroupRow : ListRow
         Unfinished = runs.FirstOrDefault(r => r.Status == RunStatus.Interrupted || unfinishedIds.Contains(r.RunId));
         var bits = new List<string>();
         if (Unfinished != null) bits.Add("Stopped part way");
-        bits.Add(Summary.IsUndone ? "Put back" : Summary.Headline);
+        bits.Add(Summary.IsUndone ? (Summary.PermanentDone > 0 ? "Put back all that could be" : "Put back") : Summary.FullHeadline);
         if (runs.Count > 1) bits.Add($"{runs.Count} sections");
         if (Summary.Skipped > 0) bits.Add($"{Summary.Skipped} skipped");
         Detail = string.Join(" · ", bits);
@@ -409,7 +409,7 @@ public partial class HistoryPage : UserControl, IFixedHeightPage, INavigationTar
         if (row is null) return;
         var s = row.Summary;
         DetailWhen.Text = $"{row.When.ToUpper(CultureInfo.CurrentCulture)} · {row.FeatureTitle.ToUpper(CultureInfo.CurrentCulture)}";
-        DetailHeadline.Text = s.IsUndone ? "Put back" : s.Headline;
+        DetailHeadline.Text = s.IsUndone ? (s.PermanentDone > 0 ? "Put back all that could be" : "Put back") : s.FullHeadline;
         var until = row.Runs.Min(r => r.CreatedUtc).ToLocalTime().AddDays(_services.Get<AppSettings>().QuarantineDays);
         DetailSub.Text = row.IsUnfinished ? "Stopped part way. Resume it or roll it back."
             : s.Quarantined > 0 && !s.IsUndone ? $"{s.Quarantined:N0} item{PlanFacts.S(s.Quarantined)} in quarantine until {until:d MMM}"
@@ -423,7 +423,7 @@ public partial class HistoryPage : UserControl, IFixedHeightPage, INavigationTar
         var facts = new List<(string, string)>();
         if (row.Runs.Count > 1)
             foreach (var r in row.Runs.OrderBy(r => SafeOrder.Rank(r.FeatureId)))
-                facts.Add((r.Title, new RunSummary(new[] { r }).Headline));
+                facts.Add((r.Title, new RunSummary(new[] { r }).FullHeadline));
         else
         {
             // Same counting as the confirm dialog and the Done card: "48 of 49" when something was skipped.

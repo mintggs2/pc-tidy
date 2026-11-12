@@ -22,8 +22,8 @@ public sealed class TourModel
     public static readonly IReadOnlyList<TourStep> DefaultSteps = new[]
     {
         new TourStep("home.scan", "Scan everything", "Start here. PC Tidy looks at every section and shows one combined preview. Nothing changes until you confirm."),
-        new TourStep("rail.groups", "Sections by goal", "Clean up, Speed up, Organize and You. Each section scans, shows what it found and why, and asks before it changes anything."),
-        new TourStep("rail.more", "More", "Sections you'll use now and then, like Duplicates, Drivers, Photos and AI chats, wait under More."),
+        new TourStep("rail.groups", "Tabs by goal", "Overview, Clean, Optimize, Apps, Organize and Reports. Each page scans, shows what it found and why, and asks before it changes anything."),
+        new TourStep("rail.more", "Pages in this tab", "The open tab lists its pages here. Clean, for example, has Space map and Duplicates; Optimize has Drivers and Games."),
         new TourStep("rail.history", "History and Undo", "Every run is listed here with its own Undo. Windows' restore points are here too."),
         new TourStep("rail.quarantine", "Quarantine", "Removed files go here first, not straight to the bin. Restore any of them until it's emptied."),
         new TourStep("rail.settings", "Settings", "Protected folders, how long quarantine keeps things, the theme, and this tour again."),

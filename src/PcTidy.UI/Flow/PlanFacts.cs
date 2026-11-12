@@ -151,7 +151,7 @@ public static class PlanFacts
         if (c.Startup > 0) parts.Add($"{c.Startup} startup item{S(c.Startup)}");
         if (c.Cookies > 0) parts.Add($"cookies in {c.Cookies} browser profile{S(c.Cookies)}");
         if (c.Settings - c.Cookies > 0) parts.Add($"{c.Settings - c.Cookies} setting{S(c.Settings - c.Cookies)}");
-        if (c.Permanent > 0) parts.Add(c.PermanentBytes > 0 ? $"{c.Permanent} permanent ({Sizes.Format(c.PermanentBytes)})" : $"{c.Permanent} permanent");
+        if (c.Permanent > 0) parts.Add(c.PermanentBytes > 0 ? $"{c.Permanent} can't be undone ({Sizes.Format(c.PermanentBytes)})" : $"{c.Permanent} can't be undone");
         if (parts.Count == 0) return c.Opens > 0 ? OpenCount(c.Opens) : "Nothing selected";
         parts[0] = char.ToUpperInvariant(parts[0][0]) + parts[0][1..];
         return string.Join(" · ", parts);

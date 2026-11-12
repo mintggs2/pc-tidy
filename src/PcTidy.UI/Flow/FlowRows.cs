@@ -184,7 +184,7 @@ public sealed class GroupRow : ListRow
         ? "Press Enter to show or hide the items."
         : "Press Space to tick or untick the whole group, Enter to show or hide its items.";
 
-    internal static string BadgeText(Badge b) => b switch { Badge.Safe => "safe", Badge.Check => "check", _ => "permanent, can't be undone" };
+    internal static string BadgeText(Badge b) => b switch { Badge.Safe => "safe", Badge.Check => "check first", _ => "can't be undone" };
 }
 
 /// <summary>One scan item row with checkbox.</summary>

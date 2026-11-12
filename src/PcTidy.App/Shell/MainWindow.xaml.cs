@@ -56,6 +56,10 @@ public partial class MainWindow : FluentWindow
         Updates = new UpdateFlow(new WindowUpdateUi(this, services), practice: services.IsDemo || services.Args.SandboxRoot is not null);
 
         RegisterBuiltInPages();
+        // 3.2 Workbench: tabs + inner list (built in code; they only call NavigateTo).
+        _workbench = new WorkbenchChrome(NavigateTo);
+        TabBarHost.Child = _workbench.TabBar;
+        InnerListHost.Child = _workbench.InnerList;
         BuildRail();
         RootNavigation.SetPageProviderService(_pages);
         RootNavigation.Navigated += (_, args) =>
@@ -247,7 +251,17 @@ public partial class MainWindow : FluentWindow
     {
         RootNavigation.ApplyTemplate();
         if (Descendants(RootNavigation).OfType<DynamicScrollViewer>().FirstOrDefault(s => s.Name == "PART_ScrollViewer") is { } rail)
+        {
             rail.SetResourceReference(StyleProperty, typeof(ScrollViewer));
+            // 3.2 Workbench: the tabs and the inner list replace the old rail. The NavigationView still hosts the pages,
+            // but its own section list is never shown (its items stay, for page keys, counters and Expert mode).
+            rail.Visibility = Visibility.Collapsed;
+        }
+        // WPF-UI keeps a 40 px pane column even with no items in it.
+        if (Descendants(RootNavigation).OfType<Grid>().FirstOrDefault(g => g.Name == "PaneGrid") is { } paneGrid) paneGrid.Visibility = Visibility.Collapsed;
+        foreach (var list in Descendants(RootNavigation).OfType<ItemsControl>()
+                     .Where(ic => ReferenceEquals(ic.ItemsSource, RootNavigation.MenuItems) || ReferenceEquals(ic.ItemsSource, RootNavigation.FooterMenuItems)).ToList())
+            list.Visibility = Visibility.Collapsed;
     }
 
     private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
@@ -376,8 +390,14 @@ public partial class MainWindow : FluentWindow
         RootNavigation.FooterMenuItems.Add(_settingsItem = Item("Settings", SymbolRegular.Settings24, typeof(SettingsPage)));
         _denseRail = null; // new items: apply the density again
         ApplyRailDensity();
+        _workbench?.Build(WorkbenchLayout.Build(modules));
         ShowBadges();
     }
+
+    private WorkbenchChrome? _workbench;
+
+    /// <summary>The 3.2 tab bar and inner list (for tests, screenshots and the tour).</summary>
+    public WorkbenchChrome? Workbench => _workbench;
 
     // ---------------- rail: More, counters ----------------
 
@@ -493,9 +513,11 @@ public partial class MainWindow : FluentWindow
             var m = Modules.FirstOrDefault(x => x.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
             if (m is null) continue;
             SetBadge(item, m.Title, _badges.TryGetValue(id, out var b) ? b : null, null);
+            _workbench?.SetBadge(id, m.Title, _badges.TryGetValue(id, out var wb) ? wb : null, null);
         }
         if (_historyItem is not null)
             SetBadge(_historyItem, "History", HistoryBadge.Text(_historyUnseen), _historyUnseen > 0 ? HistoryBadge.AccessibleText(_historyUnseen) : null);
+        _workbench?.SetBadge("history", "History", HistoryBadge.Text(_historyUnseen), _historyUnseen > 0 ? HistoryBadge.AccessibleText(_historyUnseen) : null);
     }
 
     /// <summary>The rail counter of a section ("7 of 31 on"), or null. For tests and screenshots.</summary>
@@ -531,6 +553,7 @@ public partial class MainWindow : FluentWindow
         var key = KeyOf(page);
         _shownKey = key;
         OpenMoreFor(key);
+        _workbench?.Show(key);
         if (key == "history")
         {
             ShellState.Update(Settings, s => s with { HistoryViewedUtc = DateTime.UtcNow });
@@ -584,18 +607,20 @@ public partial class MainWindow : FluentWindow
     /// <summary>Rail elements the spotlight tour points at ("rail.groups", "rail.more", "rail.history"…), or null.</summary>
     public FrameworkElement? RailTarget(string id) => id switch
     {
-        "rail.history" => _historyItem,
-        "rail.quarantine" => _quarantineItem,
-        "rail.settings" => _settingsItem,
-        // The "More" row itself (not its open list, which can run off the bottom of a short window).
-        "rail.more" => _moreHeader is { IsLoaded: true } h ? h : _moreItem,
-        "rail.groups" => _railHeaders.FirstOrDefault(h => h.IsLoaded),
+        // 3.2 Workbench: the tour points at the tabs, the inner list and the top-right buttons.
+        "rail.history" => _workbench?.CornerButtons.GetValueOrDefault("history"),
+        "rail.quarantine" => _workbench?.CornerButtons.GetValueOrDefault("quarantine"),
+        "rail.settings" => _workbench?.CornerButtons.GetValueOrDefault("settings"),
+        "rail.more" => _workbench?.InnerList,
+        "rail.groups" => _workbench?.TabsElement,
         _ => null,
     };
 
     /// <summary>The rail's sections from the first group header to the last section (the tour's "groups" step).</summary>
     public IReadOnlyList<FrameworkElement> RailGroupElements()
-        => RootNavigation.MenuItems.OfType<FrameworkElement>().Skip(1).Where(e => !ReferenceEquals(e, _moreItem) && e.IsLoaded).ToList();
+        => _workbench?.TabsElement is System.Windows.Controls.Panel tabs
+            ? tabs.Children.OfType<FrameworkElement>().Where(e => e.IsLoaded).ToList() // 3.2: the tab row
+            : Array.Empty<FrameworkElement>();
 
     private NavigationViewItem ModuleItem(IFeatureModule m)
     {
@@ -785,8 +810,7 @@ public partial class MainWindow : FluentWindow
                 Rect? all = null;
                 foreach (var e in RailGroupElements())
                     if (Bounds(e) is { } b) all = all is { } a ? Rect.Union(a, b) : b;
-                // Only the part of the rail that is on screen.
-                if (all is { } u && RootNavigation.IsLoaded && Bounds(RootNavigation) is { } nav) { u.Intersect(nav); return u.IsEmpty ? null : u; }
+                // 3.2: the tab row sits above the pages, so it is never clipped by them (no intersect with the page area).
                 return all;
             }
             if (id == "rail.more" && TourElement(id) is { } moreRow && ReferenceEquals(moreRow, _moreHeader) && Bounds(moreRow) is { } row)
