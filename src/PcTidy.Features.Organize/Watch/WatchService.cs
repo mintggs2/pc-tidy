@@ -70,6 +70,9 @@ public sealed class WatchService : IAsyncDisposable
     public DateTime? LastCheckUtc { get; private set; }
     public string? LastProblem { get; private set; }
     public int AutomaticRuns { get; private set; }
+
+    /// <summary>Folders whose automatic sorting stopped after a failed check (until PC Tidy restarts), with the reason.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _paused = new(StringComparer.OrdinalIgnoreCase);
     public QuietPeriodTracker Tracker => _tracker;
 
     public IReadOnlyList<PlannedAction> PendingActions { get { lock (_pending) return _pending.Values.ToList(); } }
@@ -157,7 +160,7 @@ public sealed class WatchService : IAsyncDisposable
             try
             {
                 await RunCycleAsync(full, ct).ConfigureAwait(false);
-                LastProblem = null;
+                LastProblem = _paused.Values.FirstOrDefault();
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex)
@@ -212,11 +215,20 @@ public sealed class WatchService : IAsyncDisposable
             foreach (var batch in preview.Actions.Where(a => a.Automatic).GroupBy(a => a.Root, StringComparer.OrdinalIgnoreCase))
             {
                 ct.ThrowIfCancellationRequested();
+                if (_paused.ContainsKey(batch.Key)) continue; // a check failed here: no more automatic moves until restart
                 // Re-check right before acting: the file must still be exactly what was planned.
                 var ready = batch.Where(StillAsPlanned).ToList();
                 if (ready.Count == 0) continue;
                 var plan = PlanAssembler.Build($"Watch folder: tidied {Count(ready.Count)} in {Path.GetFileName(batch.Key)}", ready);
                 var run = await _flow.RunApprovedAsync(plan, ct).ConfigureAwait(false);
+                if (run is not null && run.WasPutBack())
+                {
+                    // 3.3: the check after the run failed and the batch was put back (the shell showed why, once). Pause
+                    // this folder so the same move doesn't run again and again.
+                    _paused[batch.Key] = $"Automatic sorting in {Path.GetFileName(batch.Key)} is paused: a check after sorting failed, so PC Tidy put that batch back. Sort it from the Organize page to see why.";
+                    LastProblem = _paused[batch.Key];
+                    continue;
+                }
                 if (run is not null) { runs.Add(run); AutomaticRuns++; automatic += ready.Count; _runFinished?.Invoke(run); }
             }
 

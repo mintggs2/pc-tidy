@@ -66,6 +66,8 @@ public sealed class AppServices : IServiceProvider
             : PcTidy.Hosting.PcTidyHost.CreateReal();
         services.UseProvider(host);
         services.Add(sandboxRoot is not null ? SandboxSettings.Restore(host.Settings) : host.Settings);
+        // 3.3: every run that moves Organize files is checked afterwards, and put back if a file went missing.
+        services.Add<IMoveCheck>(new PcTidy.Features.Organize.Planning.OrganizeMoveCheck(host.Walker));
         var modules = FeatureCatalog.All();
         services.AddModules(modules);
         services.CurrentRelease = FeatureCatalog.CurrentRelease;

@@ -183,6 +183,96 @@ public interface IRemovalMeasure
     ActionPlan WithoutSizeConfirmed(ActionPlan plan);
 }
 
+/// <summary>
+/// The check around a run that moves files (3.3, owner: "make sure no files are deleted or missing"). The shell calls
+/// <see cref="Before"/> right before a confirmed real run and <see cref="IMoveCheckSession.After"/> right after it,
+/// while it still holds the one-task-at-a-time gate, for every way a run starts (a page's button, Optimize everything,
+/// watch folders, one by one). When the check fails the shell rolls the run back and calls
+/// <see cref="IMoveCheckSession.AfterPutBack"/> to say where every file is. Optional: without it nothing is checked.
+/// </summary>
+public interface IMoveCheck
+{
+    /// <summary>True when the plan moves files this check covers (cheap; no disk access).</summary>
+    bool Covers(ActionPlan plan);
+
+    /// <summary>Null when the plan moves nothing this check covers. Reads only; slow for big folders (off the UI thread).</summary>
+    /// <param name="progress">"Noting files: 1,204 of 3,000" while it reads.</param>
+    IMoveCheckSession? Before(ActionPlan plan, IProgress<string>? progress, CancellationToken ct);
+
+    /// <summary>The latest result for a run (the Organize page shows it), or null.</summary>
+    MoveCheckResult? ResultFor(string runId);
+}
+
+public interface IMoveCheckSession
+{
+    /// <summary>Stopping it early gives a result with <see cref="MoveCheckResult.Stopped"/> set: never a failure.</summary>
+    MoveCheckResult After(RunRecord run, IProgress<string>? progress, CancellationToken ct);
+    /// <summary>After a roll back: is every planned file back, or still where the run put it? Names the rest, with Undo's own reasons.</summary>
+    MoveCheckResult AfterPutBack(RunRecord run, UndoReport report, CancellationToken ct);
+}
+
+/// <param name="Line">"26 files before · 26 after · 0 missing" (plus "· 1 changed" when there is one).</param>
+/// <param name="Problems">What's wrong with files PC Tidy moved. Empty = passed.</param>
+/// <param name="Notes">Facts that aren't failures ("notes.dat is gone, and PC Tidy's journal shows it didn't move it").</param>
+public sealed record MoveCheckResult(string Line, bool Passed, IReadOnlyList<string> Problems, IReadOnlyList<string> Notes)
+{
+    /// <summary>Set after a put back: every planned file was found at its old or its new place.</summary>
+    public bool AllAccountedFor { get; init; }
+    /// <summary>Set after a put back.</summary>
+    public bool PutBack { get; init; }
+    /// <summary>The user stopped the check: what was checked had no problem; the rest wasn't checked.</summary>
+    public bool Stopped { get; init; }
+    /// <summary>Files PC Tidy moved that aren't at their new place.</summary>
+    public int Missing { get; init; }
+    /// <summary>Files at their new place with a different size or fingerprint but the same modified time (not an edit).</summary>
+    public int Changed { get; init; }
+    public int FilesAfter { get; init; }
+}
+
+/// <summary>The words for a failed check (3.3): only what was seen, never a claim nobody verified.</summary>
+public static class MoveCheckText
+{
+    /// <summary>The heading and text after a failed check, given what the roll back did.</summary>
+    /// <param name="back">The check after the roll back; null when the roll back didn't run or failed (see <paramref name="error"/>).</param>
+    public static (string Heading, string Text) Failure(MoveCheckResult result, MoveCheckResult? back, string? error)
+    {
+        var text = new System.Text.StringBuilder();
+        text.Append("The check after moving files found a problem: ").Append(result.Line).Append('.').Append('\n');
+        List(text, result.Problems);
+        text.Append('\n');
+        if (back is null)
+        {
+            text.Append("PC Tidy couldn't put the run back")
+                .Append(error is null ? "." : $": {error}")
+                .Append(" Every file it moved is still at its new place, except the ones listed above. Open History to undo this run.");
+            return ("A check after moving files failed, and the run couldn't be put back", text.ToString().TrimEnd());
+        }
+        if (back.Passed)
+        {
+            text.Append($"So PC Tidy put back everything this run moved ({back.Line}). Every file is at its old place again.");
+            return ("A check after moving files failed, so the run was put back", text.ToString().TrimEnd());
+        }
+        text.Append($"PC Tidy put back what it could ({back.Line}):").Append('\n');
+        List(text, back.Problems);
+        text.Append(back.AllAccountedFor
+            ? "Every file is at its old place or its new one."
+            : "PC Tidy couldn't find the files listed above at their old place or their new one. This run is in History.");
+        return ("A check after moving files failed, so the run was put back where it could be", text.ToString().TrimEnd());
+    }
+
+    private static void List(System.Text.StringBuilder sb, IReadOnlyList<string> lines)
+    {
+        foreach (var p in lines.Take(5)) sb.Append("• ").Append(p).Append('\n');
+        if (lines.Count > 5) sb.Append($"• and {lines.Count - 5:N0} more").Append('\n');
+    }
+}
+
+/// <summary>Runs a check after the run put back (rolled back, or partly) are not "done" anywhere in the app.</summary>
+public static class PutBackRuns
+{
+    public static bool WasPutBack(this RunRecord run) => run.Status is RunStatus.RolledBack or RunStatus.Undone or RunStatus.PartiallyUndone;
+}
+
 /// <summary>Admin steps skipped because the Windows admin prompt was declined, timed out or the helper couldn't start.</summary>
 public static class AdminSteps
 {

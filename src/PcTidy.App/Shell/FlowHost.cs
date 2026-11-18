@@ -155,7 +155,7 @@ public sealed class FlowHost : IShellFlowHost
     {
         if (!OnUiThread) return await OnUi(() => RunApprovedAsync(plan, ct));
         await WhenGateFreeAsync(ct);
-        return (await ExecuteAsync(new[] { plan }, ExecutionMode.Real, plan.Title, plan.Title, showProgress: false, ct)).FirstOrDefault();
+        return (await ExecuteAsync(new[] { plan }, ExecutionMode.Real, plan.Title, plan.Title, showProgress: false, ct, checks: new MoveCheckLog())).FirstOrDefault();
     }
 
     // ---------------- IShellFlowHost ----------------
@@ -198,16 +198,21 @@ public sealed class FlowHost : IShellFlowHost
         var runTitle = toRun.Count == 1 ? $"{toRun[0].Title}: working on it…" : "Working through every section…";
         // PC Tidy's own switches (right-click menu, start with Windows) change nothing worth measuring.
         bool measure = toRun.Any(p => p.FeatureId != WhatIs.ShellVerbs.FeatureId);
-        var records = await ExecuteAsync(toRun, ExecutionMode.Real, runTitle, gateName, showProgress: true, ct, measure, options.RestartItemIds);
+        var checks = new MoveCheckLog();
+        var records = await ExecuteAsync(toRun, ExecutionMode.Real, runTitle, gateName, showProgress: true, ct, measure, options.RestartItemIds, checks);
         if (records.Count == 0) return FlowOutcome.Cancelled;
         if (suggest)
         {
             Settings.SuggestSimulationOnFirstUse = false;
             TrySaveSettings();
         }
-        Learning?.RecordDecisions(options.OfferedGroups, records);
-        var beforeAfter = measure ? await AfterRunAsync(records) : Array.Empty<string>();
-        if (options.ShowResult) await ShowDoneAsync(records, beforeAfter);
+        // A run the check put back gets its own message (ExecuteAsync showed it), not a Done card, a learned decision or
+        // a run report that says it moved files.
+        var kept = records.Where(r => !r.WasPutBack()).ToList();
+        Learning?.RecordDecisions(options.OfferedGroups, kept);
+        IReadOnlyList<string> beforeAfter = measure && kept.Count > 0 ? await AfterRunAsync(kept) : Array.Empty<string>();
+        if (checks.Lines.Count > 0) beforeAfter = beforeAfter.Concat(checks.Lines).ToList();
+        if (options.ShowResult && kept.Count > 0) await ShowDoneAsync(kept, beforeAfter);
         return new FlowOutcome(FlowOutcomeKind.Ran, records) { BeforeAfter = beforeAfter };
     }
 
@@ -533,10 +538,14 @@ public sealed class FlowHost : IShellFlowHost
     /// <param name="restartIds">Plan item ids the preview marked "needs a restart" (the overlay says so per section).</param>
     /// <param name="gateName">Short name for the busy reason elsewhere ("Clean", "the simulation").</param>
     private async Task<IReadOnlyList<RunRecord>> ExecuteAsync(IReadOnlyList<ActionPlan> plans, ExecutionMode mode, string title, string gateName, bool showProgress, CancellationToken ct, bool measure = false,
-        IReadOnlySet<string>? restartIds = null)
+        IReadOnlySet<string>? restartIds = null, MoveCheckLog? checks = null)
     {
         var executor = _services.Get<IExecutor>();
         var records = new List<RunRecord>();
+        var moveCheck = mode == ExecutionMode.Real ? _services.GetService(typeof(IMoveCheck)) as IMoveCheck : null;
+        checks ??= new MoveCheckLog();
+        // Progress lines from the check ("Checking every moved file: 1,204 of 3,000…"), posted to the UI thread.
+        var checkProgress = showProgress ? new Progress<string>(t => _window.SetProgressTitle(t)) : null;
         // Real runs hold the one-long-task gate through Working(); a simulation holds it too (it uses the same overlay).
         using var working = mode == ExecutionMode.Real ? Working(gateName) : null;
         using var simulating = mode == ExecutionMode.Simulate ? Gate.Begin(gateName) : null;
@@ -569,7 +578,27 @@ public sealed class FlowHost : IShellFlowHost
                 current = i;
                 sections.Start(i);
                 var progress = new Progress<RunProgress>(p => { if (showProgress) _window.ReportProgress(p); });
+                // 3.3: files this run moves are noted first (after the confirm, under the gate; Stop here runs nothing).
+                IMoveCheckSession? session = null;
+                if (moveCheck is not null && moveCheck.Covers(plan))
+                {
+                    if (showProgress) _window.SetProgressTitle("Noting every file first, to check them afterwards…");
+                    try { session = await Task.Run(() => moveCheck.Before(plan, checkProgress, linked.Token), linked.Token); }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex)
+                    {
+                        // Fail closed: nothing has changed yet, and a move that can't be checked isn't made.
+                        CrashHandler.Write(ex, "Noting the files before a run", terminating: false);
+                        checks.Failures.Add(("Nothing was moved", $"PC Tidy couldn't note the files before \"{plan.Title}\", so it didn't move them (it checks every move afterwards). Nothing changed. {ex.Message}"));
+                        sections.Finish(i, null, needsRestart: false);
+                        current = -1;
+                        continue;
+                    }
+                    if (showProgress) _window.SetProgressTitle(plans.Count > 1 ? $"{plan.Title}: working on it…" : title);
+                }
                 var record = await Task.Run(() => executor.ExecuteAsync(plan, options, progress, linked.Token), CancellationToken.None);
+                // Stop pressed during the run: the check still runs on what moved (it can't be stopped then, but it's short).
+                if (session is not null) record = await CheckMovedAsync(session, record, showProgress, checks, checkProgress, linked.IsCancellationRequested ? CancellationToken.None : linked.Token);
                 records.Add(record);
                 sections.Finish(i, record, ProgressSections.NeedsRestart(record, restartIds));
                 current = -1;
@@ -589,7 +618,61 @@ public sealed class FlowHost : IShellFlowHost
             // Feature pages store their options in AppSettings without saving; a run is a natural save point.
             if (mode == ExecutionMode.Real) TrySaveSettings();
         }
+        foreach (var (heading, text) in checks.Failures) ShowMessage(heading, text, isError: true);
         return records;
+    }
+
+    /// <summary>What the checks around one call of <see cref="ExecuteAsync"/> found (each call has its own).</summary>
+    private sealed class MoveCheckLog
+    {
+        /// <summary>Lines for the Done card ("Files checked: 26 files before · 26 after · 0 missing").</summary>
+        public List<string> Lines { get; } = new();
+        public HashSet<string> PutBack { get; } = new(StringComparer.Ordinal);
+        public List<(string Heading, string Text)> Failures { get; } = new();
+    }
+
+    /// <summary>
+    /// 3.3 (owner: "make sure no files are deleted or missing"): every moved file must be at its new place, the very same
+    /// file. If not, the run is rolled back right away, still under this run's gate (nothing else can start in between),
+    /// then checked again so the message says exactly where each file is. Returns the run as the journal has it now.
+    /// Stop during the check ends it early: what wasn't checked is said, and never rolled back for that.
+    /// </summary>
+    private async Task<RunRecord> CheckMovedAsync(IMoveCheckSession session, RunRecord record, bool showProgress, MoveCheckLog checks,
+        IProgress<string>? progress, CancellationToken ct)
+    {
+        if (showProgress) _window.SetProgressTitle("Checking every moved file…");
+        MoveCheckResult result;
+        try { result = await Task.Run(() => session.After(record, progress, ct)); }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            CrashHandler.Write(ex, "Checking the moved files", terminating: false);
+            checks.Lines.Add("PC Tidy couldn't check the moved files afterwards. Everything that moved can be put back from History.");
+            return record;
+        }
+        if (result.Passed)
+        {
+            checks.Lines.Add((result.Stopped ? "" : "Files checked: ") + result.Line);
+            checks.Lines.AddRange(result.Notes);
+            return record;
+        }
+
+        if (showProgress) _window.SetProgressTitle("A check failed: putting back everything this run moved…");
+        UndoReport? report = null;
+        string? error = null;
+        try { report = await Task.Run(() => _services.Get<IUndoEngine>().RollbackAsync(record.RunId, null, CancellationToken.None)); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { error = ex.Message; CrashHandler.Write(ex, "Putting back a run after a failed check", terminating: false); }
+        MoveCheckResult? back = null;
+        if (report is not null && report.Restored > 0)
+        {
+            try { back = await Task.Run(() => session.AfterPutBack(record, report, CancellationToken.None)); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { CrashHandler.Write(ex, "Checking a put-back run", terminating: false); }
+        }
+        else if (report is not null) error ??= report.Messages.FirstOrDefault() ?? "Undo couldn't put any file back.";
+        var (heading, text) = MoveCheckText.Failure(result, back, error);
+        checks.Failures.Add((heading, text));
+
+        try { return await _services.Get<IRunJournal>().LoadAsync(record.RunId, CancellationToken.None) ?? record; }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { return record; }
     }
 
     /// <summary>Restore point first (Plan §5). The engine also checks; doing it here puts it before every section.</summary>

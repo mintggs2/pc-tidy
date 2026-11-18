@@ -135,6 +135,7 @@ public static class RuleText
             ConditionKind.DownloadSite => not + "downloaded from " + OrList(c.Values),
             ConditionKind.Category => c.Negate ? $"not {c.Text}" : c.Text ?? "",
             ConditionKind.InstallerExe => not + "installer .exe files",
+            ConditionKind.SortType => not + (SortTypes.Find(c.Text)?.Title ?? "a type") + " (by name and contents)",
             _ => c.Kind.ToString(),
         };
         return text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];

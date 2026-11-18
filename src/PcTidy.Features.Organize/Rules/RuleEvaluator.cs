@@ -39,6 +39,7 @@ public static class RuleEvaluator
             ConditionKind.DownloadSite => file.Zone is { } zone && zone.Hosts().Any(h => c.Values.Any(site => ZoneIdentifier.HostMatches(h, site))),
             ConditionKind.Category => string.Equals(file.CategoryId, c.Text, StringComparison.OrdinalIgnoreCase),
             ConditionKind.InstallerExe => file.Extension == "exe" && file.Installer.IsInstaller,
+            ConditionKind.SortType => file.Sort is { } verdict && string.Equals(verdict.Type.Id, c.Text, StringComparison.OrdinalIgnoreCase),
             _ => false,
         };
         return c.Negate ? !result : result;
@@ -78,6 +79,7 @@ public static class RuleEvaluator
                 ? $"extension .{file.Extension}"
                 : file.Installer.IsInstaller ? InstallerWhy(file) : $"a {c.Text?.ToLowerInvariant()} file",
             ConditionKind.InstallerExe => InstallerWhy(file),
+            ConditionKind.SortType => (file.Sort?.Why ?? "its type").TrimEnd('.'),
             _ => c.Kind.ToString(),
         };
     }

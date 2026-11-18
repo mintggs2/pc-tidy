@@ -23,6 +23,7 @@ public sealed partial class OrganizeViewModel : ObservableObject
     private readonly OrganizePlanner _planner;
     private readonly IFileWalker _walker;
     private CancellationTokenSource? _scanCts;
+    private readonly IMoveCheck? _moveCheck;
 
     public OrganizeViewModel(IServiceProvider services, OrganizeModule module)
     {
@@ -31,7 +32,8 @@ public sealed partial class OrganizeViewModel : ObservableObject
         _appSettings = services.Get<AppSettings>();
         _flow = services.Get<IFlowHost>();
         _walker = services.Get<IFileWalker>();
-        _planner = new OrganizePlanner(_safety, services.Get<IInUseChecker>(), _walker, _appSettings);
+        _moveCheck = services.GetService(typeof(IMoveCheck)) as IMoveCheck;
+        _planner = new OrganizePlanner(_safety, services.Get<IInUseChecker>(), _walker, _appSettings, locations: services.Get<IKnownLocations>());
         Settings = OrganizeSettings.Load(_appSettings);
         _isDeep = _appSettings.DefaultDepth == ScanDepth.Deep;
         _useDateFolders = Settings.UseDateFolders;
@@ -69,6 +71,13 @@ public sealed partial class OrganizeViewModel : ObservableObject
     [ObservableProperty] private bool _isScanning;
     [ObservableProperty] private bool _hasPreview;
     [ObservableProperty] private bool _showDetails;
+    /// <summary>The "N items stay put" list is folded to one row by default, so it never covers the preview (3.3).</summary>
+    [ObservableProperty] private bool _showSkipped;
+    partial void OnShowSkippedChanged(bool value) => OnPropertyChanged(nameof(SkippedToggleText));
+    public string SkippedToggleText => ShowSkipped ? "Hide" : "Show";
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ToggleSkipped() => ShowSkipped = !ShowSkipped;
     [ObservableProperty] private int _step = 1;
     [ObservableProperty] private string _title = "Organize";
     [ObservableProperty] private string _subtitle = "Rules run top to bottom, first match wins. Every move can be put back.";
@@ -143,7 +152,14 @@ public sealed partial class OrganizeViewModel : ObservableObject
         if (value is { IsPicker: true })
         {
             var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder to organize" };
-            if (dialog.ShowDialog() == true && Directory.Exists(dialog.FolderName))
+            // 3.3: AppData, game and launcher folders and app-owned folders can never be added (review S1).
+            if (dialog.ShowDialog() == true && Directory.Exists(dialog.FolderName) && _planner.NeverSortReason(dialog.FolderName) is { } never)
+            {
+                SelectedFolder = Folders.FirstOrDefault(f => !f.IsPicker);
+                FolderNote = $"{Path.GetFileName(Path.TrimEndingDirectorySeparator(dialog.FolderName))} can't be organized: {never}";
+                return;
+            }
+            if (Directory.Exists(dialog.FolderName))
             {
                 Settings.ExtraFolders.Add(dialog.FolderName);
                 SaveSettings();
@@ -211,6 +227,7 @@ public sealed partial class OrganizeViewModel : ObservableObject
     private void ClearPreview()
     {
         _preview = null;
+        if (Step != 4) CheckLine = null; // the rescan right after a run keeps it; a new folder, preset or switch clears it
         HasPreview = false;
         ShowDetails = false;
         Step = 1;
@@ -294,7 +311,7 @@ public sealed partial class OrganizeViewModel : ObservableObject
             if (Rules.FirstOrDefault(r => r.Rule.Id == p.RuleId) is { } row) row.Problem = p.Message;
 
         var root = preview.Roots.FirstOrDefault();
-        Subtitle = root is null ? "" : $"{root.LooseFiles + root.LooseFolders:N0} loose items · rules run top to bottom, first match wins · every move can be put back";
+        Subtitle = root is null ? "" : $"{root.LooseFiles + root.LooseFolders:N0} loose items · every move can be put back";
         SkippedTitle = SkippedRows.Count == 1 ? "1 item stays put" : $"{SkippedRows.Count:N0} items stay put";
         HasPreview = true;
         Step = 2;
@@ -324,15 +341,60 @@ public sealed partial class OrganizeViewModel : ObservableObject
         return PlanAssembler.Build($"Organize {SelectedFolder?.Label}", selected);
     }
 
+    // ---- 3.3: the check after a sort (owner: "make sure no files are deleted or missing")
+
+    /// <summary>"26 files before · 26 after · 0 missing", or what went wrong and that it was put back. Null: nothing to say.</summary>
+    [ObservableProperty] private string? _checkLine;
+    [ObservableProperty] private string _checkTitle = "Checked after sorting";
+    [ObservableProperty] private Wpf.Ui.Controls.InfoBarSeverity _checkSeverity = Wpf.Ui.Controls.InfoBarSeverity.Success;
+
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task MoveAsync()
     {
         Step = 3;
+        CheckLine = null;
+        // The shell checks every moved file around the run (IMoveCheck), under the run's own gate, and puts the run
+        // back by itself if a file isn't where it should be. This page only shows the result.
         var run = await _flow.ReviewAndRunAsync(BuildPlan(), CancellationToken.None);
         if (run is null) { Step = 2; return; }
-        OrganizeLedger.RecordInto(_appSettings, run, DateTime.UtcNow);
+        if (run.Status is not (RunStatus.RolledBack or RunStatus.Undone)) OrganizeLedger.RecordInto(_appSettings, run, DateTime.UtcNow);
         Step = 4;
+        ShowCheck(run);
         await ScanAsync();
+    }
+
+    /// <summary>The check's line for this run: green when every file was checked, red when it failed (and what was put back).</summary>
+    private void ShowCheck(RunRecord run)
+    {
+        if (run.Mode != ExecutionMode.Real || _moveCheck?.ResultFor(run.RunId) is not { } check) { CheckLine = null; return; }
+        string Problems(MoveCheckResult c) => c.Problems.Count == 0 ? "" :
+            " " + string.Join(" ", c.Problems.Take(3)) + (c.Problems.Count > 3 ? $" (+{c.Problems.Count - 3:N0} more)" : "");
+        if (check.PutBack)
+        {
+            CheckSeverity = Wpf.Ui.Controls.InfoBarSeverity.Error;
+            if (check.Passed)
+            {
+                CheckTitle = "A check after sorting failed, so the run was put back";
+                CheckLine = check.Line + ". Every file is at its old place again.";
+            }
+            else
+            {
+                CheckTitle = "A check after sorting failed; PC Tidy put back what it could";
+                CheckLine = check.Line + "." + Problems(check)
+                            + (check.AllAccountedFor ? " Every file is at its old place or its new one." : " This run is in History.");
+            }
+            return;
+        }
+        if (!check.Passed)
+        {
+            CheckTitle = "A check after sorting failed, and the run couldn't be put back";
+            CheckSeverity = Wpf.Ui.Controls.InfoBarSeverity.Error;
+            CheckLine = check.Line + "." + Problems(check) + " Open History to undo this run.";
+            return;
+        }
+        CheckTitle = check.Stopped ? "Check stopped" : "Checked after sorting";
+        CheckSeverity = check.Stopped ? Wpf.Ui.Controls.InfoBarSeverity.Warning : Wpf.Ui.Controls.InfoBarSeverity.Success;
+        CheckLine = check.Line + (check.Notes.Count > 0 ? ". " + string.Join(" ", check.Notes) : ".");
     }
 
     [RelayCommand(CanExecute = nameof(CanRun))]

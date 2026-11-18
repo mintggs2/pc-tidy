@@ -33,7 +33,7 @@ public sealed class OrganizeModule : IFeatureModule
         {
             if (_watch is not null) return _watch;
             var appSettings = services.Get<AppSettings>();
-            var planner = new OrganizePlanner(services.Get<ISafetyGuard>(), services.Get<IInUseChecker>(), services.Get<IFileWalker>(), appSettings);
+            var planner = new OrganizePlanner(services.Get<ISafetyGuard>(), services.Get<IInUseChecker>(), services.Get<IFileWalker>(), appSettings, locations: services.Get<IKnownLocations>());
             _watch = new WatchService(planner, services.Get<IFlowHost>(), () => OrganizeSettings.Load(appSettings),
                 runFinished: run => OrganizeLedger.RecordInto(appSettings, run, DateTime.UtcNow));
             return _watch;

@@ -75,6 +75,8 @@ public enum ConditionKind
     Category,
     /// <summary>An .exe that is really an installer (name, version info or installer markers).</summary>
     InstallerExe,
+    /// <summary>3.3 "Sort by type": <see cref="SortTypes"/> classifies the file as the type with id <see cref="RuleCondition.Text"/>.</summary>
+    SortType,
 }
 
 public enum PatternSyntax { Glob, Regex }
@@ -117,6 +119,7 @@ public sealed class RuleCondition
     public static RuleCondition InCategory(string categoryId) => new() { Kind = ConditionKind.Category, Text = categoryId };
     public static RuleCondition OlderThan(double days, DateField field) => new() { Kind = ConditionKind.Age, DateField = field, MinDays = days };
     public static RuleCondition IsInstallerExe() => new() { Kind = ConditionKind.InstallerExe };
+    public static RuleCondition OfSortType(string typeId) => new() { Kind = ConditionKind.SortType, Text = typeId };
 }
 
 public enum RuleActionKind

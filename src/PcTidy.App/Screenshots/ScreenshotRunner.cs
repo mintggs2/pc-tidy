@@ -57,7 +57,8 @@ public sealed class ScreenshotRunner
             if (_services.IsDemo) DemoScanner.DurationMs = 900;
             await Settle(900);
 
-            if (_services.Args.Raw.Any(a => a.Equals("--workbench-shots", StringComparison.OrdinalIgnoreCase))) await WorkbenchSetAsync();
+            if (_services.Args.Raw.Any(a => a.Equals("--organize-shots", StringComparison.OrdinalIgnoreCase)) && IsSandbox) await OrganizeSetAsync();
+            else if (_services.Args.Raw.Any(a => a.Equals("--workbench-shots", StringComparison.OrdinalIgnoreCase))) await WorkbenchSetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--update-shots", StringComparison.OrdinalIgnoreCase))) await UpdateSetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--shell-shots", StringComparison.OrdinalIgnoreCase))) await ShellSetAsync();
             else if (_services.Args.Raw.Any(a => a.Equals("--v31-shots", StringComparison.OrdinalIgnoreCase))) await V31SetAsync();
@@ -75,6 +76,51 @@ public sealed class ScreenshotRunner
         {
             Application.Current.Shutdown();
         }
+    }
+
+    // ---------------- 3.3 Sort by type: the real planner on a practice PC (--sandbox only; nothing outside it exists) ----------------
+
+    private async Task OrganizeSetAsync()
+    {
+        _w.NavigateTo("organize");
+        await Settle(900);
+        if (_w.PageObject("organize") is not FrameworkElement { DataContext: PcTidy.Features.Organize.UI.OrganizeViewModel vm }) return;
+        vm.ApplyRules(PcTidy.Features.Organize.Rules.RulePresets.Find(PcTidy.Features.Organize.Rules.RulePresets.ByTypeId)!.Create());
+        await Settle(400);
+        await Shot("o1-organize-sort-by-type-ready.png");
+        await vm.ScanCommand.ExecuteAsync(null);
+        await Settle(900);
+        await Shot("o2-sort-by-type-before-after.png");
+        vm.DetailsIndex = 1;
+        await Settle(600);
+        await Shot("o3-sort-by-type-every-file.png");
+        TidyTheme.Apply(Other);
+        await Settle(300);
+        await Shot($"o4-sort-by-type-every-file-{Name(Other)}.png");
+        TidyTheme.Apply(_theme);
+        vm.DetailsIndex = 0;
+        await Settle(300);
+        await Shot($"o5-sort-by-type-before-after-{Name(_theme)}.png");
+
+        // Opt-in (--organize-run), practice PC only: really sorts the practice files to show the check after sorting
+        // ("26 files before · 26 after · 0 missing"). Every other screenshot set closes confirm dialogs with Back.
+        if (!_services.Args.Raw.Any(a => a.Equals("--organize-run", StringComparison.OrdinalIgnoreCase)) || !IsSandbox) return;
+        var move = vm.MoveCommand.ExecuteAsync(null);
+        await Settle(900);
+        Save("o6-sort-by-type-confirm.png");
+        ConfirmDialog.Current?.Hide(ContentDialogResult.Primary);
+        bool doneShot = false;
+        for (int i = 0; i < 60 && !move.IsCompleted; i++)
+        {
+            await Task.Delay(500);
+            var dialogs = Descendants<ContentDialog>(_w).Where(d => d.IsVisible).ToList();
+            if (dialogs.Count == 0) continue;
+            if (!doneShot) { await Settle(400); Save("o7-sort-by-type-done.png"); doneShot = true; }
+            foreach (var d in dialogs) d.Hide(ContentDialogResult.None);
+        }
+        await move;
+        await Settle(900);
+        await Shot("o8-sort-by-type-checked.png");
     }
 
     // ---------------- 3.2 Workbench: the tabs, Clean's groups and details, the other tabs, light theme ----------------

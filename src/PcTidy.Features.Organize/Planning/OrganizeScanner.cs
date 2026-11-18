@@ -25,7 +25,7 @@ public sealed class OrganizeScanner : IFeatureScanner
     {
         var settings = ctx.Options.TryGetValue(OrganizeSettings.FeatureKey, out var o) && o is OrganizeSettings s ? s : OrganizeSettings.Load(ctx.Settings);
         var roots = ctx.Roots is { Count: > 0 } r ? r : DefaultRoots(ctx.Locations, ctx.Safety, ctx.Settings);
-        var planner = new OrganizePlanner(ctx.Safety, ctx.InUse, ctx.Walker, ctx.Settings, _clock);
+        var planner = new OrganizePlanner(ctx.Safety, ctx.InUse, ctx.Walker, ctx.Settings, _clock, ctx.Locations);
         var preview = await planner.PlanAsync(new OrganizeRequest { Roots = roots, Settings = settings, Depth = ctx.Depth }, progress, ct).ConfigureAwait(false);
         // "Safe" and "Privacy" presets only clean; nothing is sorted unless the user ticks it.
         bool tick = ctx.Preset is null or "Recommended" or "Gamer";

@@ -21,7 +21,8 @@ public static class InstallerDetector
     {
         ("Nullsoft.NSIS", "NSIS"),
         ("NullsoftInst", "NSIS"),
-        ("Inno Setup", "Inno Setup"),
+        // The full setup-data header, not just "Inno Setup" (which other programs mention in their text; v3.3 review D5).
+        ("Inno Setup Setup Data", "Inno Setup"),
         ("InstallShield", "InstallShield"),
         (".wixburn", "WiX"),
         ("WixBundle", "WiX"),
@@ -36,6 +37,10 @@ public static class InstallerDetector
     public static InstallerVerdict Inspect(string path, bool mayReadContent)
     {
         var name = Path.GetFileNameWithoutExtension(path);
+        // PortableApps.com: "X_1.2.paf.exe" is the installer, "XPortable.exe" is the app itself (NSIS-built, so the
+        // marker scan would call it an installer: v3.3 review D5).
+        if (name.EndsWith(".paf", StringComparison.OrdinalIgnoreCase)) return new(true, "A PortableApps.com installer package.");
+        if (NameSaysPortable(name)) return new(false, "The name says it's a portable app.");
         if (NameSaysInstaller(name)) return new(true, "The name says it's an installer.");
         if (!mayReadContent) return new(false, "Only the name was checked (file is online-only).");
 
@@ -66,13 +71,24 @@ public static class InstallerDetector
         return new(false, "Looks like a portable app.");
     }
 
-    /// <summary>"setup"/"install" anywhere in the text, but not uninstallers ("uninstall", "unins000").</summary>
+    /// <summary>
+    /// A word starting with "setup" or "install" ("ChromeSetup", "npp.8.6.Installer.x64", "install_tool"), but never an
+    /// uninstaller ("uninstall", "unins000"). Words are split at anything but letters and digits, and at lower→Upper case changes.
+    /// </summary>
     internal static bool NameSaysInstaller(string text)
     {
-        var t = text.ToLowerInvariant();
-        if (t.Contains("uninst")) return false;
-        return t.Contains("setup") || t.Contains("install");
+        if (text.Contains("unins", StringComparison.OrdinalIgnoreCase)) return false;
+        return Words(text).Any(w => w.StartsWith("setup", StringComparison.Ordinal) || w.StartsWith("install", StringComparison.Ordinal));
     }
+
+    /// <summary>"Portable" as a word ("FooPortable", "foo-portable").</summary>
+    internal static bool NameSaysPortable(string text) => Words(text).Any(w => w == "portable");
+
+    private static readonly System.Text.RegularExpressions.Regex WordSplit =
+        new(@"(?<=[a-z])(?=[A-Z])|[^A-Za-z0-9]+", System.Text.RegularExpressions.RegexOptions.CultureInvariant); // "bo2", "x64" stay one word
+
+    internal static IEnumerable<string> Words(string text)
+        => WordSplit.Split(text).Where(w => w.Length > 0).Select(w => w.ToLowerInvariant());
 
     private static string? FindBuilderMarker(string path)
     {

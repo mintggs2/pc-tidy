@@ -100,11 +100,28 @@ internal static class FsOps
         return parent is null ? new List<string>() : CreateDirectories(parent);
     }
 
-    /// <summary>Creates <paramref name="path"/> and its missing ancestors. Returns the folders it created, top-down.</summary>
+    /// <summary>
+    /// Creates <paramref name="path"/> and its missing ancestors. Returns the folders it created, top-down. If one can't
+    /// be created, the ones it made before are removed again (while empty) and the error is thrown: no empty folder is
+    /// left behind (3.3 code review L4).
+    /// </summary>
     public static List<string> CreateDirectories(string path)
     {
         var missing = MissingDirectories(path);
-        foreach (var d in missing) Directory.CreateDirectory(LongPath.Io(d));
+        var made = new List<string>(missing.Count);
+        try
+        {
+            foreach (var d in missing)
+            {
+                Directory.CreateDirectory(LongPath.Io(d));
+                made.Add(d);
+            }
+        }
+        catch
+        {
+            RemoveEmptyDirectories(made);
+            throw;
+        }
         return missing;
     }
 

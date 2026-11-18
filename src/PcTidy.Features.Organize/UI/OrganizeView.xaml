@@ -107,14 +107,23 @@
 
                     <c:StepBar Margin="0,0,0,12" Captions="{Binding StepCaptions}" Current="{Binding Step}" />
 
+                    <StackPanel Grid.Row="1">
                     <ui:InfoBar
                         Title="Needs your OK"
-                        Grid.Row="1"
                         Margin="0,0,0,12"
                         IsClosable="False"
                         IsOpen="{Binding FolderNote, Converter={x:Static local:NotNull.Instance}}"
                         Message="{Binding FolderNote}"
                         Severity="Warning" />
+                    <!--  3.3: the check after a sort ("26 files before · 26 after · 0 missing"), or what was put back  -->
+                    <ui:InfoBar
+                        Title="{Binding CheckTitle}"
+                        Margin="0,0,0,12"
+                        IsClosable="True"
+                        IsOpen="{Binding CheckLine, Converter={x:Static local:NotNull.Instance}, Mode=OneWay}"
+                        Message="{Binding CheckLine}"
+                        Severity="{Binding CheckSeverity}" />
+                    </StackPanel>
 
                     <!--  Rules | preview side by side; stacked (rules on top) when the window is narrow, and then this part
                           may scroll so both stay usable on a short screen. The step bar and action bar never scroll.
@@ -343,8 +352,18 @@
                                     <!--  Stays put, with reasons  -->
                                     <Border x:Name="SkippedBox" Grid.Row="2" Grid.ColumnSpan="3" MaxHeight="150" Margin="0,12,0,0" Padding="14,10" Background="{DynamicResource ControlFillColorSecondaryBrush}" CornerRadius="6" Visibility="{Binding SkippedRows.Count, Converter={StaticResource OrgVisible}}">
                                         <DockPanel>
-                                            <TextBlock Margin="0,0,0,6" DockPanel.Dock="Top" Style="{StaticResource OrgCardTitle}" Text="{Binding SkippedTitle}" />
-                                            <ItemsControl AutomationProperties.Name="Files that stay put" ItemsSource="{Binding SkippedRows}" Style="{StaticResource OrgVirtualList}">
+                                            <!--  One row by default (3.3): Show opens the list with the reason for each file  -->
+                                            <DockPanel DockPanel.Dock="Top">
+                                                <Button
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.Name="Show or hide the files that stay put"
+                                                    Command="{Binding ToggleSkippedCommand}"
+                                                    Content="{Binding SkippedToggleText}"
+                                                    DockPanel.Dock="Right"
+                                                    Style="{DynamicResource LinkButton}" />
+                                                <TextBlock VerticalAlignment="Center" Style="{StaticResource OrgCardTitle}" Text="{Binding SkippedTitle}" />
+                                            </DockPanel>
+                                            <ItemsControl Margin="0,6,0,0" AutomationProperties.Name="Files that stay put" ItemsSource="{Binding SkippedRows}" Style="{StaticResource OrgVirtualList}" Visibility="{Binding ShowSkipped, Converter={StaticResource OrgVisible}}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate DataType="{x:Type local:SkipRow}">
                                                         <Grid Margin="0,3,12,3">

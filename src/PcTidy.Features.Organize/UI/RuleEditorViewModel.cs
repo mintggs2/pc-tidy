@@ -27,7 +27,11 @@ public sealed partial class ConditionRowViewModel : ObservableObject
         _olderThanDays = c.MinDays?.ToString(CultureInfo.InvariantCulture) ?? "";
         _newerThanDays = c.MaxDays?.ToString(CultureInfo.InvariantCulture) ?? "";
         _categoryId = c.Text ?? OrganizeCategories.Pictures;
+        _sortTypeId = c.Kind == ConditionKind.SortType ? c.Text : null;
     }
+
+    /// <summary>A "Sort by type" condition keeps its type when the rule is edited (the type isn't picked here).</summary>
+    private readonly string? _sortTypeId;
 
     public static IReadOnlyList<Choice<ConditionKind>> Kinds { get; } = new[]
     {
@@ -41,6 +45,13 @@ public sealed partial class ConditionRowViewModel : ObservableObject
         new Choice<ConditionKind>(ConditionKind.Category, "Is a kind of file"),
         new Choice<ConditionKind>(ConditionKind.InstallerExe, "Is an installer .exe"),
     };
+
+    /// <summary>
+    /// The choices for this row. "Is this type (Sort by type)" is offered only on a row that already is one (the type
+    /// can't be picked here, so a new row of that kind would match nothing).
+    /// </summary>
+    public IReadOnlyList<Choice<ConditionKind>> KindChoices => _sortTypeId is null ? Kinds
+        : Kinds.Append(new Choice<ConditionKind>(ConditionKind.SortType, "Is this type (Sort by type)")).ToList();
     public static IReadOnlyList<Choice<PatternSyntax>> Syntaxes { get; } = new[]
     {
         new Choice<PatternSyntax>(PatternSyntax.Glob, "Wildcards (* ?)"),
@@ -91,6 +102,7 @@ public sealed partial class ConditionRowViewModel : ObservableObject
             case ConditionKind.Size: c.MinBytes = Mb(MinMb); c.MaxBytes = Mb(MaxMb); break;
             case ConditionKind.Age: c.MinDays = Number(OlderThanDays); c.MaxDays = Number(NewerThanDays); break;
             case ConditionKind.InstallerExe: break;
+            case ConditionKind.SortType: c.Text = _sortTypeId; break;
             default:
                 c.Values = ValuesText.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
                 break;

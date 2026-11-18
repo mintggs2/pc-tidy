@@ -441,10 +441,14 @@ public partial class CombinedFlowPage : UserControl, IFixedHeightPage
             if (outcome.Kind == FlowOutcomeKind.Ran)
             {
                 Resume?.Discard(ScanResume.CombinedFlow); // what was found before this run is out of date now
-                _ranSections = outcome.Records.Count;
-                _done.Runs = outcome.Records;
+                // 3.3: a section a check after the run put back isn't "done" (the shell said why in its own message).
+                var kept = outcome.Records.Where(r => !r.WasPutBack()).ToList();
+                int putBack = outcome.Records.Count - kept.Count;
+                _ranSections = kept.Count;
+                _done.Runs = kept.Count > 0 ? kept : outcome.Records;
                 if (outcome.BeforeAfter.Count > 0) _done.BeforeAfter = outcome.BeforeAfter;
-                Subtitle.Text = $"Finished at {DateTime.Now:t} · one Undo for all of it";
+                Subtitle.Text = putBack == 0 ? $"Finished at {DateTime.Now:t} · one Undo for all of it"
+                    : $"Finished at {DateTime.Now:t} · {putBack} section{PlanFacts.S(putBack)} put back after a failed check";
                 SetState(FlowState.Done);
                 return;
             }

@@ -54,10 +54,11 @@ public sealed class MovePathHandler : FileHandlerBase, IPreparingHandler
         var manifest = TreeManifest.Build(source, ct);
         if (manifest.CloudPlaceholders.Count > 0) return await Abandon(Skipped(step, manifest.CopyProblem!)).ConfigureAwait(false);
 
-        var created = FsOps.CreateParents(final);
+        var created = new List<string>();
         var renamedName = LongPath.Same(final, Destination(step.Item, source)) ? $"Moved to '{final}'." : $"Moved to '{final}' (name was taken).";
         try
         {
+            created = FsOps.CreateParents(final); // inside the try: a folder that can't be made fails the step cleanly
             if (!Options.ForceCopy && FsOps.TryRename(source, final) == RenameOutcome.Renamed)
                 return Done(step, renamedName, UndoData(final, created, manifest, null, overwrittenId), manifest.TotalBytes);
 

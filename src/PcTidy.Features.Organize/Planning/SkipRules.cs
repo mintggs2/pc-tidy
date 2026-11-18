@@ -24,6 +24,8 @@ public enum SkipKind
     AlreadyThere,
     RuleBlocked,
     Unreadable,
+    /// <summary>3.3: a program named like a document or picture. Never sorted.</summary>
+    Disguised,
 }
 
 /// <summary>Plan §9 "Never moved by default": checks that need only the directory entry (no file opened).</summary>
@@ -32,7 +34,7 @@ public static class SkipRules
     public static readonly TimeSpan QuietPeriod = TimeSpan.FromMinutes(10);
 
     public static readonly IReadOnlySet<string> ShortcutExtensions =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "lnk", "url", "website", "appref-ms" };
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "lnk", "url", "website", "appref-ms", "pif", "scf", "library-ms", "search-ms" };
 
     public static readonly IReadOnlySet<string> PartialDownloadExtensions =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "crdownload", "part", "partial", "opdownload", "download", "!ut", "!qb", "bc!", "tmp" };

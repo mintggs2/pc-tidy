@@ -63,7 +63,7 @@
                                             <StackPanel>
                                                 <StackPanel Orientation="Horizontal">
                                                     <CheckBox MinWidth="0" AutomationProperties.Name="Not" Content="Not" IsChecked="{Binding Negate}" />
-                                                    <ComboBox Width="220" Margin="6,0,0,0" AutomationProperties.Name="Condition type" DisplayMemberPath="Label" ItemsSource="{x:Static local:ConditionRowViewModel.Kinds}" SelectedValue="{Binding Kind}" SelectedValuePath="Value" />
+                                                    <ComboBox Width="220" Margin="6,0,0,0" AutomationProperties.Name="Condition type" DisplayMemberPath="Label" ItemsSource="{Binding KindChoices}" SelectedValue="{Binding Kind}" SelectedValuePath="Value" />
                                                     <ComboBox Width="180" Margin="6,0,0,0" AutomationProperties.Name="Pattern type" DisplayMemberPath="Label" ItemsSource="{x:Static local:ConditionRowViewModel.Syntaxes}" SelectedValue="{Binding Syntax}" SelectedValuePath="Value" Visibility="{Binding ShowPattern, Converter={StaticResource OrgVisible}}" />
                                                     <ComboBox Width="180" Margin="6,0,0,0" AutomationProperties.Name="Kind of file" ItemsSource="{x:Static local:ConditionRowViewModel.Categories}" SelectedItem="{Binding CategoryId}" Visibility="{Binding ShowCategory, Converter={StaticResource OrgVisible}}" />
                                                 </StackPanel>

@@ -7,6 +7,41 @@ PC Tidy is a **beta**. Every change it makes can be previewed, simulated and und
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-12
+
+### Added
+- **Organize: "Sort by type".** A new preset (Organize → Sort files → Presets) that sorts loose files into folders named for what they are, inside the folder you sort:
+  - **Program installers**;
+  - **Games\Call of Duty** (BO2/Plutonium .gsc, .gscbin and .ff files, plus mod zips) and **Games\Cronus scripts**;
+  - **Pictures\Screenshots** and **Videos\Clips and recordings**;
+  - **Documents\Invoices**, **Music**, **Archives**, **Disk images**, **Torrents**, **Fonts** and **Code**.
+  PC Tidy recognises a file by its name and its first bytes, not only by its extension, and a zip by the files listed inside it. Anything it can't name for sure stays where it is. It only moves files, never deletes them, and you can undo all of it from History.
+- Config files, MSI installers, fonts, game files outside Downloads and files you opened recently start unticked, with the reason.
+- **Every Organize run is checked afterwards.** This covers the Organize page, Optimize everything, watch folders and One by one.
+  - **What it checks:** every moved file must be at its new place and be the very same file. On the same drive the file's own identity proves it; between drives a fingerprint does (files up to 50 MB; bigger ones by size and date).
+  - **What it counts:** the files in every folder the run touched. Any file that is gone, but that PC Tidy's journal shows it didn't move, is named, and so is any file that arrived meanwhile.
+  - **What it shows:** "26 files before · 26 after · 0 missing" appears on the Done card and the Organize page. It shows progress, and Stop ends the check early without undoing anything.
+  - **If a check fails:** PC Tidy puts the whole run back right away, checks again, and says exactly where each file is. If it can't put the run back, it says so, and the run stays in History to undo. A file you edit at its new place after the move is mentioned, not counted as a failure.
+  - **Before the run:** if PC Tidy can't note the files first, it doesn't move them.
+  - **Watch folders:** after a failed check, automatic sorting in that folder pauses until PC Tidy restarts.
+- **Type folders only when a file goes there.** A folder that can't be made never leaves empty folders behind.
+
+### Changed (safety, all of Organize)
+- **Folders Organize never touches:** AppData, ProgramData, Saved Games, Program Files, Windows, and game or launcher folders (Steam, Epic, Battle.net, Plutonium's storage…). This holds even when such a folder is picked with "Add folder".
+- **App and game folders are never sorted or moved:** My Games, Call of Duty, any "mods" folder, PowerShell, Office templates, and the clip folders of NVIDIA, Game Bar and Medal.
+- **Folders on the Desktop and in Documents always stay put**, even with "Move whole folders" on. Folders with game mod or script files stay whole too.
+- **Files that belong to something stay with it:**
+  - a program's own settings and libraries next to it (Tool.exe with Tool.ini);
+  - Firefox's empty placeholder beside a .part download.
+- **Disguised programs are never sorted:** a program with a document's or picture's name (`invoice.pdf.exe`, or a ".jpg" that is really a program) is flagged.
+- **Installer detection is stricter.** "setup" or "install" must be a whole word in the name, `unins000.exe` is never an installer, a PortableApps "…Portable.exe" is the app itself, and Inno Setup installers are recognised by their full marker.
+- More shortcut types are never moved (.pif, .scf, .library-ms, .search-ms).
+- **Things that belong together stay put with Sort by type:**
+  - scripts you run (.py, .sh, .lua, .rb, .php, .pl), saved web pages, icons, and .cue/.bin and CloneCD disc images;
+  - folders, even with "Move whole folders" on.
+- **With Sort by type, rules only ever move files,** including "Other", rules that were edited or duplicated, and identical copies (they stay put rather than going to quarantine).
+- **Folders are checked where they really lead:** through junctions, symbolic links, subst drives and short names. A type folder that is a link elsewhere is never filled.
+
 ## [3.2.0] - 2026-11-12
 
 A cleaner, more organized look ("Workbench"). Only the look and where things live changed: scanning, the preview, the confirm, quarantine and Undo work exactly as before.

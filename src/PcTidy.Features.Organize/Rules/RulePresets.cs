@@ -20,12 +20,16 @@ public static class RulePresets
     public const string ByDateId = "by-date";
     public const string ParaId = "para";
     public const string JohnnyDecimalId = "johnny-decimal";
+    public const string ByTypeId = "by-type";
+    /// <summary>Rule ids of the "Sort by type" preset start with this.</summary>
+    public const string ByTypeRulePrefix = "preset.bytype.";
 
     private const string IsoMonth = @"{year}\{year}-{month:00}";
 
     public static readonly IReadOnlyList<RulePreset> All = new RulePreset[]
     {
         new(SimpleId, "Simple", "One folder per kind of file: Pictures, Documents, Videos… (how PC Tidy starts).", DefaultRules.Create),
+        new(ByTypeId, "Sort by type", "Smart type folders inside the folder you sort: Program installers, Games\\Call of Duty, Pictures\\Screenshots, Videos\\Clips and recordings, Documents, Disk images, Fonts… Recognised by name and contents. Moves only.", ByType),
         new(ByDateId, "By date", @"Each kind of file sorted by year and month, ISO style: Pictures\2026\2026-11.", ByDate),
         new(ParaId, "Projects & Areas", "Four folders: 1 Projects, 2 Areas, 3 Resources, 4 Archive. Old files go to the archive.", Para),
         new(JohnnyDecimalId, "Numbered", @"Numbered folders like 20-29 Media\21 Pictures, so everything has a fixed place.", JohnnyDecimal),
@@ -69,6 +73,34 @@ public static class RulePresets
         => $"{UI.RuleText.Conditions(r.Conditions)} → {UI.RuleText.Target(r)}{(r.Enabled ? "" : " (off)")}";
 
     // ------------------------------------------------------------------ the presets
+
+    /// <summary>
+    /// 3.3 "Sort by type" (option A, sorted where they are): one move rule per <see cref="SortTypes"/> type, into a folder
+    /// inside the folder being sorted, then "Other" (left in place). No starter rules: nothing here quarantines or
+    /// removes anything (v3.3 review C1). Year/per-game subfolders (option C) are a later switch, off for now.
+    /// </summary>
+    private static List<OrganizeRule> ByType()
+    {
+        var rules = SortTypes.All.Select(t => new OrganizeRule
+        {
+            Id = ByTypeRulePrefix + t.Id,
+            Name = t.Title,
+            IsBuiltIn = true,
+            Icon = t.Icon,
+            Conditions = ConditionGroup.AllOf(RuleCondition.OfSortType(t.Id)),
+            Action = new RuleAction { Kind = RuleActionKind.MoveToFolder, Destination = t.Folder },
+        }).ToList();
+        rules.Add(new OrganizeRule
+        {
+            Id = DefaultRules.OtherId, Name = "Other", IsBuiltIn = true, Icon = "DocumentQuestionMark24",
+            Conditions = ConditionGroup.AllOf(RuleCondition.Glob("*")),
+            Action = new RuleAction { Kind = RuleActionKind.LeaveInPlace },
+        });
+        return rules;
+    }
+
+    /// <summary>A rule from the "Sort by type" preset (its moves follow the preset's extra safety rules).</summary>
+    public static bool IsByTypeRule(OrganizeRule r) => r.Id.StartsWith(ByTypeRulePrefix, StringComparison.Ordinal);
 
     private static List<OrganizeRule> ByDate()
     {

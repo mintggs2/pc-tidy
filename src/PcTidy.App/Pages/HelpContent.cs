@@ -68,7 +68,11 @@ public static class HelpContent
         "PC Tidy itself contains no ads, no trackers and no bundled software.";
 
     public const string Changelog =
-        "3.2.0 (beta)\n" +
+        "3.3.0 (beta)\n" +
+        "• Organize: new \"Sort by type\" preset: Program installers, Games\\Call of Duty, Pictures\\Screenshots, Clips, Documents, Disk images, Fonts and more, recognised by name and contents. Moves only.\n" +
+        "• Safer Organize: AppData, game and launcher folders and app-owned folders (My Games, mods…) are never sorted; disguised programs are flagged.\n" +
+        "• Every Organize run is checked afterwards (\"26 files before · 26 after · 0 missing\"). If a file isn't where it should be, the run is put back right away.\n" +
+        "\n3.2.0 (beta)\n" +
         "• A cleaner layout: tabs along the top (Overview, Clean, Optimize, Apps, Organize, Reports), each with its pages on the left.\n" +
         "• Clean shows groups and their rows side by side, with Safe / Check first / Can't be undone dots and a legend.\n" +
         "• The scan's notes are one row with Rescan and Show. The Done card says clearly what was deleted for good.\n" +
